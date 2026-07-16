@@ -52,6 +52,21 @@ end
 -- Data
 ------------------------------------------------------------------------
 
+local function SourceText(sources)
+    if #sources == 0 then return "|cff888888No drop data yet|r" end
+    local parts = {}
+    for i = 1, math.min(3, #sources) do
+        local s = sources[i]
+        parts[#parts + 1] = string.format("%s |cff888888-|r %s |cffffd100(x%d)|r",
+            s.mob or "?", s.zone or "?", s.count or 1)
+    end
+    local txt = table.concat(parts, "|cff888888  |  |r")
+    if #sources > 3 then
+        txt = txt .. string.format(" |cff888888(+%d more)|r", #sources - 3)
+    end
+    return txt
+end
+
 local function BuildTomeItems()
     local all = EbonBuilds.TomeAtlas.List()
     local ownedSet, spellbookReady = BuildOwnedSet()
@@ -257,21 +272,6 @@ local function CreateRow(parent)
     row:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
     return row
-end
-
-local function SourceText(sources)
-    if #sources == 0 then return "|cff888888No drop data yet|r" end
-    local parts = {}
-    for i = 1, math.min(3, #sources) do
-        local s = sources[i]
-        parts[#parts + 1] = string.format("%s |cff888888-|r %s |cffffd100(x%d)|r",
-            s.mob or "?", s.zone or "?", s.count or 1)
-    end
-    local txt = table.concat(parts, "|cff888888  |  |r")
-    if #sources > 3 then
-        txt = txt .. string.format(" |cff888888(+%d more)|r", #sources - 3)
-    end
-    return txt
 end
 
 ------------------------------------------------------------------------

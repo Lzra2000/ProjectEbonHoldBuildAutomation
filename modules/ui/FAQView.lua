@@ -15,8 +15,14 @@ local R = "|r"
 
 local PAGES = {
 {
-    title = "What's New in 2.27",
+    title = "What's New in 2.28",
     lines = {
+        GOLD .. "2.28: fixed -- Group: Tome showed nothing" .. R,
+        "- Root cause via /ebb errors: SourceText() was defined below",
+        "  its only caller, a Lua scoping bug -- Zone/Mob don't use",
+        "  that function, which is why only Tome mode was affected",
+        "- Fixed by moving the function above its caller",
+        "",
         GOLD .. "2.27: hotfix -- Tome Atlas could stay blank" .. R,
         "- Fixed: an error in 2.26's owned-echo detection could leave",
         "  Tome Atlas or Public Builds permanently blank, no error",

@@ -1,6 +1,6 @@
 # EbonBuilds — FAQ & Changelog
 
-*This file is updated with every release. Latest version: 2.27 — also available in-game via* `/ebb faq`
+*This file is updated with every release. Latest version: 2.28 — also available in-game via* `/ebb faq`
 
 ---
 
@@ -167,6 +167,11 @@ Build Overview has a new **Apply to Character** button. It sends this build's lo
 The Missing tab and Tome Atlas both used to determine what you've learned by scanning your spellbook's "Echoes" tab -- it works, but needs the tab to actually be populated (hence the old retry-and-wait behavior) and matches by spell name. As of 2.26 both now prefer `ProjectEbonhold.PerkService.GetDiscoveredEchoes()`, an authoritative, spellId-keyed list backed by a SavedVariables cache -- available instantly, no waiting. The spellbook scan is kept as an automatic fallback for servers without that API.
 
 ## Changelog
+
+### 2.28 (2026-07-16) -- fix: Group: Tome showed nothing (Zone/Mob worked fine)
+
+- **Found via `/ebb errors`: `attempt to call global 'SourceText' (a nil value)`.** `SourceText()` was defined further down the file than `BuildTomeItems()`, its only caller -- a Lua local-function forward-reference bug (the same class of issue fixed in Build.lua back in 2.18). Since Group: Zone and Group: Mob don't use `SourceText()`, they worked fine while Group: Tome silently errored on every render (caught by 2.27's new pcall wrapper, which is exactly how this got diagnosed instead of just leaving the window permanently blank). Moved `SourceText()` above `BuildTomeItems()`.
+- Thanks for grabbing the `/ebb errors` output -- that's exactly what pinned this down in one shot instead of more guessing.
 
 ### 2.27 (2026-07-16) -- hotfix: Tome Atlas / Public Builds could stay permanently blank
 
