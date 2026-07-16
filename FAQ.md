@@ -1,6 +1,6 @@
 # EbonBuilds — FAQ & Changelog
 
-*This file is updated with every release. Latest version: 2.28 — also available in-game via* `/ebb faq`
+*This file is updated with every release. Latest version: 2.29 — also available in-game via* `/ebb faq`
 
 ---
 
@@ -166,7 +166,15 @@ Build Overview has a new **Apply to Character** button. It sends this build's lo
 ### Why is "learned" detection more reliable now? (2.26)
 The Missing tab and Tome Atlas both used to determine what you've learned by scanning your spellbook's "Echoes" tab -- it works, but needs the tab to actually be populated (hence the old retry-and-wait behavior) and matches by spell name. As of 2.26 both now prefer `ProjectEbonhold.PerkService.GetDiscoveredEchoes()`, an authoritative, spellId-keyed list backed by a SavedVariables cache -- available instantly, no waiting. The spellbook scan is kept as an automatic fallback for servers without that API.
 
+### Why couldn't I see my own public build in Public Builds?
+It used to be deliberately hidden there (you already have it in your left sidebar, so browsing it again seemed redundant) -- but that also meant there was no easy way to confirm a build actually published successfully. As of 2.29, your own public builds show up in Public Builds too, tagged **(You)** next to your name, with the Import button replaced by a disabled "Yours" label. If it's not there after making a build public, that's a real sign something's wrong (check the title-collision popup from 2.18 -- your build gets auto-unpublished if the exact title is already public under someone else).
+
 ## Changelog
+
+### 2.29 (2026-07-16) -- your own public builds now show in Public Builds
+
+- **Changed: Public Builds no longer hides your own public builds.** Previously excluded entirely (redundant with the sidebar, but also meant no way to visually confirm a build actually published). Now shown, tagged "(You)" next to the author name, with the Import button disabled and labeled "Yours" instead of offering a nonsensical self-import.
+- If your build still doesn't appear: check whether it's actually still `isPublic` -- see 2.18's title-collision guard, which auto-unpublishes (with a popup) a build whose exact title is already public under a different author.
 
 ### 2.28 (2026-07-16) -- fix: Group: Tome showed nothing (Zone/Mob worked fine)
 

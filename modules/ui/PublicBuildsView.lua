@@ -381,7 +381,12 @@ local function PopulateCard(card, build)
 
     local author = build.author or "Unknown"
     local modified = build.lastModified or ""
-    card._metaLabel:SetText(string.format("by %s | %s | %s", author, specName, modified))
+    local isOwn = EbonBuildsDB.builds[build.id] ~= nil
+    if isOwn then
+        card._metaLabel:SetText(string.format("by %s |cff1eff00(You)|r | %s | %s", author, specName, modified))
+    else
+        card._metaLabel:SetText(string.format("by %s | %s | %s", author, specName, modified))
+    end
 
     -- Locked echo icons
     local lockeds = build.lockedEchoes
@@ -403,19 +408,25 @@ local function PopulateCard(card, build)
     end
 
     -- Import / Update button (builds already loaded and up-to-date are hidden by GetFilteredBuilds)
-    local localCopy = FindImportedCopy(build.id)
-    if localCopy and build.lastModified ~= localCopy._importedAt then
-        card._importBtn:SetText("Update")
-        card._importBtn:Enable()
-        card._importBtn:SetScript("OnClick", function()
-            UpdateLocalBuild(localCopy, build)
-        end)
+    if isOwn then
+        card._importBtn:SetText("Yours")
+        card._importBtn:Disable()
+        card._importBtn:SetScript("OnClick", nil)
     else
-        card._importBtn:SetText("Import")
-        card._importBtn:Enable()
-        card._importBtn:SetScript("OnClick", function()
-            ImportBuild(build)
-        end)
+        local localCopy = FindImportedCopy(build.id)
+        if localCopy and build.lastModified ~= localCopy._importedAt then
+            card._importBtn:SetText("Update")
+            card._importBtn:Enable()
+            card._importBtn:SetScript("OnClick", function()
+                UpdateLocalBuild(localCopy, build)
+            end)
+        else
+            card._importBtn:SetText("Import")
+            card._importBtn:Enable()
+            card._importBtn:SetScript("OnClick", function()
+                ImportBuild(build)
+            end)
+        end
     end
 end
 
@@ -477,9 +488,13 @@ GetFilteredBuilds = function()
         if filterClass and build.class ~= filterClass then
         elseif filterSpec and build.spec ~= filterSpec then
         else
+            -- Own builds are now INCLUDED (not hidden) -- seeing your own
+            -- public build listed here is confirmation it actually
+            -- published, which used to only be checkable indirectly.
+            -- Card rendering tags it "(You)" and disables Import on it.
             local ownBuild = EbonBuildsDB.builds[build.id]
             if ownBuild then
-                -- User owns this build by UUID: already in collection, hide
+                filtered[#filtered + 1] = build
             else
                 local localCopy = FindImportedCopy(build.id)
                 if localCopy and build.lastModified == localCopy._importedAt then

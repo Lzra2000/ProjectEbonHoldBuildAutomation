@@ -15,8 +15,16 @@ local R = "|r"
 
 local PAGES = {
 {
-    title = "What's New in 2.28",
+    title = "What's New in 2.29",
     lines = {
+        GOLD .. "2.29: your public builds now show in Public Builds" .. R,
+        "- Own public builds are no longer hidden from your own",
+        "  Public Builds list -- tagged (You), Import replaced by a",
+        "  disabled 'Yours' label",
+        "- Lets you visually confirm a build actually published",
+        "- Missing? Check the 2.18 title-collision popup -- a colliding",
+        "  title auto-unpublishes your build",
+        "",
         GOLD .. "2.28: fixed -- Group: Tome showed nothing" .. R,
         "- Root cause via /ebb errors: SourceText() was defined below",
         "  its only caller, a Lua scoping bug -- Zone/Mob don't use",
