@@ -454,6 +454,27 @@ function EbonBuilds.ExportImport.GenerateAIText(build)
         add("")
     end
 
+    -- Weight suggestions from collected DPS data, if any -- a read-only
+    -- report (not auto-applied like thresholds), since weight changes
+    -- are a bigger intervention and this data is noisier. Compares each
+    -- echo against others currently sharing its exact weight value.
+    if EbonBuilds.EchoPerformance and EbonBuilds.EchoPerformance.IsEnabled() then
+        local suggestions = EbonBuilds.EchoPerformance.SuggestWeightAdjustments(build)
+        if #suggestions > 0 then
+            add("--- Weight suggestions from DPS data (report only, not auto-applied) ---")
+            add("Echoes whose tracked DPS notably differs from others at the same weight.")
+            add("Treat as a hint to investigate, not a verdict -- fight variance and the")
+            add("co-active-cluster limitation above both add noise this can't filter out.")
+            for _, sug in ipairs(suggestions) do
+                add("%s: weight %d -> %d suggested (%.0f%% %s tier average, %.0f vs %.0f DPS, %d samples)",
+                    sug.name, sug.currentWeight, sug.suggestedWeight,
+                    math.abs(sug.deviationPct), sug.deviationPct > 0 and "above" or "below",
+                    sug.avgDPS, sug.tierAvgDPS, sug.sampleCount)
+            end
+            add("")
+        end
+    end
+
     -- Locked echo slots
     add("--- Locked echoes (always picked if offered) ---")
     local anyLocked = false

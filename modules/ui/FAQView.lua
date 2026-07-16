@@ -15,8 +15,20 @@ local R = "|r"
 
 local PAGES = {
 {
-    title = "What's New in 2.44",
+    title = "What's New in 2.45",
     lines = {
+        GOLD .. "2.45: weight suggestions from DPS data" .. R,
+        "- New: Export (AI) can now suggest weight nudges based on",
+        "  tracked DPS -- compares each echo against others at the",
+        "  same weight, flags 25%+ deviations with a modest +/-10 hint",
+        "- Excludes echoes from co-active clusters (2.43) so one group",
+        "  can't skew the comparison",
+        "- Read-only report, NOT auto-applied like thresholds -- this",
+        "  data is noisier, meant to be judged, not blindly trusted",
+        "- Tuning Advisor window notes the count when suggestions exist",
+        "- Reminder: Freeze has been part of Continuous Auto-Tune",
+        "  since 2.35, both modes -- already covered, no change needed",
+        "",
         GOLD .. "2.44: fixed -- misleading guard value in /ebb debug" .. R,
         "- Smart (EV) mode's EVAL header showed a 'guard>=X' value that",
         "  had zero effect on decisions -- Reroll Guard is Classic-mode",

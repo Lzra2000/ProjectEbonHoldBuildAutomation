@@ -98,6 +98,98 @@ function EbonBuilds.EchoPerformance.GetStats(name)
 end
 
 ------------------------------------------------------------------------
+-- Weight suggestions (read-only report, not auto-applied)
+--
+-- Compares each echo's average DPS against the average of OTHER echoes
+-- that currently share its exact weight value (its "tier") -- notably
+-- over/under-performing echoes within a tier are flagged with a small,
+-- capped nudge suggestion. Deliberately NOT auto-applied like the
+-- threshold Tuning Advisor: weight changes are a bigger, more visible
+-- intervention, and this data is noisier (fight difficulty/duration
+-- varies, and see EchoPerformance's co-active cluster limitation) --
+-- this is meant to be read and judged, not blindly trusted.
+------------------------------------------------------------------------
+
+local MIN_SAMPLES_FOR_WEIGHT_SUGGESTION = 8  -- per-echo, before it's considered at all
+local MIN_TIER_BASELINE_SIZE = 2             -- how many clean data points a tier needs to have a baseline
+local MAX_CLUSTER_SIZE_TO_TRUST = 3          -- echoes sharing identical DPS+samples with more than this many others are excluded (can't be individually distinguished)
+local WEIGHT_SUGGESTION_DEVIATION = 0.25     -- min fractional deviation from tier average to flag
+local WEIGHT_NUDGE = 10                      -- fixed, modest suggested adjustment
+
+local CLASS_MASK = {
+    WARRIOR = 1, PALADIN = 2, HUNTER = 4, ROGUE = 8,
+    PRIEST = 16, DEATHKNIGHT = 32, SHAMAN = 64, MAGE = 128,
+    WARLOCK = 256, DRUID = 1024,
+}
+
+-- Returns a sorted list of { name, currentWeight, suggestedWeight,
+-- deviationPct, tierAvgDPS, avgDPS, sampleCount }, largest deviation
+-- first. Empty list if there isn't enough clean data to say anything.
+function EbonBuilds.EchoPerformance.SuggestWeightAdjustments(build)
+    if not build or not build.class then return {} end
+    if not (EbonBuilds.EchoTableRows and EbonBuilds.EchoTableRows.BuildBestByName) then return {} end
+    local classMask = CLASS_MASK[build.class] or 0
+    local weights = build.echoWeights or {}
+
+    -- One pass: collect every class-eligible echo with enough samples,
+    -- and count how many share an identical (avgDPS, sampleCount)
+    -- signature (a co-active cluster -- can't be individually judged).
+    local signatureCounts = {}
+    local rawEntries = {}
+    for name, info in pairs(EbonBuilds.EchoTableRows.BuildBestByName()) do
+        if classMask == 0 or bit.band(info.classMask or 0, classMask) ~= 0 then
+            local perf = EbonBuilds.EchoPerformance.GetStats(name)
+            if perf and perf.sampleCount >= MIN_SAMPLES_FOR_WEIGHT_SUGGESTION then
+                local sig = string.format("%.2f|%d", perf.avgDPS, perf.sampleCount)
+                signatureCounts[sig] = (signatureCounts[sig] or 0) + 1
+                rawEntries[#rawEntries + 1] = {
+                    name = name,
+                    weight = weights[name] or 0,
+                    avgDPS = perf.avgDPS,
+                    sampleCount = perf.sampleCount,
+                    sig = sig,
+                }
+            end
+        end
+    end
+
+    -- Tier baselines, computed only from entries NOT in a large cluster
+    -- (so one inflated/deflated group doesn't skew the whole tier).
+    local tierSum, tierCount = {}, {}
+    for _, e in ipairs(rawEntries) do
+        if signatureCounts[e.sig] <= MAX_CLUSTER_SIZE_TO_TRUST then
+            tierSum[e.weight] = (tierSum[e.weight] or 0) + e.avgDPS
+            tierCount[e.weight] = (tierCount[e.weight] or 0) + 1
+        end
+    end
+
+    local suggestions = {}
+    for _, e in ipairs(rawEntries) do
+        local n = tierCount[e.weight] or 0
+        if signatureCounts[e.sig] <= MAX_CLUSTER_SIZE_TO_TRUST and n >= MIN_TIER_BASELINE_SIZE then
+            local tierAvg = tierSum[e.weight] / n
+            if tierAvg > 0 then
+                local deviation = (e.avgDPS - tierAvg) / tierAvg
+                if math.abs(deviation) >= WEIGHT_SUGGESTION_DEVIATION then
+                    suggestions[#suggestions + 1] = {
+                        name = e.name,
+                        currentWeight = e.weight,
+                        suggestedWeight = math.max(0, e.weight + (deviation > 0 and WEIGHT_NUDGE or -WEIGHT_NUDGE)),
+                        deviationPct = deviation * 100,
+                        tierAvgDPS = tierAvg,
+                        avgDPS = e.avgDPS,
+                        sampleCount = e.sampleCount,
+                    }
+                end
+            end
+        end
+    end
+
+    table.sort(suggestions, function(a, b) return math.abs(a.deviationPct) > math.abs(b.deviationPct) end)
+    return suggestions
+end
+
+------------------------------------------------------------------------
 -- Sample ticker: only does anything while actually in combat, and only
 -- if the player opted in.
 ------------------------------------------------------------------------

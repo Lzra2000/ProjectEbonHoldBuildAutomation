@@ -471,7 +471,14 @@ function EbonBuilds.Calibration.RefreshWindow()
         RefreshRow(rerollRow, EbonBuilds.Calibration.SuggestReroll(settings), "autoRerollPct", "Reroll")
         RefreshRow(freezeRow, EbonBuilds.Calibration.SuggestFreeze(settings), "autoFreezePct", "Freeze")
     end
-    countLabel:SetText(string.format("%d total samples collected for %s", EbonBuilds.Calibration.SampleCount(), build.title or "this build"))
+    local countText = string.format("%d total samples collected for %s", EbonBuilds.Calibration.SampleCount(), build.title or "this build")
+    if EbonBuilds.EchoPerformance and EbonBuilds.EchoPerformance.IsEnabled() then
+        local weightSuggestions = EbonBuilds.EchoPerformance.SuggestWeightAdjustments(build)
+        if #weightSuggestions > 0 then
+            countText = countText .. string.format(" -- %d weight suggestion(s) available, see Export (AI)", #weightSuggestions)
+        end
+    end
+    countLabel:SetText(countText)
 end
 
 function EbonBuilds.Calibration.ShowWindow()

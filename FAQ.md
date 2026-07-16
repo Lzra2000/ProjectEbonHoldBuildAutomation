@@ -1,6 +1,6 @@
 # EbonBuilds — FAQ & Changelog
 
-*This file is updated with every release. Latest version: 2.44 — also available in-game via* `/ebb faq`
+*This file is updated with every release. Latest version: 2.45 — also available in-game via* `/ebb faq`
 
 ---
 
@@ -197,6 +197,13 @@ Next to the regular Export button (build edit screen, any tab) is a new **Export
 This is deliberately approximate, not a controlled measurement: echoes stack together and fight difficulty/duration/execution vary a lot run to run, so it can't isolate any single echo's true causal effect. Treat it as a rough supplementary signal to combine with the scoring model and Tuning Advisor data, not a replacement for either. If Details! isn't installed, the checkbox tells you and won't enable.
 
 ## Changelog
+
+### 2.45 (2026-07-16) -- weight suggestions from DPS data (Export (AI), read-only)
+
+- **New: `EbonBuilds.EchoPerformance.SuggestWeightAdjustments(build)`.** Compares each tracked echo's average DPS against other echoes currently sharing its exact weight value; if one deviates by 25%+ from that tier's average, suggests a modest (±10) weight nudge. Echoes from a co-active cluster larger than 3 (see 2.43) are excluded from both the comparison and the tier baseline, so one inflated/deflated group can't skew the whole tier.
+- Deliberately a **read-only report, not auto-applied** like the threshold Tuning Advisor -- weight changes are a bigger, more visible intervention, and this data carries more inherent noise (fight variance, the cluster limitation) than the offer-distribution data thresholds are tuned against. Shown in Export (AI) under a new "Weight suggestions from DPS data" section when Echo Performance tracking is on and there's enough data; the Tuning Advisor window also notes the count when suggestions exist, pointing to Export (AI).
+- Verified in isolation with a mock tier containing a clear over-performer, a clear under-performer, two near-average echoes, and a 4-member cluster: the two averages were correctly left unflagged, the outliers correctly flagged with the right nudge direction, and the cluster correctly excluded from both suggestions and the tier baseline entirely.
+- Confirmed for anyone wondering: Freeze has been part of Continuous Auto-Tune since 2.35, in both Classic and Smart mode -- no change needed there.
 
 ### 2.44 (2026-07-16) -- /ebb debug: no more misleading "guard" value in Smart mode
 
