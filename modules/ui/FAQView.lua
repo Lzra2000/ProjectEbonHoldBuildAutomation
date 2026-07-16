@@ -15,8 +15,18 @@ local R = "|r"
 
 local PAGES = {
 {
-    title = "What's New in 2.43",
+    title = "What's New in 2.44",
     lines = {
+        GOLD .. "2.44: fixed -- misleading guard value in /ebb debug" .. R,
+        "- Smart (EV) mode's EVAL header showed a 'guard>=X' value that",
+        "  had zero effect on decisions -- Reroll Guard is Classic-mode",
+        "  only, but the header always displayed it anyway",
+        "- Found reviewing a real Smart-mode debug log -- could read as",
+        "  'guard should have blocked this' when it was never checked",
+        "- Debug-log clarity fix only -- no decisions were affected,",
+        "  the value was dead/display-only, never used",
+        "- Guard now only shown in Classic mode's header line",
+        "",
         GOLD .. "2.43: Export (AI) flags indistinguishable echo groups" .. R,
         "- New: echoes sharing byte-identical DPS + sample count (were",
         "  always active together during tracking) get called out in",

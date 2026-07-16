@@ -1,6 +1,6 @@
 # EbonBuilds — FAQ & Changelog
 
-*This file is updated with every release. Latest version: 2.43 — also available in-game via* `/ebb faq`
+*This file is updated with every release. Latest version: 2.44 — also available in-game via* `/ebb faq`
 
 ---
 
@@ -197,6 +197,10 @@ Next to the regular Export button (build edit screen, any tab) is a new **Export
 This is deliberately approximate, not a controlled measurement: echoes stack together and fight difficulty/duration/execution vary a lot run to run, so it can't isolate any single echo's true causal effect. Treat it as a rough supplementary signal to combine with the scoring model and Tuning Advisor data, not a replacement for either. If Details! isn't installed, the checkbox tells you and won't enable.
 
 ## Changelog
+
+### 2.44 (2026-07-16) -- /ebb debug: no more misleading "guard" value in Smart mode
+
+- **Fixed: the EVAL header always showed a `guard>=X` value, even in Smart (EV) mode -- but Reroll Guard is only ever checked in Classic mode's reroll logic.** Found while reviewing a real Smart-mode debug log: the header displayed a guard threshold that had zero effect on any decision, which could easily read as "guard should have blocked this reroll" when guard was never evaluated for that mode at all. This was purely a debug-log clarity issue -- no automation decisions were affected, since the dead value was never used, only displayed. The guard segment is now only shown in Classic mode's header line.
 
 ### 2.43 (2026-07-16) -- Export (AI): flags echoes tracked as an indistinguishable group
 

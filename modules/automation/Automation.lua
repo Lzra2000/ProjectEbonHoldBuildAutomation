@@ -368,9 +368,10 @@ function EbonBuilds.Automation.Evaluate()
             local banishPacingDbg = ChargePacing(banishRemainingDbg, 8, 0.7, "below")
             local rerollPacingDbg = ChargePacing(rerollRemainingDbg, 8, 0.6, "below")
             local freezePacingDbg = ChargePacing(freezeRemainingDbg, 6, 1.4, "above")
+            local isSmartDbg = (settings.rerollMode or "sum") == "ev"
 
             local hdrBanish, hdrFreeze, hdrReroll, hdrMode
-            if (settings.rerollMode or "sum") == "ev" then
+            if isSmartDbg then
                 local st = EbonBuilds.Automation.GetOutcomeStats()
                 hdrMode   = "SMART"
                 hdrBanish = math.floor(st.mean * (settings.banishEVPct or 60) / 100 * banishPacingDbg)
@@ -382,15 +383,29 @@ function EbonBuilds.Automation.Evaluate()
                 hdrFreeze = math.floor(peakScore * (settings.autoFreezePct or 0) / 100 * freezePacingDbg)
                 hdrReroll = math.floor(peakScore * (settings.autoRerollPct or 0) / 100 * rerollPacingDbg)
             end
-            local hdrGuard = math.floor(peakScore * (settings.rerollGuardPct or 90) / 100 * rerollPacingDbg)
-            EbonBuilds.DebugLog.AddF("=== EVAL [%s] peak=%d | banish<%d (pace %.2f) reroll<%d (pace %.2f) guard>=%d (pace %.2f) freeze>%d (pace %.2f) | charges B:%d R:%d F:%d",
-                hdrMode,
-                peakScore,
-                hdrBanish, banishPacingDbg,
-                hdrReroll, rerollPacingDbg,
-                hdrGuard, rerollPacingDbg,
-                hdrFreeze, freezePacingDbg,
-                banishRemainingDbg, rerollRemainingDbg, freezeRemainingDbg)
+            -- Reroll Guard is only ever checked in Classic mode's reroll
+            -- logic (Smart mode compares "best offered" directly, so the
+            -- same protection is already implicit) -- showing a guard
+            -- value in Smart mode's header would be pure dead information
+            -- that could mislead debugging ("why didn't guard block that
+            -- reroll" when it was never evaluated for this mode at all).
+            if isSmartDbg then
+                EbonBuilds.DebugLog.AddF("=== EVAL [%s] peak=%d | banish<%d (pace %.2f) reroll<%d (pace %.2f) freeze>%d (pace %.2f) | charges B:%d R:%d F:%d",
+                    hdrMode, peakScore,
+                    hdrBanish, banishPacingDbg,
+                    hdrReroll, rerollPacingDbg,
+                    hdrFreeze, freezePacingDbg,
+                    banishRemainingDbg, rerollRemainingDbg, freezeRemainingDbg)
+            else
+                local hdrGuard = math.floor(peakScore * (settings.rerollGuardPct or 90) / 100 * rerollPacingDbg)
+                EbonBuilds.DebugLog.AddF("=== EVAL [%s] peak=%d | banish<%d (pace %.2f) reroll<%d (pace %.2f) guard>=%d (pace %.2f) freeze>%d (pace %.2f) | charges B:%d R:%d F:%d",
+                    hdrMode, peakScore,
+                    hdrBanish, banishPacingDbg,
+                    hdrReroll, rerollPacingDbg,
+                    hdrGuard, rerollPacingDbg,
+                    hdrFreeze, freezePacingDbg,
+                    banishRemainingDbg, rerollRemainingDbg, freezeRemainingDbg)
+            end
             for _, s in ipairs(scored) do
                 EbonBuilds.DebugLog.AddF("  [%d] %s q=%d score=%.0f w=%d%s%s%s",
                     s.index, s.name, s.quality or 0, s.score or 0,
