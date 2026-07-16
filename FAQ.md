@@ -1,6 +1,6 @@
 # EbonBuilds — FAQ & Changelog
 
-*This file is updated with every release. Latest version: 2.31 — also available in-game via* `/ebb faq`
+*This file is updated with every release. Latest version: 2.32 — also available in-game via* `/ebb faq`
 
 ---
 
@@ -170,6 +170,12 @@ The Missing tab and Tome Atlas both used to determine what you've learned by sca
 It used to be deliberately hidden there (you already have it in your left sidebar, so browsing it again seemed redundant) -- but that also meant there was no easy way to confirm a build actually published successfully. As of 2.29, your own public builds show up in Public Builds too, tagged **(You)** next to your name, with the Import button replaced by a disabled "Yours" label. If it's not there after making a build public, that's a real sign something's wrong (check the title-collision popup from 2.18 -- your build gets auto-unpublished if the exact title is already public under someone else).
 
 ## Changelog
+
+### 2.32 (2026-07-16) -- Tome Atlas: authoritative tome detection, no more name-guessing
+
+- **Fixed: ordinary stat scrolls like "Scroll of Agility" showed up in Tome Atlas alongside real echo tomes.** The 2.20 filter checked item *names* against a prefix list ("tome of", "scroll of", "libram of", ...) -- correct for real tome-teaching scrolls, but it also matched ordinary WoW consumables that happen to share the same naming convention and aren't tomes at all.
+- **New: `TomeAtlas.IsTomeItemId(itemId)`** checks against the actual authoritative source instead -- `ProjectEbonhold.PerkDatabase`, where every tome-gated echo's `requiredSpell` field IS that tome's item ID (the same `tomeItemId == requiredSpellId` relationship ProjectEbonhold's own tooltip code relies on, found during the 2.26 API audit). `RecordDrop`, `Merge`, `List`, `ListZones`, `ListByZone`, `ListByMob`, and `SerializeAll` all use this now via a shared `IsTome(itemId, name)` that prefers the itemId check and only falls back to the old name heuristic if no itemId is available.
+- Existing bad entries are cleaned up automatically by the same `List()` backstop pattern as the 2.20 fix -- no migration needed, they just stop showing up.
 
 ### 2.31 (2026-07-16) -- Tome Atlas: custom zone picker replaces the native dropdown
 

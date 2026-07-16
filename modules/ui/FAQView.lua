@@ -15,8 +15,16 @@ local R = "|r"
 
 local PAGES = {
 {
-    title = "What's New in 2.31",
+    title = "What's New in 2.32",
     lines = {
+        GOLD .. "2.32: no more stat scrolls in Tome Atlas" .. R,
+        "- Fixed: ordinary items like 'Scroll of Agility' showed up",
+        "  alongside real echo tomes -- both matched the same name",
+        "  prefix, but only one is an actual tome",
+        "- Now checks the real source of truth: ProjectEbonhold's own",
+        "  PerkDatabase (tomeItemId == requiredSpellId), not the name",
+        "- Existing bad entries clean up automatically, no action needed",
+        "",
         GOLD .. "2.31: themed zone picker" .. R,
         "- The Zone filter is a custom, scrollable popup now, not the",
         "  plain Blizzard dropdown that used to run unstyled and",

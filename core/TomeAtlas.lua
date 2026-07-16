@@ -26,7 +26,9 @@ local function DB()
     return EbonBuildsDB.tomeAtlas
 end
 
--- Is this item name a tome (echo-teaching item)?
+-- Is this item name a tome (echo-teaching item)? Fallback heuristic --
+-- see IsTome() below, which is what everything in this file actually
+-- calls; only used directly when no itemId is available.
 function EbonBuilds.TomeAtlas.IsTomeName(name)
     if not name then return false end
     local n = strlower(name)
@@ -34,6 +36,44 @@ function EbonBuilds.TomeAtlas.IsTomeName(name)
         if n:sub(1, #p) == p then return true end
     end
     return false
+end
+
+-- Authoritative source of truth: an itemId IS a real echo tome iff some
+-- ProjectEbonhold.PerkDatabase entry's requiredSpell equals it -- the
+-- "tomeItemId == requiredSpellId == echoSpellId + 100000" relationship
+-- ProjectEbonhold's own echo_tome_tooltip.lua documents and relies on
+-- itself. This is far more reliable than name-prefix matching, which
+-- also matches unrelated real WoW items that happen to share a prefix
+-- (e.g. the ordinary consumable "Scroll of Agility" isn't a tome, but
+-- starts with "Scroll of " same as real tome-teaching scrolls).
+local tomeItemIdSet = nil
+local function BuildTomeItemIdSet()
+    local set = {}
+    if ProjectEbonhold and ProjectEbonhold.PerkDatabase then
+        for _, data in pairs(ProjectEbonhold.PerkDatabase) do
+            if data.requiredSpell and data.requiredSpell > 0 then
+                set[data.requiredSpell] = true
+            end
+        end
+    end
+    return set
+end
+
+function EbonBuilds.TomeAtlas.IsTomeItemId(itemId)
+    if not itemId then return false end
+    if not tomeItemIdSet then tomeItemIdSet = BuildTomeItemIdSet() end
+    return tomeItemIdSet[itemId] == true
+end
+
+-- What everything in this file actually calls. Prefers the authoritative
+-- itemId check; falls back to the name heuristic only if PerkDatabase
+-- isn't available (shouldn't normally happen -- EbonBuilds already
+-- requires ProjectEbonhold to be loaded) or no itemId was given.
+function EbonBuilds.TomeAtlas.IsTome(itemId, name)
+    if itemId and ProjectEbonhold and ProjectEbonhold.PerkDatabase then
+        return EbonBuilds.TomeAtlas.IsTomeItemId(itemId)
+    end
+    return EbonBuilds.TomeAtlas.IsTomeName(name)
 end
 
 function EbonBuilds.TomeAtlas.SourceKey(mob, zone)
@@ -48,7 +88,7 @@ end
 -- Local observation: a tome dropped from a mob in a zone.
 function EbonBuilds.TomeAtlas.RecordDrop(itemId, itemName, mob, zone)
     if not itemId or not itemName then return nil end
-    if not EbonBuilds.TomeAtlas.IsTomeName(itemName) then return nil end
+    if not EbonBuilds.TomeAtlas.IsTome(itemId, itemName) then return nil end
     local db = DB()
     local entry = db[itemId]
     if not entry then
@@ -68,7 +108,7 @@ end
 -- inject arbitrary non-tome items into everyone's Atlas via sync.
 function EbonBuilds.TomeAtlas.Merge(itemId, itemName, mob, zone, count)
     if not itemId or not itemName then return end
-    if not EbonBuilds.TomeAtlas.IsTomeName(itemName) then return end
+    if not EbonBuilds.TomeAtlas.IsTome(itemId, itemName) then return end
     count = tonumber(count) or 1
     if count < 1 then count = 1 end
     if count > 9999 then count = 9999 end
@@ -114,9 +154,11 @@ end
 function EbonBuilds.TomeAtlas.SerializeAll(maxEntries)
     local out = {}
     for itemId, entry in pairs(DB()) do
-        for key, count in pairs(entry.sources or {}) do
-            out[#out + 1] = EbonBuilds.TomeAtlas.SerializeEntry(itemId, key, count)
-            if maxEntries and #out >= maxEntries then return out end
+        if EbonBuilds.TomeAtlas.IsTome(itemId, entry.name) then
+            for key, count in pairs(entry.sources or {}) do
+                out[#out + 1] = EbonBuilds.TomeAtlas.SerializeEntry(itemId, key, count)
+                if maxEntries and #out >= maxEntries then return out end
+            end
         end
     end
     return out
@@ -129,7 +171,7 @@ end
 function EbonBuilds.TomeAtlas.List()
     local out = {}
     for itemId, entry in pairs(DB()) do
-        if EbonBuilds.TomeAtlas.IsTomeName(entry.name) then
+        if EbonBuilds.TomeAtlas.IsTome(itemId, entry.name) then
             local sources = {}
             for key, count in pairs(entry.sources or {}) do
                 local mob, zone = EbonBuilds.TomeAtlas.SplitSourceKey(key)
@@ -148,7 +190,7 @@ end
 function EbonBuilds.TomeAtlas.ListZones()
     local seen = {}
     for itemId, entry in pairs(DB()) do
-        if EbonBuilds.TomeAtlas.IsTomeName(entry.name) then
+        if EbonBuilds.TomeAtlas.IsTome(itemId, entry.name) then
             for key in pairs(entry.sources or {}) do
                 local _, zone = EbonBuilds.TomeAtlas.SplitSourceKey(key)
                 if zone and zone ~= "?" then seen[zone] = true end
@@ -167,7 +209,7 @@ end
 function EbonBuilds.TomeAtlas.ListByZone()
     local zones = {}
     for itemId, entry in pairs(DB()) do
-        if EbonBuilds.TomeAtlas.IsTomeName(entry.name) then
+        if EbonBuilds.TomeAtlas.IsTome(itemId, entry.name) then
             for key, count in pairs(entry.sources or {}) do
                 local mob, zone = EbonBuilds.TomeAtlas.SplitSourceKey(key)
                 if zone and zone ~= "?" then
@@ -207,7 +249,7 @@ end
 function EbonBuilds.TomeAtlas.ListByMob()
     local mobs = {}
     for itemId, entry in pairs(DB()) do
-        if EbonBuilds.TomeAtlas.IsTomeName(entry.name) then
+        if EbonBuilds.TomeAtlas.IsTome(itemId, entry.name) then
             for key, count in pairs(entry.sources or {}) do
                 local mob, zone = EbonBuilds.TomeAtlas.SplitSourceKey(key)
                 mob = mob or "?"
