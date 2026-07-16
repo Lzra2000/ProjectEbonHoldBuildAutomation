@@ -1,6 +1,6 @@
 # EbonBuilds — FAQ & Changelog
 
-*This file is updated with every release. Latest version: 2.20 — also available in-game via* `/ebb faq`
+*This file is updated with every release. Latest version: 2.21 — also available in-game via* `/ebb faq`
 
 ---
 
@@ -140,7 +140,14 @@ Two changes:
 1. **Non-tome items could show up in the Atlas.** Local loot was always filtered to actual tomes before recording, but data arriving from *other players* via sync went straight in unvalidated -- a bug on a peer's end could inject any item into everyone's Atlas. Both the write path (`Merge`, the network-received one) and the read path (`List`, so anything already-stored gets cleaned up immediately too) now check the item name is actually a tome.
 2. **New: Group by Tome / Zone / Mob**, plus a Zone filter dropdown. "By Tome" is the classic view (one row per tome, its sources). "By Zone" shows one row per zone with every tome known to drop there. "By Mob" shows one row per mob with everything it drops. The zone dropdown narrows any of the three views to a single zone. Search still matches tome, mob, or zone text in every mode.
 
+### I deleted a build I imported and it vanished from Public Builds too. Fixed?
+Yes (2.21). Importing a public build used to delete Public Builds' cached copy of the original, on the (wrong) assumption that was needed to hide it from the browse list -- it isn't; the list already hides anything you have an up-to-date local copy of on its own. That deletion's only real effect was that if you later deleted your imported copy, the original public build was gone from your Public Builds list entirely until someone synced it to you again. The cache is no longer deleted on import, so deleting your local copy now makes the original reappear immediately.
+
 ## Changelog
+
+### 2.21 (2026-07-16) -- deleting an imported build no longer loses the original from Public Builds
+
+- **Fixed: importing a public build permanently deleted the cached original from your Public Builds list.** `ImportBuild()` removed the entry from `EbonBuildsDB.remoteBuilds` "to hide it from the list" -- but the browse list (`GetFilteredBuilds`) already hides anything with an up-to-date local copy independently via `FindImportedCopy`, making that deletion redundant. Its only real effect: deleting your imported local copy afterward left the original build gone from Public Builds until the next successful sync from its author. The cache entry is no longer deleted on import -- deleting the local copy now makes the original reappear right away.
 
 ### 2.20 (2026-07-16) -- Tome Atlas: categories + non-tome item fix
 

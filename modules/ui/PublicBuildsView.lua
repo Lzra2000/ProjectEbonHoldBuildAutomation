@@ -315,10 +315,15 @@ local function ImportBuild(build)
     end
     newBuild._checksum = EbonBuilds.Build.Checksum(newBuild)
     EbonBuilds.Build.EnsureSettings(newBuild)
-    -- Remove from remote builds since we now have a local copy
-    if EbonBuildsDB.remoteBuilds then
-        EbonBuildsDB.remoteBuilds[build.id] = nil
-    end
+    -- Deliberately NOT removing build.id from EbonBuildsDB.remoteBuilds
+    -- here. The browse list already hides this entry independently
+    -- (GetFilteredBuilds: hidden once an up-to-date local copy exists via
+    -- FindImportedCopy), so deleting the cache was redundant for that --
+    -- and harmful: if the player later deletes their imported local
+    -- copy, the public build would otherwise be gone from Public Builds
+    -- entirely until the original author's client answers a fresh sync.
+    -- Leaving the cache in place means deleting the local copy makes the
+    -- original reappear immediately, no re-sync needed.
     EbonBuilds.Build.SetActive(newBuild.id)
     if EbonBuilds.BuildList and EbonBuilds.BuildList.Refresh then
         EbonBuilds.BuildList.Refresh()

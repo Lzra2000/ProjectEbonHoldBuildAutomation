@@ -15,8 +15,15 @@ local R = "|r"
 
 local PAGES = {
 {
-    title = "What's New in 2.20",
+    title = "What's New in 2.21",
     lines = {
+        GOLD .. "2.21: deleting an import no longer loses the original" .. R,
+        "- Fixed: importing a build deleted its cached copy from",
+        "  Public Builds -- deleting your import afterward meant the",
+        "  original was gone until someone synced it to you again",
+        "- Now: deleting your imported copy makes the original",
+        "  reappear in Public Builds immediately, no re-sync needed",
+        "",
         GOLD .. "2.20: Tome Atlas categories + item fix" .. R,
         "- Fixed: items from other players via sync were never checked",
         "  to actually be tomes -- a peer's bug could inject anything",
