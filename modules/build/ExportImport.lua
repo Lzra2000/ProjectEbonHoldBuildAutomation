@@ -481,24 +481,62 @@ function EbonBuilds.ExportImport.GenerateAIText(build)
         add("")
     end
 
-    -- Echo weights
-    add("--- Echo weights (%d configured, 0 = ignored) ---", (function()
-        local n = 0
-        for _, w in pairs(build.echoWeights or {}) do if w and w ~= 0 then n = n + 1 end end
-        return n
-    end)())
-    local weighted = {}
-    for name, w in pairs(build.echoWeights or {}) do
-        if w and w ~= 0 then
-            weighted[#weighted + 1] = { name = name, weight = w }
+    -- Class-eligible echoes: EVERY echo available to this class (not just
+    -- ones with a configured weight), each with its actual effect
+    -- description -- reuses EchoTableRows.BuildBestByName, the exact same
+    -- name-grouping the Echo Weights tab itself uses, so this list is
+    -- guaranteed consistent with what you see on screen. Lets an AI judge
+    -- whether a 0-weighted echo actually looks worth raising, or whether
+    -- a weighted one doesn't really fit the spec, instead of only seeing
+    -- names and numbers with no idea what anything does.
+    local CLASS_MASK = {
+        WARRIOR = 1, PALADIN = 2, HUNTER = 4, ROGUE = 8,
+        PRIEST = 16, DEATHKNIGHT = 32, SHAMAN = 64, MAGE = 128,
+        WARLOCK = 256, DRUID = 1024,
+    }
+    local classMask = CLASS_MASK[build.class] or 0
+
+    local function GetDescription(spellId)
+        if utils and utils.GetSpellDescription then
+            local ok, desc = pcall(utils.GetSpellDescription, spellId, 500, 1)
+            if ok and desc and desc ~= "" then
+                -- Collapse to one line and cap length -- tooltips can run
+                -- to several lines, and this export already lists a lot
+                -- of echoes; a short accurate summary beats a wall of text.
+                desc = desc:gsub("[\r\n]+", " "):gsub("%s%s+", " ")
+                if #desc > 160 then desc = desc:sub(1, 157) .. "..." end
+                return desc
+            end
+        end
+        return "(no description cached -- hover this echo's tooltip in-game once to cache it)"
+    end
+
+    local entries = {}
+    if EbonBuilds.EchoTableRows and EbonBuilds.EchoTableRows.BuildBestByName then
+        for name, info in pairs(EbonBuilds.EchoTableRows.BuildBestByName()) do
+            if classMask == 0 or bit.band(info.classMask or 0, classMask) ~= 0 then
+                local familyList = {}
+                for _, fam in ipairs(info.families or {}) do familyList[#familyList + 1] = fam end
+                entries[#entries + 1] = {
+                    name = name,
+                    weight = (build.echoWeights and build.echoWeights[name]) or 0,
+                    quality = QUALITY_LABELS[info.quality] or "?",
+                    families = #familyList > 0 and table.concat(familyList, "/") or "none",
+                    spellId = info.spellId,
+                }
+            end
         end
     end
-    table.sort(weighted, function(a, b)
+    table.sort(entries, function(a, b)
         if a.weight ~= b.weight then return a.weight > b.weight end
         return a.name < b.name
     end)
-    for _, e in ipairs(weighted) do
-        add("%s: %d", e.name, e.weight)
+
+    add("--- Class-eligible echoes (%d for %s, weight 0 = currently unweighted) ---",
+        #entries, build.class or "?")
+    add("Format: Name | weight | quality | family/families | effect")
+    for _, e in ipairs(entries) do
+        add("%s | %d | %s | %s | %s", e.name, e.weight, e.quality, e.families, GetDescription(e.spellId))
     end
 
     return table.concat(lines, "\n")

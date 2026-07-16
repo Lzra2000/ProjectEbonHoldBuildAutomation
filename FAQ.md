@@ -1,6 +1,6 @@
 # EbonBuilds — FAQ & Changelog
 
-*This file is updated with every release. Latest version: 2.38 — also available in-game via* `/ebb faq`
+*This file is updated with every release. Latest version: 2.39 — also available in-game via* `/ebb faq`
 
 ---
 
@@ -188,10 +188,15 @@ All three use the same shared curve (`ChargePacing`), just with per-lever comfor
 
 Known limitation: the Tuning Advisor's "current threshold rejects/catches X%" figure is computed against the *base* (unpaced) threshold value -- it's still a useful approximation, but not perfectly exact now that the real applied threshold shifts with remaining charges throughout a run.
 
-### Export (AI) -- new button (2.38)
-Next to the regular Export button (build edit screen, any tab) is a new **Export (AI)** button. Regular Export produces a compact Base64 string meant for another EbonBuilds client to Import -- not something a human or a general AI chat can read. Export (AI) instead produces a plain-text dump: quality/family/novelty bonuses, automation thresholds (with mode-appropriate labels), locked echoes, banned echoes, every configured echo weight, and -- if you've collected any -- the Tuning Advisor's real observed-vs-target data. Meant to be copied and pasted into an external AI chat to ask for tuning suggestions; it isn't a format EbonBuilds can import back in.
+### Export (AI) -- new button (2.38, full class echo list + descriptions in 2.39)
+Next to the regular Export button (build edit screen, any tab) is a new **Export (AI)** button. Regular Export produces a compact Base64 string meant for another EbonBuilds client to Import -- not something a human or a general AI chat can read. Export (AI) instead produces a plain-text dump: quality/family/novelty bonuses, automation thresholds (with mode-appropriate labels), locked echoes, banned echoes, and -- as of 2.39 -- **every echo your class can get, not just the ones you've weighted**, each with its quality, family, current weight, and actual effect description (pulled from the real spell tooltip where cached; otherwise a note to hover it once in-game first). If you've collected any Tuning Advisor data, that's included too. Meant to be copied and pasted into an external AI chat to ask for tuning suggestions on which echoes are actually worth weighting for your spec; it isn't a format EbonBuilds can import back in.
 
 ## Changelog
+
+### 2.39 (2026-07-16) -- Export (AI): full class-eligible echo list with real effect descriptions
+
+- **Changed: Export (AI) now lists every echo available to the build's class, not just the ones with a configured weight.** Reuses `EchoTableRows.BuildBestByName()` -- the exact same class-mask filtering and name-grouping the Echo Weights tab itself uses -- so the export is guaranteed consistent with what's on screen. Each line: name, current weight (0 if unweighted), quality, family/families, and the actual effect text (via the live spell tooltip where the client has it cached, collapsed to one line and capped at 160 characters; otherwise a note that it needs to be hovered once in-game to cache).
+- Lets an external AI actually reason about *why* an echo might be worth weighting instead of only seeing bare names and numbers -- verified in isolation with a mixed-class dataset that class filtering, description formatting, and the no-description fallback all work correctly.
 
 ### 2.38 (2026-07-16) -- Export (AI): plain-text settings dump for external analysis
 

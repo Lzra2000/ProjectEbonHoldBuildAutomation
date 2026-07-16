@@ -15,8 +15,18 @@ local R = "|r"
 
 local PAGES = {
 {
-    title = "What's New in 2.38",
+    title = "What's New in 2.39",
     lines = {
+        GOLD .. "2.39: Export (AI) now includes ALL class echoes" .. R,
+        "- Export (AI) lists every echo your class can get, not just",
+        "  the ones you've weighted -- with quality, family, current",
+        "  weight, and the real effect description",
+        "- Descriptions come from the live spell tooltip where cached",
+        "  (hover an echo once in-game if it shows as uncached)",
+        "- Same class-mask filtering the Echo Weights tab itself uses",
+        "- Now an AI can reason about WHY an echo might be worth",
+        "  weighting, not just see bare names and numbers",
+        "",
         GOLD .. "2.38: Export (AI) -- readable settings dump" .. R,
         "- New button next to Export on the build edit screen",
         "- Regular Export = compact string for other EbonBuilds users",
