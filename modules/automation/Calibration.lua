@@ -1,21 +1,28 @@
 -- EbonBuilds: modules/automation/Calibration.lua
 -- Self-calibrating threshold advisor.
 --
--- Automation's banish/reroll thresholds are set as a % of a THEORETICAL
--- peak/mean computed from the build's own scoring weights (Scoring.lua).
--- That's a reasonable starting point, but it says nothing about what
--- you're ACTUALLY being offered on this server, with this build's real
--- weight tuning, over hundreds of picks. This module records the score of
--- every echo actually offered (as a % of that evaluation's peak) into a
--- persistent, capped sample buffer, then answers "if I want the banish
--- threshold to reject roughly the bottom N% of what I'm really offered,
--- what value should that be?" from the real observed distribution instead
--- of the theoretical one.
+-- Automation's banish/reroll/freeze thresholds are set as a % of a
+-- THEORETICAL peak/mean/EV computed from the build's own scoring weights
+-- (Scoring.lua). That's a reasonable starting point, but it says nothing
+-- about what you're ACTUALLY being offered on this server, with this
+-- build's real weight tuning, over hundreds of picks. This module records
+-- the score of every echo actually offered (as a % of that evaluation's
+-- peak) into a persistent, capped sample buffer, then answers "if I want
+-- this threshold to reject/trigger on roughly N% of what I'm really
+-- offered, what value should that be?" from the real observed
+-- distribution instead of the theoretical one.
 --
--- Currently supports Classic threshold mode only (autoBanishPct /
--- autoRerollPct, both % of peak) -- Smart EV mode's thresholds are a %
--- of mean/EV instead of peak, a different baseline that would need a
--- separate conversion; out of scope for this first version.
+-- Supports both Classic mode (autoBanishPct/autoRerollPct/autoFreezePct,
+-- all already a % of peak -- the same space samples are recorded in) and
+-- Smart/EV mode (banishEVPct/freezeEVPct, a % of mean/evBest3 instead --
+-- converted via the current mean/peak or evBest3/peak ratio so both modes
+-- can be analyzed against the same sample data).
+--
+-- NOT supported: Smart Reroll (rerollEVPct). Its effective threshold is
+-- scaled by a "pacing" factor that changes through a run based on
+-- remaining reroll charges (see Automation.lua) -- there's no single
+-- static value to suggest without also modeling charge state, which is
+-- out of scope here.
 
 EbonBuilds.Calibration = {}
 
@@ -67,9 +74,18 @@ local function FractionBelow(sorted, threshold)
     return count / #sorted * 100
 end
 
-local function BuildSuggestion(currentPct, targetFraction)
+-- Core analysis, worked entirely in "% of peak" space (the space samples
+-- are recorded in). direction "below" = Banish/Reroll (triggers under the
+-- threshold, target = % you want rejected). direction "above" = Freeze
+-- (triggers over the threshold, target = % you want it to catch).
+local function BuildSuggestion(currentPctOfPeak, targetFraction, direction)
     local store = GetStore()
-    local result = { sampleCount = #store, currentPct = currentPct, targetFraction = targetFraction }
+    local result = {
+        sampleCount = #store,
+        currentPctOfPeak = currentPctOfPeak,
+        targetFraction = targetFraction,
+        direction = direction,
+    }
     if #store < MIN_SAMPLES_FOR_SUGGESTION then
         result.insufficientData = true
         return result
@@ -78,23 +94,78 @@ local function BuildSuggestion(currentPct, targetFraction)
     for i, v in ipairs(store) do sorted[i] = v end
     table.sort(sorted)
 
-    result.currentFraction = FractionBelow(sorted, currentPct)
-    result.suggestedPct = Percentile(sorted, targetFraction)
+    local fractionBelow = FractionBelow(sorted, currentPctOfPeak)
+    if direction == "above" then
+        result.currentFraction   = 100 - fractionBelow
+        result.suggestedPctOfPeak = Percentile(sorted, 100 - targetFraction)
+    else
+        result.currentFraction   = fractionBelow
+        result.suggestedPctOfPeak = Percentile(sorted, targetFraction)
+    end
     return result
 end
 
--- settings: a build's effective scoring settings (EbonBuilds.Scoring.GetEffectiveSettings()).
+------------------------------------------------------------------------
+-- Classic mode: settings fields are already a % of peak, no conversion.
+------------------------------------------------------------------------
+
 -- Target: reject roughly the bottom 15% of what's actually offered.
 function EbonBuilds.Calibration.SuggestBanish(settings)
-    return BuildSuggestion(settings.autoBanishPct or 0, 15)
+    local r = BuildSuggestion(settings.autoBanishPct or 0, 15, "below")
+    r.currentFieldPct = settings.autoBanishPct or 0
+    r.suggestedFieldPct = r.suggestedPctOfPeak
+    return r
 end
 
--- Target: reroll offers that land in the bottom ~45% (i.e. only keep
--- offers that are at or above roughly the middle of what you actually see).
--- A per-echo percentile is a proxy for the real sum-of-three check
--- Automation.lua uses, not an exact match, but directionally useful.
+-- Target: reroll offers landing in the bottom ~45% (proxy for the real
+-- sum-of-three check Automation.lua uses -- not an exact match, but
+-- directionally useful).
 function EbonBuilds.Calibration.SuggestReroll(settings)
-    return BuildSuggestion(settings.autoRerollPct or 0, 45)
+    local r = BuildSuggestion(settings.autoRerollPct or 0, 45, "below")
+    r.currentFieldPct = settings.autoRerollPct or 0
+    r.suggestedFieldPct = r.suggestedPctOfPeak
+    return r
+end
+
+-- Target: catch roughly the top 10% of what's offered.
+function EbonBuilds.Calibration.SuggestFreeze(settings)
+    local r = BuildSuggestion(settings.autoFreezePct or 0, 90, "above")
+    r.currentFieldPct = settings.autoFreezePct or 0
+    r.suggestedFieldPct = r.suggestedPctOfPeak
+    return r
+end
+
+------------------------------------------------------------------------
+-- Smart (EV) mode: fields are a % of a DIFFERENT baseline (mean or
+-- evBest3), not peak directly. Convert via that baseline's current
+-- ratio to peak (from the live scoring model), analyze in peak-relative
+-- space to match the sample data, then convert the suggestion back.
+------------------------------------------------------------------------
+
+local function SuggestSmart(currentFieldPct, baselineRatio, targetFraction, direction)
+    if not baselineRatio or baselineRatio <= 0 then
+        return { insufficientData = true, sampleCount = EbonBuilds.Calibration.SampleCount() }
+    end
+    local r = BuildSuggestion(currentFieldPct * baselineRatio, targetFraction, direction)
+    r.currentFieldPct = currentFieldPct
+    if not r.insufficientData then
+        r.suggestedFieldPct = r.suggestedPctOfPeak / baselineRatio
+    end
+    return r
+end
+
+function EbonBuilds.Calibration.SuggestSmartBanish(settings)
+    local stats = EbonBuilds.Automation.GetOutcomeStats()
+    local peak  = EbonBuilds.Automation.GetPeak()
+    local ratio = (peak and peak > 0 and stats.mean) and (stats.mean / peak) or nil
+    return SuggestSmart(settings.banishEVPct or 60, ratio, 15, "below")
+end
+
+function EbonBuilds.Calibration.SuggestSmartFreeze(settings)
+    local stats = EbonBuilds.Automation.GetOutcomeStats()
+    local peak  = EbonBuilds.Automation.GetPeak()
+    local ratio = (peak and peak > 0 and stats.evBest3) and (stats.evBest3 / peak) or nil
+    return SuggestSmart(settings.freezeEVPct or 110, ratio, 90, "above")
 end
 
 ------------------------------------------------------------------------
@@ -111,7 +182,7 @@ local function ApplySuggestion(field, value)
 end
 
 local frame, countLabel, modeWarning
-local banishRow, rerollRow
+local banishRow, rerollRow, freezeRow
 
 local function BuildRow(parent, yOffset, label)
     local title = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -135,7 +206,14 @@ local function BuildRow(parent, yOffset, label)
     return { title = title, current = current, suggestion = suggestion, applyBtn = applyBtn }
 end
 
+local function ClearRow(row, text)
+    row.current:SetText(text or "")
+    row.suggestion:SetText("")
+    row.applyBtn:Hide()
+end
+
 local function RefreshRow(row, result, field, unitLabel)
+    local verb = result.direction == "above" and "triggers on" or "rejects"
     if result.insufficientData then
         row.current:SetText(string.format("|cff888888Collecting data... (%d / %d samples needed)|r",
             result.sampleCount, MIN_SAMPLES_FOR_SUGGESTION))
@@ -143,19 +221,19 @@ local function RefreshRow(row, result, field, unitLabel)
         row.applyBtn:Hide()
         return
     end
-    row.current:SetText(string.format("Current: %.0f%% of peak -- rejects ~%.0f%% of what you're actually offered (%d samples)",
-        result.currentPct, result.currentFraction, result.sampleCount))
-    if math.abs(result.suggestedPct - result.currentPct) < 1 then
+    row.current:SetText(string.format("Current: %.0f%% -- %s ~%.0f%% of what you're actually offered (%d samples)",
+        result.currentFieldPct, verb, result.currentFraction, result.sampleCount))
+    if math.abs(result.suggestedFieldPct - result.currentFieldPct) < 1 then
         row.suggestion:SetText(string.format("|cff1eff00Already close to the %s target (~%.0f%%).|r", unitLabel, result.targetFraction))
         row.applyBtn:Hide()
     else
-        row.suggestion:SetText(string.format("Suggested: |cffffd100%.0f%%|r to target ~%.0f%% rejected",
-            result.suggestedPct, result.targetFraction))
-        row.applyBtn:SetText(string.format("Apply %.0f%%", result.suggestedPct))
+        row.suggestion:SetText(string.format("Suggested: |cffffd100%.0f%%|r to target ~%.0f%% %s",
+            result.suggestedFieldPct, result.targetFraction, result.direction == "above" and "caught" or "rejected"))
+        row.applyBtn:SetText(string.format("Apply %.0f%%", result.suggestedFieldPct))
         row.applyBtn:Show()
         row.applyBtn:SetScript("OnClick", function()
-            if ApplySuggestion(field, result.suggestedPct) then
-                EbonBuilds.Toast.Show(string.format("%s threshold set to %.0f%%", unitLabel, result.suggestedPct))
+            if ApplySuggestion(field, result.suggestedFieldPct) then
+                EbonBuilds.Toast.Show(string.format("%s threshold set to %.0f%%", unitLabel, result.suggestedFieldPct))
                 EbonBuilds.Calibration.RefreshWindow()
             end
         end)
@@ -164,7 +242,7 @@ end
 
 local function BuildWindow()
     local f = CreateFrame("Frame", "EbonBuildsTuningAdvisorWindow", UIParent)
-    f:SetSize(560, 300)
+    f:SetSize(560, 360)
     f:SetPoint("CENTER", UIParent, "CENTER")
     f:SetFrameStrata("FULLSCREEN_DIALOG")
     f:SetToplevel(true)
@@ -193,7 +271,7 @@ local function BuildWindow()
     subtitle:SetPoint("TOPLEFT", f, "TOPLEFT", 16, -38)
     subtitle:SetPoint("RIGHT", f, "RIGHT", -16, 0)
     subtitle:SetJustifyH("LEFT")
-    subtitle:SetText("Compares your current thresholds against what your build actually gets offered, and suggests values based on the real distribution instead of the theoretical scoring model.")
+    subtitle:SetText("Compares your current thresholds against what your build actually gets offered, and suggests values based on the real distribution instead of the theoretical scoring model. Works with both Classic and Smart (EV) mode.")
     subtitle:SetHeight(28)
 
     modeWarning = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -204,6 +282,7 @@ local function BuildWindow()
 
     banishRow = BuildRow(f, -160, "Banish")
     rerollRow = BuildRow(f, -220, "Reroll")
+    freezeRow = BuildRow(f, -280, "Freeze")
 
     local clearBtn = EbonBuilds.Theme.CreateButton(f, "danger")
     clearBtn:SetSize(140, 20)
@@ -233,28 +312,23 @@ function EbonBuilds.Calibration.RefreshWindow()
     local build = EbonBuilds.Build.GetActive()
     if not build then
         modeWarning:SetText("No active build selected.")
-        banishRow.current:SetText("")
-        banishRow.suggestion:SetText("")
-        banishRow.applyBtn:Hide()
-        rerollRow.current:SetText("")
-        rerollRow.suggestion:SetText("")
-        rerollRow.applyBtn:Hide()
+        ClearRow(banishRow)
+        ClearRow(rerollRow)
+        ClearRow(freezeRow)
         countLabel:SetText("")
         return
     end
     local settings = build.settings or EbonBuilds.Build.DefaultSettings()
     if (settings.rerollMode or "sum") == "ev" then
-        modeWarning:SetText("This build uses Smart (EV) mode. The Tuning Advisor currently only supports Classic threshold mode (% of peak) -- switch modes in the Automation tab to use it.")
-        banishRow.current:SetText("")
-        banishRow.suggestion:SetText("")
-        banishRow.applyBtn:Hide()
-        rerollRow.current:SetText("")
-        rerollRow.suggestion:SetText("")
-        rerollRow.applyBtn:Hide()
+        modeWarning:SetText("Smart (EV) mode.")
+        RefreshRow(banishRow, EbonBuilds.Calibration.SuggestSmartBanish(settings), "banishEVPct", "Smart Banish")
+        ClearRow(rerollRow, "|cff888888Smart Reroll isn't supported yet -- its effective threshold changes dynamically based on remaining reroll charges (pacing), so there's no single value to suggest.|r")
+        RefreshRow(freezeRow, EbonBuilds.Calibration.SuggestSmartFreeze(settings), "freezeEVPct", "Smart Freeze")
     else
-        modeWarning:SetText("")
+        modeWarning:SetText("Classic mode.")
         RefreshRow(banishRow, EbonBuilds.Calibration.SuggestBanish(settings), "autoBanishPct", "Banish")
         RefreshRow(rerollRow, EbonBuilds.Calibration.SuggestReroll(settings), "autoRerollPct", "Reroll")
+        RefreshRow(freezeRow, EbonBuilds.Calibration.SuggestFreeze(settings), "autoFreezePct", "Freeze")
     end
     countLabel:SetText(string.format("%d total samples collected for %s", EbonBuilds.Calibration.SampleCount(), build.title or "this build"))
 end
