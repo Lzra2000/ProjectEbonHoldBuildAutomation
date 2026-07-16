@@ -147,7 +147,7 @@ end
 -- Exported for unit testing
 EbonBuilds.BuildOverview._NormalizeEchoName = NormalizeEchoName
 
-local function ComputeMissingEchoes(build, assumeNoneOwned)
+local function ComputeMissingEchoes(build, assumeNoneOwned, includeOwned)
     if not build or not build.class then return nil end
 
     local classMask = CLASS_MASK[build.class] or 0
@@ -219,7 +219,9 @@ local function ComputeMissingEchoes(build, assumeNoneOwned)
         end
     end
 
-    -- Group by spell name, keep highest quality per name.
+    -- Group by spell name, keep highest quality per name. Owned status is
+    -- tracked per entry now (not filtered out here) so the caller can opt
+    -- into seeing owned echoes too, not just missing ones.
     -- Note: deliberately NOT filtered by current player level -- this tab
     -- tracks collection progress (tomes not yet learned), and on Ebonhold
     -- the character resets to level 1 every run, which would empty the list.
@@ -228,55 +230,75 @@ local function ComputeMissingEchoes(build, assumeNoneOwned)
         local spellName = GetSpellInfo(spellId)
         if spellName then
             local key = NormalizeEchoName(spellName)
-            local isOwned = ownedLower[key] or (data.groupId and ownedGroups[data.groupId])
-            if not isOwned then
-                if classMask == 0 or bit.band(data.classMask or 0, classMask) ~= 0 then
-                    local existing = byName[key]
-                    if not existing or (data.quality or 0) > (existing.quality or 0) then
-                        byName[key] = { spellId = spellId, data = data, displayName = spellName }
-                    end
+            if classMask == 0 or bit.band(data.classMask or 0, classMask) ~= 0 then
+                local isOwned = ownedLower[key] or (data.groupId and ownedGroups[data.groupId])
+                local existing = byName[key]
+                if not existing or (data.quality or 0) > (existing.quality or 0) then
+                    byName[key] = { spellId = spellId, data = data, displayName = spellName, owned = isOwned }
                 end
             end
         end
     end
 
-    -- Collect missing echoes (only those with known drop source, exclude banned)
+    -- Collect missing echoes (only those with known drop source, exclude
+    -- banned) plus, when requested, owned ones too (score/drop-source
+    -- don't apply to something you already have, so those are omitted).
     local settings = build.settings or EbonBuilds.Build.DefaultSettings()
     local banList = settings.echoBanList or {}
     local weights = build.echoWeights or {}
     local missing = {}
     for key, entry in pairs(byName) do
-        local source = ProjectEbonhold.PerkDropSources and ProjectEbonhold.PerkDropSources[entry.spellId]
-        if not source and entry.data.groupId and ProjectEbonhold.PerkDropSourceByGroup then
-            source = ProjectEbonhold.PerkDropSourceByGroup[entry.data.groupId]
-        end
-        local needsTome = entry.data.requiredSpell and entry.data.requiredSpell > 0
-        if not banList[entry.spellId] and needsTome then
-            -- Build scoring entry
-            local scoringEntry = {
-                spellId = entry.spellId,
-                name = entry.displayName,
-                quality = entry.data.quality or 0,
-                families = entry.data.families,
-                classMask = entry.data.classMask,
-            }
-            local weight = weights[entry.displayName] or 0
-            local score = EbonBuilds.Scoring.Score(scoringEntry, weight, settings)
-            missing[#missing + 1] = {
-                spellId = entry.spellId,
-                name = entry.displayName,
-                quality = entry.data.quality or 0,
-                dropSource = source or "Unknown",
-                isLocked = lockedLower[key] or false,
-                score = score,
-            }
+        if entry.owned then
+            if includeOwned then
+                missing[#missing + 1] = {
+                    spellId = entry.spellId,
+                    name = entry.displayName,
+                    quality = entry.data.quality or 0,
+                    isLocked = lockedLower[key] or false,
+                    owned = true,
+                }
+            end
+        else
+            local source = ProjectEbonhold.PerkDropSources and ProjectEbonhold.PerkDropSources[entry.spellId]
+            if not source and entry.data.groupId and ProjectEbonhold.PerkDropSourceByGroup then
+                source = ProjectEbonhold.PerkDropSourceByGroup[entry.data.groupId]
+            end
+            local needsTome = entry.data.requiredSpell and entry.data.requiredSpell > 0
+            if not banList[entry.spellId] and needsTome then
+                -- Build scoring entry
+                local scoringEntry = {
+                    spellId = entry.spellId,
+                    name = entry.displayName,
+                    quality = entry.data.quality or 0,
+                    families = entry.data.families,
+                    classMask = entry.data.classMask,
+                }
+                local weight = weights[entry.displayName] or 0
+                local score = EbonBuilds.Scoring.Score(scoringEntry, weight, settings)
+                missing[#missing + 1] = {
+                    spellId = entry.spellId,
+                    name = entry.displayName,
+                    quality = entry.data.quality or 0,
+                    dropSource = source or "Unknown",
+                    isLocked = lockedLower[key] or false,
+                    score = score,
+                    owned = false,
+                }
+            end
         end
     end
 
-    -- Sort: locked echoes first, then score desc, then quality desc, then name asc
+    -- Sort: missing before owned (when both are shown), then locked
+    -- echoes first, then score desc, then quality desc, then name asc.
     table.sort(missing, function(a, b)
+        if a.owned ~= b.owned then
+            return not a.owned
+        end
         if a.isLocked ~= b.isLocked then
             return a.isLocked
+        end
+        if a.owned then
+            return a.name < b.name
         end
         if a.score ~= b.score then
             return a.score > b.score
@@ -638,9 +660,26 @@ end
 -- Missing tab
 ------------------------------------------------------------------------
 
+local missingState = { missingOnly = false }
+local missingToggleBtn, missingCountLabel
+local RefreshMissing
+
 local function BuildMissingTab(parent)
+    missingCountLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    missingCountLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, -4)
+
+    missingToggleBtn = EbonBuilds.Theme.CreateButton(parent)
+    missingToggleBtn:SetSize(130, 20)
+    missingToggleBtn:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -20, -2)
+    missingToggleBtn:SetText("Show: All")
+    missingToggleBtn:SetScript("OnClick", function(self)
+        missingState.missingOnly = not missingState.missingOnly
+        self:SetText(missingState.missingOnly and "Show: Missing only" or "Show: All")
+        RefreshMissing()
+    end)
+
     local scroll = CreateFrame("ScrollFrame", nil, parent)
-    scroll:SetPoint("TOPLEFT",     parent, "TOPLEFT",     10, -14)
+    scroll:SetPoint("TOPLEFT",     parent, "TOPLEFT",     10, -28)
     scroll:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -18, 8)
 
     local child = CreateFrame("Frame", nil, scroll)
@@ -797,11 +836,12 @@ local function StopMissingRetry()
     missingRetryElapsed = 0
 end
 
-local function RefreshMissing(assumeNoneOwned)
+RefreshMissing = function(assumeNoneOwned)
     local build = state.build
     if not build or not missingChild then return end
     for _, btn in ipairs(missingRows) do btn:Hide() end
-    local missing = ComputeMissingEchoes(build, assumeNoneOwned)
+    local includeOwned = not missingState.missingOnly
+    local missing = ComputeMissingEchoes(build, assumeNoneOwned, includeOwned)
     if missing == nil then
         missingChild.loadingLabel = missingChild.loadingLabel or missingChild:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
         missingChild.loadingLabel:SetPoint("TOPLEFT", missingChild, "TOPLEFT", 4, -2)
@@ -838,7 +878,9 @@ local function RefreshMissing(assumeNoneOwned)
         missingChild.loadingLabel:Hide()
     end
     local currY = 0
+    local ownedCount, missingCount = 0, 0
     for _, entry in ipairs(missing) do
+        if entry.owned then ownedCount = ownedCount + 1 else missingCount = missingCount + 1 end
         local rowIdx = #missingRows + 1
         while #missingRows < rowIdx do
             local n = #missingRows + 1
@@ -860,6 +902,7 @@ local function RefreshMissing(assumeNoneOwned)
                         GameTooltip:AddLine(desc, 1, 1, 1, true)
                     end
                 end
+                GameTooltip:AddLine(self._owned and "|cff1eff00Learned|r" or "|cffff4444Not learned|r")
                 GameTooltip:Show()
             end)
             btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -870,20 +913,26 @@ local function RefreshMissing(assumeNoneOwned)
             icon:SetPoint("TOPLEFT", btn, "TOPLEFT", 2, -2)
             icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
             btn._icon = icon
+            -- Owned/missing status dot, same convention as the Affixes tab:
+            -- green = learned, red = not learned yet.
+            local statusDot = btn:CreateTexture(nil, "OVERLAY")
+            statusDot:SetSize(8, 8)
+            statusDot:SetTexture("Interface\\Buttons\\WHITE8X8")
+            statusDot:SetPoint("BOTTOMRIGHT", icon, "BOTTOMRIGHT", 2, -2)
+            btn._statusDot = statusDot
             -- Name column
             local labelName = btn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-            labelName:SetPoint("TOPLEFT", icon, "TOPRIGHT", 2, 0)
+            labelName:SetPoint("TOPLEFT", icon, "TOPRIGHT", 4, 0)
             labelName:SetWidth(160)
             labelName:SetJustifyH("LEFT")
             btn._labelName = labelName
-            -- Drop Source column
+            -- Drop Source column (or "Learned" for owned rows)
             local labelSource = btn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
             labelSource:SetPoint("TOPLEFT", labelName, "TOPRIGHT", 4, 0)
             labelSource:SetWidth(200)
             labelSource:SetJustifyH("LEFT")
-            labelSource:SetTextColor(0.6, 0.6, 0.6, 1)
             btn._labelSource = labelSource
-            -- Score column
+            -- Score column (blank for owned rows)
             local labelScore = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
             labelScore:SetPoint("TOPRIGHT", btn, "TOPRIGHT", -4, -2)
             labelScore:SetWidth(54)
@@ -894,13 +943,26 @@ local function RefreshMissing(assumeNoneOwned)
         local btn = missingRows[rowIdx]
         btn:ClearAllPoints()
         btn._spellId = entry.spellId
+        btn._owned = entry.owned
         btn._icon:SetTexture(select(3, GetSpellInfo(entry.spellId)))
+        if entry.owned then
+            btn._statusDot:SetVertexColor(0.12, 0.85, 0.12, 1)
+        else
+            btn._statusDot:SetVertexColor(0.85, 0.2, 0.2, 1)
+        end
         local cc = QUALITY_COLORS[entry.quality] or QUALITY_COLORS[0]
         btn._labelName:SetText(entry.name)
-        btn._labelName:SetTextColor(cc[1], cc[2], cc[3], 1)
-        local cleanSource = (entry.dropSource or ""):gsub("^Can be found on ", "")
-        btn._labelSource:SetText(cleanSource)
-        btn._labelScore:SetText(string.format("%.0f", entry.score))
+        btn._labelName:SetTextColor(cc[1], cc[2], cc[3], entry.owned and 0.7 or 1)
+        if entry.owned then
+            btn._labelSource:SetText("Learned")
+            btn._labelSource:SetTextColor(0.12, 0.85, 0.12, 1)
+            btn._labelScore:SetText("")
+        else
+            local cleanSource = (entry.dropSource or ""):gsub("^Can be found on ", "")
+            btn._labelSource:SetText(cleanSource)
+            btn._labelSource:SetTextColor(0.6, 0.6, 0.6, 1)
+            btn._labelScore:SetText(string.format("%.0f", entry.score))
+        end
         local srcH = btn._labelSource:GetStringHeight() or 16
         local rowH = math.max(26, srcH + 4)
         btn:SetHeight(rowH)
@@ -911,6 +973,13 @@ local function RefreshMissing(assumeNoneOwned)
     end
     missingChild:SetHeight(math.max(1, currY))
     missingBar:SetMinMaxValues(0, math.max(0, missingChild:GetHeight() - missingScroll:GetHeight()))
+    if missingCountLabel then
+        if includeOwned then
+            missingCountLabel:SetText(string.format("%d learned, %d missing", ownedCount, missingCount))
+        else
+            missingCountLabel:SetText(string.format("%d missing", missingCount))
+        end
+    end
 end
 ------------------------------------------------------------------------
 -- BuildViewFrame

@@ -1,6 +1,6 @@
 # EbonBuilds — FAQ & Changelog
 
-*This file is updated with every release. Latest version: 2.18 — also available in-game via* `/ebb faq`
+*This file is updated with every release. Latest version: 2.19 — also available in-game via* `/ebb faq`
 
 ---
 
@@ -131,7 +131,15 @@ As of 2.18, saving (or creating) a build checks whether its exact title is alrea
 
 This is a best-effort, client-side check -- there's no central registry, so it's based on what your own client has seen. Existing duplicates already in Public Builds are also cleaned up automatically: the browser (and what gets relayed to other players) now collapses same-titled entries down to the earliest-known one.
 
+### The Missing tab only showed what I don't have. Now what? (2.19)
+The Missing tab now works like the Affixes tab: a green or red dot on each icon shows learned vs. not-learned status, and a **Show: All / Show: Missing only** toggle switches between "everything for my class" and the classic missing-only view. Owned echoes show "Learned" in green where the drop source used to be; missing ones are unchanged (drop source, score). A count label at the top reads "X learned, Y missing" (or just "Y missing" when the filter is on).
+
 ## Changelog
+
+### 2.19 (2026-07-16) -- Missing tab: owned/missing status dots
+
+- **New: the Missing tab now shows owned echoes too, not just missing ones.** Same status-dot convention as the Affixes tab (green = learned, red = not learned), plus a "Show: All" / "Show: Missing only" toggle (defaults to showing everything, matching Affixes/Tome Atlas). Owned rows show "Learned" instead of a drop source and quality-colored name at reduced opacity; missing rows are unchanged.
+- `ComputeMissingEchoes()` gained an additive `includeOwned` parameter -- omitted (as all existing call sites do), behavior is unchanged, so this doesn't touch the existing missing-only contract.
 
 ### 2.18 (2026-07-16) -- stop duplicate build titles at the source
 

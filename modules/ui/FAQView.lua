@@ -15,8 +15,15 @@ local R = "|r"
 
 local PAGES = {
 {
-    title = "What's New in 2.18",
+    title = "What's New in 2.19",
     lines = {
+        GOLD .. "2.19: Missing tab shows status dots" .. R,
+        "- Green/red dot per row, same convention as the Affixes tab",
+        "- New 'Show: All' / 'Show: Missing only' toggle (defaults to",
+        "  showing everything for your class, owned + missing)",
+        "- Owned rows show 'Learned' in green instead of a drop source",
+        "- Count label: 'X learned, Y missing'",
+        "",
         GOLD .. "2.18: no more duplicate build titles" .. R,
         "- Fixed the actual cause of Public Builds filling up with the",
         "  same title from many authors: editing an imported build",
