@@ -1,7 +1,7 @@
 ## Interface: 30300
 ## Title: EbonBuilds
-## Version: 2.21
-## Dependencies: ProjectEbonhold
+## Version: 2.22
+## OptionalDeps: ProjectEbonhold, ProjectEbonholdEnhanced
 ## SavedVariables: EbonBuildsDB
 ## SavedVariablesPerCharacter: EbonBuildsCharDB
 

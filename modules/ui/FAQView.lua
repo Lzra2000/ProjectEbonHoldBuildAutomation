@@ -15,8 +15,15 @@ local R = "|r"
 
 local PAGES = {
 {
-    title = "What's New in 2.21",
+    title = "What's New in 2.22",
     lines = {
+        GOLD .. "2.22: works with ProjectEbonhold Enhanced" .. R,
+        "- Fixed: EbonBuilds couldn't even be enabled with only",
+        "  'ProjectEbonhold Enhanced' installed (different folder",
+        "  name, same API) -- no more manually editing the .toc",
+        "- Now uses OptionalDeps for both variants; load order is",
+        "  still guaranteed, just no longer a hard folder-name block",
+        "",
         GOLD .. "2.21: deleting an import no longer loses the original" .. R,
         "- Fixed: importing a build deleted its cached copy from",
         "  Public Builds -- deleting your import afterward meant the",

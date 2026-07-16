@@ -2,7 +2,7 @@
 -- Responsibility: addon bootstrap, saved-variable initialisation, module wiring.
 
 EbonBuilds = EbonBuilds or {}
-EbonBuilds.VERSION = "2.21"
+EbonBuilds.VERSION = "2.22"
 
 local eventFrame = CreateFrame("Frame")
 
@@ -12,7 +12,7 @@ local function OnAddonLoaded(addonName)
     if not ProjectEbonhold then
         DEFAULT_CHAT_FRAME:AddMessage(
             "|cffff4444EbonBuilds:|r ProjectEbonhold not found -- EbonBuilds requires it and will stay disabled. " ..
-            "Make sure the ProjectEbonhold addon is installed and enabled.")
+            "Make sure ProjectEbonhold (or ProjectEbonholdEnhanced) is installed and enabled.")
         return
     end
 

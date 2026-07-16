@@ -1,6 +1,6 @@
 # EbonBuilds — FAQ & Changelog
 
-*This file is updated with every release. Latest version: 2.21 — also available in-game via* `/ebb faq`
+*This file is updated with every release. Latest version: 2.22 — also available in-game via* `/ebb faq`
 
 ---
 
@@ -143,7 +143,14 @@ Two changes:
 ### I deleted a build I imported and it vanished from Public Builds too. Fixed?
 Yes (2.21). Importing a public build used to delete Public Builds' cached copy of the original, on the (wrong) assumption that was needed to hide it from the browse list -- it isn't; the list already hides anything you have an up-to-date local copy of on its own. That deletion's only real effect was that if you later deleted your imported copy, the original public build was gone from your Public Builds list entirely until someone synced it to you again. The cache is no longer deleted on import, so deleting your local copy now makes the original reappear immediately.
 
+### EbonBuilds won't even enable / greyed out in the addon list with ProjectEbonhold Enhanced. Fixed?
+Yes (2.22). The `.toc` declared a hard `## Dependencies: ProjectEbonhold` -- WoW's client won't let you enable an addon at all if a hard dependency's exact folder name isn't found, and "ProjectEbonhold Enhanced" ships under a different folder name even though it provides the same API. Switched to `## OptionalDeps: ProjectEbonhold, ProjectEbonholdEnhanced`, which still makes sure whichever one you have loads first (so EbonBuilds sees it), but no longer blocks enabling EbonBuilds if the folder name doesn't match exactly. No more manually editing the `.toc` by hand after every update.
+
 ## Changelog
+
+### 2.22 (2026-07-16) -- works with ProjectEbonhold Enhanced without manual .toc edits
+
+- **Fixed: EbonBuilds couldn't be enabled at all with only "ProjectEbonhold Enhanced" installed.** `## Dependencies: ProjectEbonhold` is a hard dependency on that exact folder name -- the WoW client greys out/force-disables an addon if it's missing, regardless of whether something API-compatible is present under a different name. Changed to `## OptionalDeps: ProjectEbonhold, ProjectEbonholdEnhanced`, which still guarantees correct load order (whichever is installed loads before EbonBuilds) without hard-blocking on an exact folder match. The existing runtime check in `core/Init.lua` (disables gracefully with a chat message if the `ProjectEbonhold` global truly isn't there) is unchanged and still applies either way.
 
 ### 2.21 (2026-07-16) -- deleting an imported build no longer loses the original from Public Builds
 
