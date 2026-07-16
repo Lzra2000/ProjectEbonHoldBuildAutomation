@@ -15,8 +15,16 @@ local R = "|r"
 
 local PAGES = {
 {
-    title = "What's New in 2.32",
+    title = "What's New in 2.33",
     lines = {
+        GOLD .. "2.33: Tuning Advisor (/ebb tuning)" .. R,
+        "- New: self-calibrating threshold suggestions, based on what",
+        "  your build actually gets offered, not just the theory",
+        "- Records the score of every echo evaluated (always-on,",
+        "  lightweight), suggests Banish/Reroll % once it has 30+",
+        "  samples, one-click Apply",
+        "- Classic threshold mode only for now (not Smart/EV mode)",
+        "",
         GOLD .. "2.32: no more stat scrolls in Tome Atlas" .. R,
         "- Fixed: ordinary items like 'Scroll of Agility' showed up",
         "  alongside real echo tomes -- both matched the same name",
@@ -506,6 +514,29 @@ local PAGES = {
         "Diagnostic for \"I clicked and nothing happened.\" Logs every",
         "themed button click and view change, so a report can show",
         "whether the click even reached EbonBuilds.",
+    },
+},
+{
+    title = "Tuning Advisor (/ebb tuning, 2.33)",
+    lines = {
+        "Compares your Banish/Reroll thresholds against what your",
+        "build actually gets offered, not just the theoretical model.",
+        "",
+        GOLD .. "How it works" .. R,
+        "Every echo automation evaluates gets recorded as a % of that",
+        "run's peak, always-on and lightweight. Once there are 30+",
+        "samples, the advisor shows what your CURRENT threshold really",
+        "rejects (e.g. \"~12% of real offers\") and suggests a value to",
+        "hit a sensible target: ~15% for Banish, ~45% for Reroll.",
+        "",
+        GOLD .. "Apply" .. R,
+        "One click writes the suggested % straight to your active",
+        "build's settings.",
+        "",
+        GREY .. "Classic threshold mode only for now. Smart (EV) mode's" .. R,
+        GREY .. "thresholds are a % of mean/EV, a different baseline." .. R,
+        GREY .. "Clear Collected Data after a major reweight -- old" .. R,
+        GREY .. "samples reflect the previous weighting." .. R,
     },
 },
 {

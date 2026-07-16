@@ -400,6 +400,8 @@ SlashCmdList["EbonBuilds"] = function(msg)
         EbonBuilds.ClickTrace.ShowWindow()
     elseif msg == "errors" or msg == "errorlog" then
         EbonBuilds.ErrorLog.ShowWindow()
+    elseif msg == "tuning" or msg == "advisor" then
+        EbonBuilds.Calibration.ShowWindow()
     elseif msg == "autosell" then
         local on = not EbonBuilds.AutoSell.IsEnabled()
         EbonBuilds.AutoSell.SetEnabled(on)

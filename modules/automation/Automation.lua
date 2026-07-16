@@ -315,6 +315,16 @@ function EbonBuilds.Automation.Evaluate()
         end
         if #scored == 0 then return false end
 
+        -- Feed the Tuning Advisor: what does this build actually get
+        -- offered, in practice? Cheap append, no analysis happens here.
+        if peakScore and peakScore > 0 and EbonBuilds.Calibration then
+            for _, s in ipairs(scored) do
+                if s.score then
+                    EbonBuilds.Calibration.RecordSample(s.score / peakScore * 100)
+                end
+            end
+        end
+
         local banList    = settings.echoBanList or {}
         local whitelist  = settings.banishFamilyWhitelist or {}
         AnnotateScored(scored, banList, whitelist, lockedList)

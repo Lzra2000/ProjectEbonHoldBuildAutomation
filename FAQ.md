@@ -1,6 +1,6 @@
 # EbonBuilds — FAQ & Changelog
 
-*This file is updated with every release. Latest version: 2.32 — also available in-game via* `/ebb faq`
+*This file is updated with every release. Latest version: 2.33 — also available in-game via* `/ebb faq`
 
 ---
 
@@ -169,7 +169,17 @@ The Missing tab and Tome Atlas both used to determine what you've learned by sca
 ### Why couldn't I see my own public build in Public Builds?
 It used to be deliberately hidden there (you already have it in your left sidebar, so browsing it again seemed redundant) -- but that also meant there was no easy way to confirm a build actually published successfully. As of 2.29, your own public builds show up in Public Builds too, tagged **(You)** next to your name, with the Import button replaced by a disabled "Yours" label. If it's not there after making a build public, that's a real sign something's wrong (check the title-collision popup from 2.18 -- your build gets auto-unpublished if the exact title is already public under someone else).
 
+### Tuning Advisor: self-calibrating thresholds (new in 2.33)
+`/ebb tuning` opens a window comparing your Banish/Reroll thresholds against what your build has actually been offered, not just the theoretical scoring model. EbonBuilds now records the score (as % of peak) of every echo automation evaluates, always-on and lightweight, into a per-character sample buffer. Once it has at least 30 samples, the advisor computes what threshold your CURRENT setting actually corresponds to (e.g. "rejects ~12% of real offers") and suggests a value to hit a sensible target (~15% for Banish, ~45% for Reroll), with an Apply button that writes it straight to your active build.
+
+Currently supports **Classic threshold mode only** (% of peak) -- Smart (EV) mode's thresholds are a % of mean/EV, a different baseline this doesn't convert for yet. "Clear Collected Data" is worth using after a major reweight, since old samples reflect the previous weighting.
+
 ## Changelog
+
+### 2.33 (2026-07-16) -- Tuning Advisor: self-calibrating thresholds
+
+- **New: `/ebb tuning`.** Records the score (% of peak) of every echo automation evaluates into a persistent per-character sample buffer (always-on, independent of debug capture), then suggests Banish/Reroll threshold values based on the REAL observed distribution instead of only the theoretical scoring model -- "your current 25% Banish threshold rejects about 15% of what you're actually offered; here's what 20% would target instead," with one-click Apply. Classic threshold mode only for now (Smart/EV mode uses a different baseline).
+- New module `EbonBuilds.Calibration` (`modules/automation/Calibration.lua`).
 
 ### 2.32 (2026-07-16) -- Tome Atlas: authoritative tome detection, no more name-guessing
 
