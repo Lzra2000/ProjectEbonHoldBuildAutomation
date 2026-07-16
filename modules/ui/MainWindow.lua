@@ -114,7 +114,7 @@ local function BuildSettingsPopup()
         if flavorText then
             flavor = scrollChild:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
             flavor:SetPoint("TOPLEFT", label, "BOTTOMLEFT", 0, -2)
-            flavor:SetPoint("RIGHT", scrollChild, "RIGHT", 0, 0)
+            flavor:SetWidth(320)
             flavor:SetJustifyH("LEFT")
             flavor:SetText(flavorText)
             anchorForSlider = flavor
@@ -167,7 +167,7 @@ local function BuildSettingsPopup()
 
         local flavor = scrollChild:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
         flavor:SetPoint("TOPLEFT", cb, "BOTTOMLEFT", 26, -2)
-        flavor:SetPoint("RIGHT", scrollChild, "RIGHT", 0, 0)
+        flavor:SetWidth(300)
         flavor:SetJustifyH("LEFT")
         flavor:SetText(flavorText)
 

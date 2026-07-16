@@ -359,7 +359,7 @@ local function BuildWindow()
 
     local subtitle = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     subtitle:SetPoint("TOPLEFT", f, "TOPLEFT", 16, -38)
-    subtitle:SetPoint("RIGHT", f, "RIGHT", -16, 0)
+    subtitle:SetWidth(528)
     subtitle:SetJustifyH("LEFT")
     subtitle:SetText("Compares your current thresholds against what your build actually gets offered, and suggests values based on the real distribution instead of the theoretical scoring model. Works with both Classic and Smart (EV) mode.")
     subtitle:SetHeight(28)

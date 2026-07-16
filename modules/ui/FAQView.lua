@@ -15,8 +15,17 @@ local R = "|r"
 
 local PAGES = {
 {
-    title = "What's New in 2.40",
+    title = "What's New in 2.41",
     lines = {
+        GOLD .. "2.41: fixed -- Settings text was cut off mid-sentence" .. R,
+        "- The gear-icon Settings dialog's explanation text (Toast",
+        "  duration, Auto-sell, Bag affix dots) ran off past where it",
+        "  should wrap and got clipped instead of showing fully",
+        "- Fixed by using explicit text widths instead of a two-anchor",
+        "  stretch that wasn't resolving reliably in that scrollframe",
+        "- Also pre-emptively fixed the same risky pattern in the",
+        "  Tuning Advisor's subtitle before it caused the same bug",
+        "",
         GOLD .. "2.40: real DPS tracking via Details! (opt-in)" .. R,
         "- New checkbox in /ebb tuning: 'Track DPS by echo'",
         "- Needs the Details! damage meter addon -- samples your DPS",

@@ -1,6 +1,6 @@
 # EbonBuilds — FAQ & Changelog
 
-*This file is updated with every release. Latest version: 2.40 — also available in-game via* `/ebb faq`
+*This file is updated with every release. Latest version: 2.41 — also available in-game via* `/ebb faq`
 
 ---
 
@@ -197,6 +197,10 @@ Next to the regular Export button (build edit screen, any tab) is a new **Export
 This is deliberately approximate, not a controlled measurement: echoes stack together and fight difficulty/duration/execution vary a lot run to run, so it can't isolate any single echo's true causal effect. Treat it as a rough supplementary signal to combine with the scoring model and Tuning Advisor data, not a replacement for either. If Details! isn't installed, the checkbox tells you and won't enable.
 
 ## Changelog
+
+### 2.41 (2026-07-16) -- fix: Settings dialog description text cut off mid-sentence
+
+- **Fixed: the explanation text under Toast Duration, Auto-sell, and Bag Affix Dots in the gear-icon Settings dialog got cut off mid-sentence with no wrap.** Those FontStrings got their wrap width from two anchor points (TOPLEFT + RIGHT-to-scrollChild) instead of an explicit `SetWidth()` -- reliable for stretching plain frames, but it wasn't resolving correctly for text word-wrap width inside this scrollframe's child, so long lines just ran off past where they'd normally wrap and got clipped by the scrollframe. Switched to explicit widths (same fix pattern already used for the Tuning Advisor's row text). Also pre-emptively applied the same fix to the Tuning Advisor's own subtitle text, which used the identical risky pattern even though it hadn't been reported as broken yet.
 
 ### 2.40 (2026-07-16) -- Echo Performance: real DPS tracking via Details!
 
