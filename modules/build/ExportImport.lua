@@ -323,6 +323,7 @@ local function CreateExportDialog()
 	local title = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
 	title:SetPoint("TOP", f, "TOP", 0, -12)
 	title:SetText("Export Build")
+	f._title = title
 
 	local close = EbonBuilds.Theme.CreateButton(f)
 	close:SetSize(80, 22)
@@ -353,9 +354,163 @@ function EbonBuilds.ExportImport.ShowExportDialog(build)
 	if not exportDialog then CreateExportDialog() end
 	local b64 = EbonBuilds.ExportImport.ExportBuild(build)
 	if not b64 then return end
+	exportDialog._title:SetText("Export Build")
 	exportDialog._editBox:SetText(b64)
 	exportDialog._editBox:HighlightText()
 	exportDialog:Show()
+end
+
+------------------------------------------------------------------------
+-- AI-readable export: a plain-text dump of everything that shapes this
+-- build's scoring/automation -- weights, bonuses, thresholds, and (if
+-- available) the Tuning Advisor's real observed-vs-target data -- meant
+-- to be pasted into an external AI chat for analysis/tuning suggestions.
+-- Deliberately NOT the compact sync format (that's for sharing between
+-- EbonBuilds clients; this is for a human/AI to actually read).
+------------------------------------------------------------------------
+
+local function FormatBonusLine(label, bonus, mode, keys)
+    local parts = {}
+    for _, k in ipairs(keys) do
+        local v = bonus[k] or 0
+        local sign = mode[k] and "x" or "+"
+        parts[#parts + 1] = string.format("%s=%s%d", tostring(k), sign, v)
+    end
+    return label .. ": " .. table.concat(parts, ", ")
+end
+
+local QUALITY_LABELS = { [0] = "Common", [1] = "Uncommon", [2] = "Rare", [3] = "Epic", [4] = "Legendary" }
+local QUALITY_ORDER  = { 0, 1, 2, 3, 4 }
+local FAMILY_ORDER   = { "Tank", "Survivability", "Healer", "Caster", "Melee", "Ranged", "No family" }
+
+function EbonBuilds.ExportImport.GenerateAIText(build)
+    if not build then return "" end
+    local s = build.settings or EbonBuilds.Build.DefaultSettings()
+    local lines = {}
+    local function add(fmt, ...)
+        lines[#lines + 1] = select("#", ...) > 0 and string.format(fmt, ...) or fmt
+    end
+
+    add("=== EbonBuilds Settings Export (for AI analysis) ===")
+    add("Build: %s | Class: %s | Spec: %s", build.title or "?", build.class or "?", tostring(build.spec or "?"))
+    add("Automation mode: %s", (s.rerollMode or "sum") == "ev" and "Smart (EV)" or "Classic")
+    add("")
+
+    add("--- Bonus settings ---")
+    add("(+adds the value, x multiplies; below 1 in x mode reduces the score)")
+    local qLabelBonus, qLabelMode = {}, {}
+    for _, q in ipairs(QUALITY_ORDER) do
+        qLabelBonus[QUALITY_LABELS[q]] = (s.qualityBonus and s.qualityBonus[q]) or 0
+        qLabelMode[QUALITY_LABELS[q]]  = (s.qualityBonusMode and s.qualityBonusMode[q]) or false
+    end
+    local qualityKeys = {}
+    for _, q in ipairs(QUALITY_ORDER) do qualityKeys[#qualityKeys + 1] = QUALITY_LABELS[q] end
+    add(FormatBonusLine("Quality bonus", qLabelBonus, qLabelMode, qualityKeys))
+    add(FormatBonusLine("Family bonus", s.familyBonus or {}, s.familyBonusMode or {}, FAMILY_ORDER))
+    add("Novelty bonus: %s%d", (s.noveltyMode and "x" or "+"), s.noveltyValue or 0)
+    add("")
+
+    if (s.rerollMode or "sum") == "ev" then
+        add("--- Automation thresholds (Smart/EV mode) ---")
+        add("Smart Banish: %d%% of mean (average random card)", s.banishEVPct or 60)
+        add("Smart Reroll: %d%% of expected best-of-3 from a reroll", s.rerollEVPct or 95)
+        add("Smart Freeze: %d%% of expected best-of-3 of a future screen", s.freezeEVPct or 110)
+    else
+        add("--- Automation thresholds (Classic mode, % of this class's peak score) ---")
+        add("Auto-Banish: %d%%", s.autoBanishPct or 0)
+        add("Auto-Reroll: %d%%", s.autoRerollPct or 0)
+        add("Reroll Guard: %d%% (blocks reroll if any single echo scores at/above this)", s.rerollGuardPct or 90)
+        add("Auto-Freeze: %d%%", s.autoFreezePct or 0)
+    end
+    add("Freeze penalty: %d%% (score reduction applied to an already-frozen echo)", s.freezePenaltyPct or 0)
+    add("")
+    add("All thresholds also scale with remaining Banish/Reroll/Freeze charges (get")
+    add("stricter as a resource runs low) -- see /ebb debug for the live-adjusted values.")
+    add("")
+
+    -- Tuning Advisor data, if any has been collected -- gives the AI real
+    -- observed-vs-target numbers to reason from instead of just the
+    -- configured percentages.
+    if EbonBuilds.Calibration and EbonBuilds.Calibration.SampleCount() > 0 then
+        add("--- Tuning Advisor: real observed data (%d samples) ---", EbonBuilds.Calibration.SampleCount())
+        local function addSuggestion(label, result, unit)
+            if result.insufficientData then
+                add("%s: not enough data yet (%d/30 samples)", label, result.sampleCount)
+            else
+                add("%s: currently %.0f%% -> %s ~%.0f%% of real offers (target ~%.0f%%); observed data suggests %.0f%%",
+                    label, result.currentFieldPct,
+                    result.direction == "above" and "catches" or "rejects",
+                    result.currentFraction, result.targetFraction, result.suggestedFieldPct)
+            end
+        end
+        if (s.rerollMode or "sum") == "ev" then
+            addSuggestion("Smart Banish", EbonBuilds.Calibration.SuggestSmartBanish(s))
+            addSuggestion("Smart Freeze", EbonBuilds.Calibration.SuggestSmartFreeze(s))
+        else
+            addSuggestion("Banish", EbonBuilds.Calibration.SuggestBanish(s))
+            addSuggestion("Reroll", EbonBuilds.Calibration.SuggestReroll(s))
+            addSuggestion("Freeze", EbonBuilds.Calibration.SuggestFreeze(s))
+        end
+        add("")
+    end
+
+    -- Locked echo slots
+    add("--- Locked echoes (always picked if offered) ---")
+    local anyLocked = false
+    for i = 1, EbonBuilds.Build.LOCKED_SLOTS do
+        local spellId = build.lockedEchoes and build.lockedEchoes[i]
+        if spellId then
+            anyLocked = true
+            local name = GetSpellInfo(spellId) or ("spellId " .. spellId)
+            add("Slot %d: %s", i, name)
+        end
+    end
+    if not anyLocked then add("(none)") end
+    add("")
+
+    -- Banned echoes
+    local banList = s.echoBanList or {}
+    local bannedNames = {}
+    for spellId in pairs(banList) do
+        bannedNames[#bannedNames + 1] = GetSpellInfo(spellId) or ("spellId " .. spellId)
+    end
+    if #bannedNames > 0 then
+        table.sort(bannedNames)
+        add("--- Banned echoes (max banish priority, ignore score) ---")
+        add(table.concat(bannedNames, ", "))
+        add("")
+    end
+
+    -- Echo weights
+    add("--- Echo weights (%d configured, 0 = ignored) ---", (function()
+        local n = 0
+        for _, w in pairs(build.echoWeights or {}) do if w and w ~= 0 then n = n + 1 end end
+        return n
+    end)())
+    local weighted = {}
+    for name, w in pairs(build.echoWeights or {}) do
+        if w and w ~= 0 then
+            weighted[#weighted + 1] = { name = name, weight = w }
+        end
+    end
+    table.sort(weighted, function(a, b)
+        if a.weight ~= b.weight then return a.weight > b.weight end
+        return a.name < b.name
+    end)
+    for _, e in ipairs(weighted) do
+        add("%s: %d", e.name, e.weight)
+    end
+
+    return table.concat(lines, "\n")
+end
+
+function EbonBuilds.ExportImport.ShowAIExportDialog(build)
+    if not exportDialog then CreateExportDialog() end
+    local text = EbonBuilds.ExportImport.GenerateAIText(build)
+    exportDialog._title:SetText("Export for AI (plain text)")
+    exportDialog._editBox:SetText(text)
+    exportDialog._editBox:HighlightText()
+    exportDialog:Show()
 end
 
 ------------------------------------------------------------------------

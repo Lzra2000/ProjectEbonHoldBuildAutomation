@@ -15,8 +15,16 @@ local R = "|r"
 
 local PAGES = {
 {
-    title = "What's New in 2.37",
+    title = "What's New in 2.38",
     lines = {
+        GOLD .. "2.38: Export (AI) -- readable settings dump" .. R,
+        "- New button next to Export on the build edit screen",
+        "- Regular Export = compact string for other EbonBuilds users",
+        "- Export (AI) = plain text: bonuses, thresholds, locked/",
+        "  banned echoes, all weights, + Tuning Advisor data",
+        "- Paste into an external AI chat for tuning suggestions",
+        "- Not importable back into EbonBuilds -- read-only for humans/AI",
+        "",
         GOLD .. "2.37: Reroll Guard now paced too" .. R,
         "- Found from a real debug log: a 140/205 weighted echo got",
         "  rerolled away twice because the guard threshold (blocks",

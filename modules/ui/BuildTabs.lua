@@ -126,12 +126,36 @@ local function BuildViewFrame()
     exportBtn:SetSize(90, 22)
     exportBtn:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 10, 8)
     exportBtn:SetText("Export")
+    exportBtn:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:AddLine("Compact string for sharing this build with other EbonBuilds users (Import Build).", 0.8, 0.8, 0.8, true)
+        GameTooltip:Show()
+    end)
+    exportBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
     exportBtn:SetScript("OnClick", function()
         -- Export the build being edited in these tabs; fall back to the
         -- active build in create mode (where no saved build exists yet).
         local build = (state.context and state.context.build) or EbonBuilds.Build.GetActive()
         if build then
             EbonBuilds.ExportImport.ShowExportDialog(build)
+        end
+    end)
+
+    local exportAIBtn = EbonBuilds.Theme.CreateButton(f)
+    exportAIBtn:SetSize(90, 22)
+    exportAIBtn:SetPoint("LEFT", exportBtn, "RIGHT", 6, 0)
+    exportAIBtn:SetText("Export (AI)")
+    exportAIBtn:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:AddLine("Export (AI)", 1, 1, 1)
+        GameTooltip:AddLine("Plain-text dump of weights, bonuses, automation thresholds, and Tuning Advisor data -- meant to be pasted into an AI chat for analysis or tuning suggestions. Not for importing back into EbonBuilds.", 0.8, 0.8, 0.8, true)
+        GameTooltip:Show()
+    end)
+    exportAIBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    exportAIBtn:SetScript("OnClick", function()
+        local build = (state.context and state.context.build) or EbonBuilds.Build.GetActive()
+        if build then
+            EbonBuilds.ExportImport.ShowAIExportDialog(build)
         end
     end)
 

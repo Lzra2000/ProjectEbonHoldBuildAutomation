@@ -2,7 +2,7 @@
 -- Responsibility: addon bootstrap, saved-variable initialisation, module wiring.
 
 EbonBuilds = EbonBuilds or {}
-EbonBuilds.VERSION = "2.37"
+EbonBuilds.VERSION = "2.38"
 
 local eventFrame = CreateFrame("Frame")
 

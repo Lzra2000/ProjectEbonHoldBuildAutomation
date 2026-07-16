@@ -1,6 +1,6 @@
 # EbonBuilds — FAQ & Changelog
 
-*This file is updated with every release. Latest version: 2.37 — also available in-game via* `/ebb faq`
+*This file is updated with every release. Latest version: 2.38 — also available in-game via* `/ebb faq`
 
 ---
 
@@ -188,7 +188,15 @@ All three use the same shared curve (`ChargePacing`), just with per-lever comfor
 
 Known limitation: the Tuning Advisor's "current threshold rejects/catches X%" figure is computed against the *base* (unpaced) threshold value -- it's still a useful approximation, but not perfectly exact now that the real applied threshold shifts with remaining charges throughout a run.
 
+### Export (AI) -- new button (2.38)
+Next to the regular Export button (build edit screen, any tab) is a new **Export (AI)** button. Regular Export produces a compact Base64 string meant for another EbonBuilds client to Import -- not something a human or a general AI chat can read. Export (AI) instead produces a plain-text dump: quality/family/novelty bonuses, automation thresholds (with mode-appropriate labels), locked echoes, banned echoes, every configured echo weight, and -- if you've collected any -- the Tuning Advisor's real observed-vs-target data. Meant to be copied and pasted into an external AI chat to ask for tuning suggestions; it isn't a format EbonBuilds can import back in.
+
 ## Changelog
+
+### 2.38 (2026-07-16) -- Export (AI): plain-text settings dump for external analysis
+
+- **New: "Export (AI)" button** next to the existing Export button on the build edit screen. Produces a readable plain-text export (not the compact Base64 sync format) covering quality/family/novelty bonuses, automation thresholds (labeled per Classic/Smart mode), locked echoes, banned echoes, all configured echo weights, and Tuning Advisor data if any has been collected -- everything needed for an external AI to reason about the build's tuning.
+- New `EbonBuilds.ExportImport.GenerateAIText(build)`, verified against a mock build in isolation (including a real bug catch: a literal `%` in a no-args text line wasn't escaping correctly, fixed before release).
 
 ### 2.37 (2026-07-16) -- Reroll Guard now paced too (found via a real debug log)
 
