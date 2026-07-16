@@ -1,0 +1,212 @@
+# EbonBuilds — FAQ & Changelog
+
+*This file is updated with every release. Latest version: 2.11 — also available in-game via* `/ebb faq`
+
+---
+
+## FAQ
+
+### My reroll behavior feels different after updating. Is that a bug?
+No — two intentional changes affect it:
+
+1. **The peak score no longer includes the novelty bonus.** Previously the peak was inflated at run start (when everything is novel), which made percentage thresholds progressively unreachable as the run consumed novelty — freeze and reroll would quietly stop firing mid-run. The peak is now a stable reference for the whole run. Your percentage settings now mean what they say, but the absolute thresholds shifted.
+2. Old builds get the new settings keys backfilled automatically on login (Classic reroll mode, so behavior stays as-is until you opt in to Smart mode).
+
+If your thresholds feel off, press **Reset thresholds to default** once (it actually persists now — see below) and re-tune.
+
+### I pressed "Reset thresholds to default" and nothing changed. Why?
+That was a real bug, fixed in 2.0. Previously, every change in the Settings tab (including Reset) only lived in a temporary editing copy and was silently discarded unless you also pressed Save on the form tab. **Now all Settings-tab changes persist immediately** when editing an existing build: sliders (on release), reset button, reroll mode, family whitelist, ban list, and ban-all mode.
+
+### What is Smart Reroll and should I use it?
+A new opt-in reroll mode (button in the Automation tab: *"Reroll mode: Classic (sum) / Smart (expected value)"*).
+
+- **Classic** (default): reroll when the *sum* of all three offered scores is below *Auto-reroll %* of the peak, unless the guard blocks it.
+- **Smart**: reroll when the *best* offered echo is worse than X% of what an average reroll's best offer would be worth — computed exactly from your weights across every echo and quality tier your class can roll.
+
+Smart mode is immune to the classic mode's two failure modes: a single mega-weighted echo skewing the peak, and quality-bonus noise inflating the sum. Frozen and carried echoes are ignored on both sides of the comparison (they survive a reroll anyway). **Recommended: Smart mode at 95%** — that literally means "only reroll when this screen is worse than an average roll," which is never a losing trade statistically.
+
+### What are good Classic-mode settings?
+If you stay on Classic: Auto-reroll (sum) ~25–30%, Reroll guard ~30%, Auto-freeze ~15–20%, Auto-banish ~5%. The Settings tab now shows a live warning when your guard sits below your freeze threshold (junk echoes would block rerolls that could find freeze-worthy ones) or when banish sits at/above freeze.
+
+### My weighted class-specific echoes were ignored by automation. Fixed?
+Yes (2.0). Weights are stored under the database name (e.g. *"Warrior - Voidsteel Bulwark"*), but automation looked them up under the in-game spell name (*"Voidsteel Bulwark"*) — so class-prefixed echoes silently scored with weight 0. All lookups now go through one canonical name function, and a regression test pins it.
+
+### Automation froze an echo and then immediately picked it. Fixed?
+Yes (2.0). Selecting now excludes echoes frozen this round — the whole point of spending the freeze charge is to take something else on this screen and collect the frozen echo later. Carried echoes from previous screens remain selectable, as intended.
+
+### How do I report a problem so it can actually be fixed?
+1. `/ebb debug` — turns on decision tracing (confirmation in chat)
+2. Play until the problem happens
+3. `/ebb debuglog` — opens a window with the full trace, pre-selected: Ctrl+C and paste it in your report
+
+The log shows the peak, every threshold as an absolute number, every offered echo with score/weight/frozen state, and the reason behind every action or non-action. It's plain text, capped at the last 500 lines, and costs nothing while disabled.
+
+### The Missing tab showed duplicates / owned echoes as missing. Fixed?
+Yes (2.0): quality-tier grouping works now (one entry per echo line, owning any tier removes the line from Missing), the list no longer empties after every level-1 reset, and an empty spellbook at login shows "Requesting data..." instead of listing everything as missing.
+
+### Why are there 6 locked-echo slots now?
+The addon supports 6 locked slots everywhere (wizard, editor, overview, sync, export/import). Note: whether the **server** honors a 6th lock is a Project Ebonhold question — the addon side is ready.
+
+### What do the colors mean?
+Standard WoW rarity colors everywhere: white Common, green Uncommon, blue Rare, purple Epic, orange Legendary — on echo names in the table, picker, wizard, logbook, and as rings around locked-echo icons in build cards. Class colors follow the standard palette.
+
+---
+
+### How does the Tome Atlas work? (new in 2.2)
+An AtlasLoot-style **community drop database** for echo tomes. When you loot a tome, the addon records the mob and zone automatically and shares the observation with other EbonBuilds users (over the sync channel and guild). Data from other players arrives live as drops happen and whenever anyone syncs (Public Builds > Reload). Duplicate reports merge via max-count, so nothing ever double-counts.
+
+**Using it:** open via the *Tome Atlas* button in the left panel or `/ebb atlas`. Search by tome, mob, or zone. Toggle *"Show: Missing only"* to hide everything you already collected (matched against your Echoes spellbook — any quality tier counts as collected). The `(x3)` behind a source shows how often the community saw that drop.
+
+**For new players:** filter to *Missing only* and farm the zones with the most entries — that's your collection route.
+
+### What changed about syncing in 2.3?
+Reliability and efficiency, same protocol on the wire (old versions stay compatible):
+
+- **Lost transfers recover.** Previously a single dropped message meant that build silently never arrived. Now the receiver notices a stalled transfer, asks the sender to retransmit (up to 2 attempts), and falls back to other players offering the same build.
+- **No duplicate downloads.** When several players offer the same build during one sync, it is requested from only one of them.
+- **Flood protection.** Responders answer at most one sync request per player per 30 seconds.
+- **Feedback.** A toast summarizes each sync ("Sync complete: N build(s) received"), and with `/ebb debug` enabled the full sync traffic appears in the debug log.
+- Retransmit requests can only ever re-send **public** builds you own -- a forged request cannot extract private data.
+
+### What is Smart mode? (extended in 2.4)
+Toggle in the Automation tab. In Smart mode every automation decision is measured against **expected values computed exactly from your weights** instead of percentages of the peak: rerolls compare the best offer against an average reroll (default 95%, automatically paced by remaining charges from 100% down to 60%), banish removes cards worth less than an average random card (default 60%), and freeze saves cards beating the expected best of a future screen (default 110%). Classic mode remains the default and unchanged.
+
+### How do build chat links work? (new in 2.4)
+Open a build and press **Chat Link** — a token like `[EbonBuilds: Pyro Mage V2]` lands in your chat box and can be sent anywhere (say, guild, party, whisper). Other EbonBuilds users see it as a clickable link: clicking opens the build if they already have it, otherwise it is fetched automatically from any online player who owns it. Only **public** builds are ever served. Players without the addon simply see the plain text.
+
+### Where should I farm for missing tomes? (new in 2.4)
+The Tome Atlas now shows a **"Best farming"** line ranking zones by how many of *your* missing tomes have known sources there. Filter, fly, farm.
+
+### My Tome Atlas contributions never seemed to reach anyone. Fixed?
+Yes (2.5). If you had zero public builds, the sync responder returned before ever reaching the tome-sharing step -- your drop observations never went out. Fixed, and the Tome Atlas view now has its own **Sync** button next to the filter, so refreshing atlas data no longer requires a detour through Public Builds.
+
+### The Tome Atlas search box and buttons overlapped. Fixed?
+Yes (2.6). The search row and the count/filter/sync row now anchor to a single reference frame instead of independent fixed offsets, so they can't drift into each other again. The search box also has real placeholder text now ("Search tome, mob, or zone...").
+
+### Can I see the full drop list for a tome, not just the top 3?
+Yes (2.6). Hover any tome row: the tooltip shows the item itself (icon, quality) plus every known source, not just the three shown inline.
+
+### What are Affixes, and how is that different from Echoes?
+Project Ebonhold has two separate progression systems. **Echoes** are the run-based perks EbonBuilds has always been about. **Affixes** are a permanent, character-bound unlock applied to gear (weapon procs, armor stats) -- a different system entirely, previously only visible through third-party tooltip-scanning tools. EbonBuilds now reads it directly from the server's own data feed, so there's no guessing involved.
+
+### How do I use the Affixes tab? (new in 2.7)
+Open via the **Affixes** button in the left panel or `/ebb affix`. Every known affix is listed with a green dot (learned) or red dot (missing). Search by name, toggle *"Show: Missing only"*, and hover any entry for its full tooltip, weapon/armor restriction, apply cost, and use count. Press **Refresh** to request an updated list from the server (throttled to avoid spamming it).
+
+### The Missing tab said "Requesting data..." forever. Fixed?
+Yes (2.9). The tab reads your spellbook's "Echoes" category to know what you own -- but that category only exists once you've learned at least one echo, so a fresh character (or one who just reset) has no such tab, and the check used to wait for something that would never arrive. It now retries automatically every 1.5s, and after 15 seconds gives up waiting and shows the full list anyway. If that fallback triggers, it's logged in `/ebb debuglog` for reference.
+
+### My build disappeared after logging in later. What happened?
+This was a real bug, fixed in 2.11 -- not something you did wrong. Saving a build compares its stored author name to your current character name to decide whether it's yours or someone else's. `UnitName("player")` can occasionally come back from the game in a different format (with or without the realm attached) after a reconnect. That mismatch made the addon think your OWN build belonged to someone else, "forked" it into a new slot, and removed the old one.
+
+**Nothing was truly deleted.** The build kept existing under a different id, tagged with a "copied from `<your name>`" note. If you still have a build like that, it's yours -- rename it and clear the copied-from note via Edit Build. The comparison is now realm-suffix-tolerant, so this can't happen again.
+
+## Changelog
+
+### 2.11 (2026-07-14) -- important fix
+
+- **Fixed a real data-loss bug: your own build could be silently forked away and deleted from its original slot.** `Build.Save()` decided whether a build belonged to you via an *exact* string match against `UnitName("player")`. That name can return with or without a "-Realm" suffix depending on connection state (a known client quirk around reconnects/cross-realm zones), so a later save under a different name format made the addon treat your own build as foreign: it forked it under a new id and deleted the original. The comparison is now realm-suffix- and case-insensitive, matching the same normalization already used for sync/affix name checks. Applied the same fix to two related sync comparisons (self-loopback detection, "is this build already the requester's own") that had the identical risk, though those didn't cause data loss.
+
+
+### 2.10 (2026-07-14)
+
+- **Fixed: Tome Atlas header layout collision (again, properly this time).** The subtitle, "Best farming" line, search box, and control row were anchored in a chain, each depending on the previous element's actual rendered (word-wrapped) height. A subtitle long enough to wrap pushed everything below it down by a variable amount, causing overlap. Rebuilt with fixed absolute offsets from the panel -- text length can no longer affect anything else's position. Same fix applied to the new Affixes view, which shared the identical pattern.
+- **Fixed: long build titles could overflow their card in Public Builds.** Cards had a fixed height regardless of title length; a title long enough to wrap to 2 lines pushed the locked-echo icon row past the card's bottom edge, overlapping the next card in the list. Cards now measure the title first and grow to fit, mirroring the same fix the build list (left panel) already had.
+- **Fixed: the same overlap risk on the build Overview page header** (title -> author/date line -> status row) -- hardened with fixed-height reservations so a long title can't push the rows below it out of alignment.
+
+
+### 2.9 (2026-07-14)
+
+- **Fixed: Missing tab could get permanently stuck on "Requesting data...".** It only re-checked when the player manually clicked away and back; if the "Echoes" spellbook category didn't exist yet (any character with zero echoes learned -- the server doesn't create empty spellbook categories), there was nothing that would ever make it recheck successfully. Now auto-retries every 1.5s while the tab is open, and after 15s falls back to showing the full echo list instead of waiting forever.
+
+
+### 2.8 (2026-07-14)
+
+- **Fixed: 6th locked-echo icon clipped in the build list.** The left-panel row layout (icon size 22px, 28px spacing) was sized for 5 locked slots; when locked slots went 5->6, the 6th icon extended ~16px past the row's visible width and was cut off by the scroll frame. Icons are now 18px with 24px spacing, fitting all 6 with margin to spare.
+
+
+### 2.7 (2026-07-14)
+
+- **New: Affix tracking.** Reads Project Ebonhold's server-fed learned-affix protocol (whisper-based addon message channel, chunked transfer) directly -- no tooltip text-scanning, no false positives from set-bonus text or embedded color codes. New Affixes tab: search, missing-only filter, hover tooltips (item/spell info, weapon-only flag, apply cost, use count), manual Refresh with cooldown. Cached per character in `EbonBuildsCharDB`.
+- This is the foundation for planned follow-ups: party-wide affix comparison and build-level affix goals.
+
+
+### 2.6 (2026-07-14)
+
+- **Fixed: Tome Atlas header layout collision** -- search box, count label, filter, and sync button could visually overlap depending on content length. Rebuilt with a single anchor frame so the rows can't drift apart again.
+- **New: hover tooltips on Tome Atlas rows** -- shows the tome's item tooltip (icon/quality) plus the complete source list (mob, zone, count), not just the truncated 3-source inline text.
+- **New: real placeholder text** in the Tome Atlas search box.
+
+
+### 2.5 (2026-07-14)
+
+- **Fixed: players with no public builds never shared Tome Atlas data.** `HandleRequest` returned early (replying END) before reaching the tome-sharing loop whenever the responder had zero public builds -- silently dropping their drop contributions from the network.
+- **New: Sync button inside the Tome Atlas view**, with the same cooldown as Public Builds' Reload.
+- **UI cleanup:** the Automation toggle is now color-coded (green border when ON), Delete uses a red accent to read as a destructive action instead of a stray button, '+ New Build' gets a gold accent as the primary call-to-action, and the status/action button groups on the Overview page have clearer spacing.
+
+
+### 2.4 (2026-07-13)
+
+- **Smart mode extended:** expected-value thresholds now drive banish (vs. average card, default 60%) and freeze (vs. expected best-of-3, default 110%) alongside reroll; new sliders for both; reroll threshold auto-paces with remaining charges (100% at 8+, 60% at the last one). Debug log headers show `[SMART]`/`[CLASSIC]` with the effective absolute thresholds.
+- **New: build chat links** — `Chat Link` button on every build; clickable for addon users, click-to-fetch from any online owner (public builds only), plain text for everyone else.
+- **Tome Atlas:** "Best farming" zone ranking for your missing tomes.
+- **UI:** retail-style flat buttons across the entire addon (44 buttons reskinned).
+- **Fixed (important):** message sanitizing could corrupt sync payloads whose fields start with `c`+hex digits (about 1 in 16 build ids!) or `r` — silently breaking those transfers. Sanitizing is now anchored to the message start and can no longer touch payload content.
+
+
+### 2.3 (2026-07-13)
+
+- **Sync overhaul:** automatic retransmit of lost build transfers (bounded retries, multi-responder fallback), cross-responder download dedup, per-player request flood guard, sync summary toast, full sync tracing in `/ebb debug`, tome-share cap raised to 100 entries. Wire-compatible with older versions.
+
+
+### 2.2 (2026-07-13)
+
+- **New: Tome Atlas** — community-shared drop database for echo tomes (mob + zone + observed count). Automatic recording on loot, automatic sharing via sync channel and guild, idempotent merging, search + missing-only filter, `/ebb atlas`. Old client versions safely ignore the new sync messages.
+
+
+### 2.1 (2026-07-12)
+
+- **Fixed: Pro editor Save silently failed on imported builds.** Saving a build imported from another player forks it under a new internal id (by design, so the original author's build stays intact); every save path now adopts the new id instead of writing to the deleted old one.
+- **Fixed: opening the Settings tab could rewrite imported builds.** Programmatic slider refreshes clamped out-of-range values (e.g. freeze 150%) to the slider maximum and, combined with live persistence, saved the clamped value. Refreshes no longer write back.
+- **Freeze and guard sliders now go up to 200%.** Since the peak excludes novelty, novel echoes can legitimately score above 100% of peak; thresholds above 100% are meaningful (e.g. "freeze only novelty-boosted hits").
+- Note on flat novelty bonuses: a flat +100 novelty makes every unseen echo outrank known good ones and drains freeze/reroll charges. Prefer modest flat values or multiplier mode.
+
+
+### 2.0 (2026-07-12)
+
+**Automation correctness**
+- Peak score now excludes the transient novelty bonus (stable thresholds for the whole run)
+- Peak/EV caches are invalidated on build switch, build save, and new run (previously never — stale thresholds after any change)
+- Select no longer picks the echo frozen this round; local freeze state is cleared per choice screen and banish can no longer target a just-frozen echo
+- No reroll while a freeze round is in flight
+- Weights for class-prefixed echoes now apply (canonical name lookup shared between table and automation)
+
+**Smart Reroll (new)**
+- Opt-in expected-value reroll mode: rerolls when the best offer is below X% of the exact expected best-of-3 for your class and weights
+- Mode toggle + slider in the Automation tab; Classic remains the default
+
+**Settings tab**
+- All changes persist immediately when editing an existing build (sliders on release, reset, mode, whitelist, ban list) — fixes "reset did nothing"
+- Live conflict warnings: banish ≥ freeze, guard < freeze
+- Hover tooltips on every threshold slider with a worked example using your current peak
+- Priority-order explainer (Banish → Reroll → Freeze → Select) and reset-to-defaults button
+
+**Diagnostics (new)**
+- `/ebb debug` decision tracing, `/ebb debuglog` copyable log window
+
+**Stats tab**
+- Echoes Seen, Runs Completed/Reset, quality distribution, Most Picked/Banned now actually track (were never written); distribution percentages sum to 100%
+
+**Missing tab**
+- Quality-suffix grouping fixed (no duplicates, cross-tier owned detection works)
+- No longer filtered by current level; loading state instead of false "all missing"
+
+**Builds & UI**
+- 6th locked-echo slot everywhere; sparse locked slots survive save and export/import (numeric-key JSON round-trip fixed)
+- Duplicate build button; delete with 10-second Undo; wizard: class/spec selection, archetype presets, live peak preview, exact weight input, empty-echo-set warning
+- Retail-style dark theme; canonical WoW rarity + class colors from one shared palette; rarity rings on locked-echo icons
+- Window position remembered; ESC closes windows; run comparison deltas on session cards; score-breakdown tooltips in the Logbook
+- Export button exports the build being edited (not blindly the active one); public builds sorted validated-first
+
+**Compatibility & infrastructure**
+- Full 3.3.5a API audit; automated guard test against post-WotLK APIs (this class of bug can't ship again)
+- 111 automated tests

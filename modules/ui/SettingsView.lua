@@ -1,0 +1,809 @@
+-- EbonBuilds: modules/ui/SettingsView.lua
+-- Responsibility: render the Automation tab (banish protection, echo ban,
+-- peak display and auto-behaviour thresholds).
+-- Exposes Mount/Unmount. Reads and writes into BuildForm state.settings
+-- so unsaved edits persist across tabs.
+-- Layout-heavy/declarative: template-file exception applies.
+
+EbonBuilds.SettingsView = {}
+
+local QUALITY_LABELS = {
+    [0] = { name = "Common",    color = EbonBuilds.Quality.HEX[0] },
+    [1] = { name = "Uncommon",  color = EbonBuilds.Quality.HEX[1] },
+    [2] = { name = "Rare",      color = EbonBuilds.Quality.HEX[2] },
+    [3] = { name = "Epic",      color = EbonBuilds.Quality.HEX[3] },
+    [4] = { name = "Legendary", color = EbonBuilds.Quality.HEX[4] },
+}
+
+local FAMILY_ORDER = {
+    "Tank", "Survivability", "Healer", "Caster", "Melee", "Ranged", "No family",
+}
+
+local THRESHOLDS = {
+    { key = "autoBanishPct",    label = "Auto-banish %",
+      flavor = "When an offered echo's individual score falls below this threshold, the addon will try to banish it. Echoes from protected families are skipped.",
+      min = 0, max = 100, step = 1 },
+    { key = "autoRerollPct",    label = "Auto-reroll %",
+      flavor = "The addon sums the scores of all three offered echoes. If the total is below this threshold, a reroll is triggered.",
+      min = 0, max = 300, step = 1 },
+    { key = "rerollEVPct",      label = "Smart reroll %", evOnly = true,
+      flavor = "Smart mode: reroll when the best offered echo scores below this percentage of the expected best from a random reroll. Frozen and carried echoes are ignored on both sides.",
+      min = 0, max = 150, step = 1 },
+    { key = "banishEVPct",      label = "Smart banish %", evOnly = true,
+      flavor = "Smart mode: banish echoes worth less than this percentage of an average random card (a banish replaces exactly one card).",
+      min = 0, max = 150, step = 1 },
+    { key = "freezeEVPct",      label = "Smart freeze %", evOnly = true,
+      flavor = "Smart mode: freeze echoes scoring above this percentage of the expected best of a future screen.",
+      min = 0, max = 200, step = 1 },
+    { key = "rerollGuardPct",   label = "Reroll guard %",
+      flavor = "Blocks reroll if any single offered echo scores above this threshold, regardless of the sum.",
+      min = 0, max = 200, step = 1 },
+    { key = "autoFreezePct",    label = "Auto-freeze %",
+      flavor = "Triggers when at least two offered echoes score above this threshold. The lowest-scored among them gets frozen, and the highest will be picked afterwards.",
+      min = 0, max = 200, step = 1 },
+    { key = "freezePenaltyPct", label = "Freeze penalty %",
+      flavor = "Reduces a frozen echo's score to give priority to unpicked choices. The penalty is applied once and persists until the echo is selected.",
+      min = 0, max = 50,  step = 1 },
+}
+
+local viewFrame
+local scrollFrame, scrollChild, scrollBar
+local thresholdSliders = {}
+local peakLabel
+local conflictWarningLabel
+local refreshRerollModeBtn
+-- True while RefreshInputs programmatically moves sliders: SetValue clamps
+-- to the slider range and fires OnValueChanged, which must NOT write the
+-- clamped value back into settings (that silently rewrote imported builds
+-- whose thresholds exceeded a slider's max).
+local suppressSliderWrite = false
+local whitelistToggles = {}
+local whitelistWarningLabel
+
+-- Echo ban state
+local echoBanItems = {}
+local echoBanFrame
+local echoBanScroll, echoBanScrollChild, echoBanScrollBar
+local echoBanAllButton
+
+local CONTENT_HEIGHT = 1315
+
+local function CreateModeToggle(parent, x, y)
+    local btn = CreateFrame("Button", nil, parent)
+    btn:SetWidth(20)
+    btn:SetHeight(22)
+    btn:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
+    btn:SetBackdrop({
+        bgFile   = "Interface\\Buttons\\WHITE8X8",
+        edgeFile = "Interface\\Buttons\\WHITE8X8",
+        edgeSize = 1,
+        insets = { left = 1, right = 1, top = 1, bottom = 1 },
+    })
+    btn:SetBackdropColor(0.15, 0.15, 0.15, 0.8)
+    btn:SetBackdropBorderColor(0.4, 0.4, 0.4, 1)
+
+    local label = btn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    label:SetPoint("CENTER", btn, "CENTER", 0, 0)
+    label:SetText("+")
+    btn.modeLabel = label
+    btn.multiplicative = false
+
+    btn:SetScript("OnClick", function()
+        btn.multiplicative = not btn.multiplicative
+        btn.modeLabel:SetText(btn.multiplicative and "|cff19ff19x|r" or "+")
+        btn.onToggle()
+    end)
+    return btn
+end
+
+------------------------------------------------------------------------
+-- Highlight border helper (shared by toggle buttons)
+------------------------------------------------------------------------
+
+local function HighlightBorder(btn, on)
+    if not btn._border then
+        local b = btn:CreateTexture(nil, "OVERLAY")
+        b:SetAllPoints(btn)
+        b:SetTexture("Interface\\Buttons\\CheckButtonHilight")
+        b:SetBlendMode("ADD")
+        b:Hide()
+        btn._border = b
+    end
+    if on then btn._border:Show() else btn._border:Hide() end
+end
+
+------------------------------------------------------------------------
+-- Peak display
+------------------------------------------------------------------------
+
+local function RefreshPeak()
+    if not peakLabel then return 0 end
+    local settings = EbonBuilds.BuildForm.GetEditingSettings()
+    local class    = EbonBuilds.BuildForm.GetEditingClass()
+    local name, score = EbonBuilds.Scoring.ComputePeak(class, settings)
+    if name then
+        peakLabel:SetText(string.format("Peak: %s = %d", name, score))
+    else
+        peakLabel:SetText("Peak: (no echoes)")
+    end
+    return score or 0
+end
+
+------------------------------------------------------------------------
+-- Threshold conflict warning
+------------------------------------------------------------------------
+
+-- Persist the current editing settings onto the build immediately when an
+-- existing build is being edited. Without this, every change in this tab
+-- (including "Reset to default") lived only in BuildForm's clone and was
+-- silently discarded unless the user also pressed Save on the form tab --
+-- the classic "I reset to defaults but nothing changed" report.
+local function PersistIfEditing()
+    local id = EbonBuilds.BuildForm.GetEditingBuildId
+        and EbonBuilds.BuildForm.GetEditingBuildId()
+    if not id then return end
+    local editing = EbonBuilds.BuildForm.GetEditingSettings()
+    local saved = EbonBuilds.Build.Save(id, { settings = EbonBuilds.Build.CloneSettings(editing) })
+    -- Saving an imported (foreign-author) build forks it under a NEW id and
+    -- deletes the old one. Adopt the new id, or every later save -- including
+    -- the form's Save button -- would hit the deleted id and silently no-op.
+    if saved and saved.id ~= id and EbonBuilds.BuildForm.NoteRekey then
+        EbonBuilds.BuildForm.NoteRekey(saved.id)
+    end
+end
+
+local function RefreshConflictWarning()
+    if not conflictWarningLabel then return end
+    local settings = EbonBuilds.BuildForm.GetEditingSettings()
+    local banish = settings.autoBanishPct or 0
+    local freeze = settings.autoFreezePct or 0
+    local guard  = settings.rerollGuardPct or 0
+    if banish >= freeze then
+        conflictWarningLabel:SetText(
+            "Warning: Auto-banish (" .. banish .. "%) is at or above Auto-freeze (" .. freeze ..
+            "%). Banish runs first each evaluation, so it may claim echoes before Freeze ever sees them.")
+    elseif guard > 0 and guard < freeze then
+        conflictWarningLabel:SetText(
+            "Warning: Reroll guard (" .. guard .. "%) is below Auto-freeze (" .. freeze ..
+            "%). Low-value echoes will block rerolls that could have found freeze-worthy ones. " ..
+            "Consider setting the guard at or above the freeze threshold.")
+    else
+        conflictWarningLabel:SetText("")
+    end
+end
+
+------------------------------------------------------------------------
+-- Banish family whitelist section
+------------------------------------------------------------------------
+
+local function RefreshWhitelistToggles()
+    local settings = EbonBuilds.BuildForm.GetEditingSettings()
+    settings.banishFamilyWhitelist = settings.banishFamilyWhitelist or {}
+    local allSelected = true
+    for _, fam in ipairs(FAMILY_ORDER) do
+        local row = whitelistToggles[fam]
+        if row and row.checkTex then
+            local selected = settings.banishFamilyWhitelist[fam] or false
+            if selected then row.checkTex:Show() else row.checkTex:Hide() end
+            if not selected then allSelected = false end
+        end
+    end
+    if whitelistWarningLabel then
+        if allSelected then
+            whitelistWarningLabel:Show()
+        else
+            whitelistWarningLabel:Hide()
+        end
+    end
+end
+
+local function CommitWhitelistToggle(family)
+    local settings = EbonBuilds.BuildForm.GetEditingSettings()
+    settings.banishFamilyWhitelist = settings.banishFamilyWhitelist or {}
+    if settings.banishFamilyWhitelist[family] then
+        settings.banishFamilyWhitelist[family] = nil
+    else
+        settings.banishFamilyWhitelist[family] = true
+    end
+    RefreshWhitelistToggles()
+end
+
+local WHITELIST_ROW1 = { "Tank", "Survivability", "Healer", "Caster" }
+local WHITELIST_ROW2 = { "Melee", "Ranged", "No family" }
+
+local function BuildBanishWhitelistSection(parent, x, y)
+    local header = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    header:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
+    header:SetText("Banish Protection:")
+
+    local hint = parent:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    hint:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -2)
+    hint:SetText("Checked families are protected from banish.")
+
+    local function CreateWhitelistRow(parent, fam, px, py)
+        local row = CreateFrame("Button", nil, parent)
+        row:SetWidth(18)
+        row:SetHeight(18)
+        row:SetPoint("TOPLEFT", parent, "TOPLEFT", px, py)
+        row.family = fam
+
+        local cb = row:CreateTexture(nil, "ARTWORK")
+        cb:SetWidth(14)
+        cb:SetHeight(14)
+        cb:SetPoint("LEFT", row, "LEFT", 2, 0)
+        cb:SetTexture("Interface\\Buttons\\UI-CheckBox-Check")
+        cb:Hide()
+        row.checkTex = cb
+
+        local bg = row:CreateTexture(nil, "BORDER")
+        bg:SetWidth(14)
+        bg:SetHeight(14)
+        bg:SetPoint("LEFT", row, "LEFT", 1, 0)
+        bg:SetTexture("Interface\\Buttons\\UI-CheckBox-Up")
+        bg:SetAlpha(0.8)
+
+        row:SetScript("OnClick", function(self)
+            CommitWhitelistToggle(self.family)
+            PersistIfEditing()
+        end)
+        whitelistToggles[fam] = row
+
+        local lbl = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        lbl:SetText(fam)
+        lbl:SetPoint("LEFT", row, "RIGHT", 4, 0)
+        lbl:SetJustifyH("LEFT")
+    end
+
+    for i, fam in ipairs(WHITELIST_ROW1) do
+        CreateWhitelistRow(parent, fam, x + (i - 1) * 110, y - 32)
+    end
+
+    for i, fam in ipairs(WHITELIST_ROW2) do
+        CreateWhitelistRow(parent, fam, x + (i - 1) * 110, y - 58)
+    end
+
+    whitelistWarningLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    whitelistWarningLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y - 86)
+    whitelistWarningLabel:SetWidth(400)
+    whitelistWarningLabel:SetJustifyH("LEFT")
+    whitelistWarningLabel:SetText("|cffff0000All families are protected. At least one must be unprotected for banish to work.|r")
+    whitelistWarningLabel:Hide()
+
+    local banNote = parent:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    banNote:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y - 115)
+    banNote:SetWidth(490)
+    banNote:SetJustifyH("LEFT")
+    banNote:SetText("Banned echoes with protected families are deprioritized, not excluded from selection. If all offered are banned, the fallback are applied.")
+end
+
+------------------------------------------------------------------------
+-- Echo Ban section
+------------------------------------------------------------------------
+
+local QUALITY_BORDER_COLORS = EbonBuilds.Quality.RGB
+
+local ICON_SIZE  = 28
+local ICON_GAP   = 4
+local ICON_STEP  = ICON_SIZE + ICON_GAP
+local BAN_LIST_W = 500
+local BAN_LIST_PADDING = 4
+
+local function RefreshBanList()
+    if not echoBanFrame then return end
+    for _, item in ipairs(echoBanItems) do
+        item:Hide()
+    end
+
+    local settings = EbonBuilds.BuildForm.GetEditingSettings()
+    local banList = settings.echoBanList or {}
+    local cols = math.floor((BAN_LIST_W - BAN_LIST_PADDING) / ICON_STEP)
+    local idx = 0
+
+    for spellId, echoName in pairs(banList) do
+        local quality = 0
+        local data = ProjectEbonhold.PerkDatabase[spellId]
+        if data then quality = data.quality or 0 end
+        local borderColor = QUALITY_BORDER_COLORS[quality] or QUALITY_BORDER_COLORS[0]
+
+        idx = idx + 1
+        if not echoBanItems[idx] then
+            local btn = CreateFrame("Button", nil, echoBanScrollChild)
+            btn:SetSize(ICON_SIZE, ICON_SIZE)
+
+            local icon = btn:CreateTexture(nil, "ARTWORK")
+            icon:SetPoint("TOPLEFT",     btn, "TOPLEFT",     2, -2)
+            icon:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", -2,  2)
+            icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+            btn._icon = icon
+
+            local border = btn:CreateTexture(nil, "BORDER")
+            border:SetPoint("TOPLEFT",     btn, "TOPLEFT",     -1,  1)
+            border:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT",  1, -1)
+            btn._border = border
+
+            btn:RegisterForClicks("LeftButtonUp")
+            btn:SetScript("OnEnter", function(self)
+                if not self.spellId then return end
+                local spellName = GetSpellInfo(self.spellId)
+                GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+                GameTooltip:ClearLines()
+                if spellName then
+                    local q = self._quality or 0
+                    local c = QUALITY_LABELS[q] and QUALITY_LABELS[q].color or "ffffff"
+                    GameTooltip:AddLine(string.format("|cff%s%s|r", c, spellName), 1, 1, 1)
+                end
+                if utils and utils.GetSpellDescription then
+                    local desc = utils.GetSpellDescription(self.spellId, 500, 1)
+                    if desc and desc ~= "" then
+                        GameTooltip:AddLine(desc, 1, 1, 1, true)
+                    end
+                end
+                GameTooltip:Show()
+            end)
+            btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+            btn:SetScript("OnClick", function(self)
+                local s = EbonBuilds.BuildForm.GetEditingSettings()
+                local id = self._spellId
+                if id then s.echoBanList[id] = nil end
+                RefreshBanList()
+                PersistIfEditing()
+            end)
+            echoBanItems[idx] = btn
+        end
+
+        local btn = echoBanItems[idx]
+        btn._icon:SetTexture(select(3, GetSpellInfo(spellId)))
+        btn.spellId = spellId
+        btn._spellId = spellId
+        btn._quality = quality
+        btn._border:SetTexture(borderColor[1], borderColor[2], borderColor[3])
+        btn._border:Show()
+        local col = (idx - 1) % cols
+        local row = math.floor((idx - 1) / cols)
+        btn:SetPoint("TOPLEFT", echoBanScrollChild, "TOPLEFT", BAN_LIST_PADDING + col * ICON_STEP, -BAN_LIST_PADDING - row * ICON_STEP)
+        btn:Show()
+    end
+
+    local rows = math.ceil(idx / math.max(cols, 1))
+    local contentHeight = math.max(rows * ICON_STEP, echoBanFrame:GetHeight())
+    echoBanScrollChild:SetHeight(contentHeight)
+    local range = math.max(0, contentHeight - echoBanFrame:GetHeight())
+    echoBanScrollBar:SetMinMaxValues(0, range)
+    if range > 0 then
+        echoBanScroll:EnableMouseWheel(true)
+    else
+        echoBanScroll:EnableMouseWheel(false)
+    end
+
+    if idx == 0 then
+        echoBanFrame._emptyLabel:Show()
+    else
+        echoBanFrame._emptyLabel:Hide()
+    end
+end
+
+local function AddEchoToBan(name, spellId)
+    local settings = EbonBuilds.BuildForm.GetEditingSettings()
+    settings.echoBanList = settings.echoBanList or {}
+    settings.echoBanList[spellId] = name
+    RefreshBanList()
+    PersistIfEditing()
+end
+
+local function BuildEchoBanSection(parent, x, y)
+    local header = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    header:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
+    header:SetText("Echo Ban:")
+
+    local hint = parent:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    hint:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -4)
+    hint:SetText("Echoes listed here get max banish priority and ignore scores.")
+
+    local addBtn = EbonBuilds.Theme.CreateButton(parent)
+    addBtn:SetWidth(90)
+    addBtn:SetHeight(20)
+    addBtn:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y - 30)
+    addBtn:SetText("Add Echo")
+    addBtn:SetScript("OnClick", function()
+        local allList = EbonBuilds.EchoTableRows.BuildAllQualitiesList()
+        local settings = EbonBuilds.BuildForm.GetEditingSettings()
+        local banList = settings.echoBanList or {}
+        local filtered = {}
+        for _, entry in ipairs(allList) do
+            if not banList[entry.spellId] and not EbonBuilds.Scoring.IsLocked(entry.spellId) then
+                filtered[#filtered + 1] = entry
+            end
+        end
+        EbonBuilds.EchoPicker.Show(function(spellId, quality, name)
+            AddEchoToBan(name, spellId)
+        end, filtered)
+    end)
+
+    local listFrame = CreateFrame("Frame", nil, parent)
+    listFrame:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y - 56)
+    listFrame:SetWidth(BAN_LIST_W)
+    listFrame:SetHeight(120)
+
+    echoBanScroll = CreateFrame("ScrollFrame", nil, listFrame)
+    echoBanScroll:SetPoint("TOPLEFT",     listFrame, "TOPLEFT",     0, 0)
+    echoBanScroll:SetPoint("BOTTOMRIGHT", listFrame, "BOTTOMRIGHT", 0, 0)
+
+    echoBanScrollChild = CreateFrame("Frame", nil, echoBanScroll)
+    echoBanScrollChild:SetWidth(BAN_LIST_W)
+    echoBanScrollChild:SetHeight(120)
+    echoBanScroll:SetScrollChild(echoBanScrollChild)
+
+    echoBanScrollBar = CreateFrame("Slider", nil, listFrame, "UIPanelScrollBarTemplate")
+    echoBanScrollBar:SetPoint("TOPLEFT",     listFrame, "TOPRIGHT",     0, -2)
+    echoBanScrollBar:SetPoint("BOTTOMLEFT",  listFrame, "BOTTOMRIGHT",  0,  2)
+    echoBanScrollBar:SetValueStep(ICON_STEP)
+    echoBanScrollBar:SetValue(0)
+    echoBanScrollBar:SetScript("OnValueChanged", function(self, value)
+        echoBanScrollChild:SetPoint("TOPLEFT", echoBanScroll, "TOPLEFT", 0, value)
+    end)
+
+    echoBanScroll:EnableMouseWheel(false)
+    echoBanScroll:SetScript("OnMouseWheel", function(self, delta)
+        local current  = echoBanScrollBar:GetValue()
+        local min, max = echoBanScrollBar:GetMinMaxValues()
+        echoBanScrollBar:SetValue(math.max(min, math.min(max, current - delta * ICON_STEP)))
+    end)
+
+    local empty = listFrame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    empty:SetPoint("TOPLEFT", listFrame, "TOPLEFT", 10, -4)
+    empty:SetText("No echoes banned.")
+    listFrame._emptyLabel = empty
+
+    echoBanFrame = listFrame
+
+    local allLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    allLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y - 190)
+    allLabel:SetWidth(300)
+    allLabel:SetJustifyH("LEFT")
+    allLabel:SetText("When all offered are banned and no charges left:")
+
+    echoBanAllButton = EbonBuilds.Theme.CreateButton(parent)
+    echoBanAllButton:SetWidth(110)
+    echoBanAllButton:SetHeight(20)
+    echoBanAllButton:SetPoint("TOPLEFT", parent, "TOPLEFT", x + 310, y - 185)
+    echoBanAllButton:SetText("Highest Score")
+    echoBanAllButton._value = "highestScore"
+    echoBanAllButton:SetScript("OnClick", function(self)
+        -- (persisted at end of handler)
+        if self._value == "highestScore" then
+            self._value = "random"
+            self:SetText("Random")
+        else
+            self._value = "highestScore"
+            self:SetText("Highest Score")
+        end
+        local s = EbonBuilds.BuildForm.GetEditingSettings()
+        s.echoBanAllMode = self._value
+    end)
+end
+
+------------------------------------------------------------------------
+-- Peak row
+------------------------------------------------------------------------
+
+local function BuildPeakRow(parent, x, y)
+    peakLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    peakLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
+    peakLabel:SetText("Peak: -")
+
+    local note = parent:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    note:SetPoint("TOPLEFT", peakLabel, "BOTTOMLEFT", 0, -2)
+    note:SetWidth(480)
+    note:SetJustifyH("LEFT")
+    note:SetText("The highest echo score for this class after all bonuses are applied. All automation thresholds are percentages of this value. Locked at run start.")
+end
+
+------------------------------------------------------------------------
+-- Threshold section (auto-banish / auto-reroll / auto-freeze / penalty)
+------------------------------------------------------------------------
+
+local SLIDER_W = 400
+
+local function CreateThresholdSlider(parent, x, y, entry)
+    local lbl = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    lbl:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
+    lbl:SetText(entry.label)
+
+    local flavorY = y - 20
+    if entry.flavor then
+        local flavor = parent:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+        flavor:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y - 16)
+        flavor:SetWidth(SLIDER_W)
+        flavor:SetJustifyH("LEFT")
+        flavor:SetText(entry.flavor)
+        flavorY = y - 58
+    end
+
+    local slider = CreateFrame("Slider", nil, parent)
+    slider:SetPoint("TOPLEFT", parent, "TOPLEFT", x, flavorY)
+    slider:SetWidth(SLIDER_W)
+    slider:SetHeight(24)
+    slider:SetOrientation("HORIZONTAL")
+    slider:SetMinMaxValues(entry.min, entry.max)
+    slider:SetValueStep(entry.step)
+
+    local track = slider:CreateTexture(nil, "BACKGROUND")
+    track:SetTexture(0.25, 0.25, 0.25, 0.8)
+    track:SetPoint("LEFT", slider, "LEFT", 0, 0)
+    track:SetPoint("RIGHT", slider, "RIGHT", 0, 0)
+    track:SetPoint("CENTER", slider, "CENTER", 0, 0)
+    track:SetHeight(6)
+
+    local thumb = slider:CreateTexture(nil, "OVERLAY")
+    thumb:SetTexture("Interface\\Buttons\\UI-SliderBar-Button-Horizontal")
+    thumb:SetWidth(16)
+    thumb:SetHeight(24)
+    slider:SetThumbTexture(thumb)
+
+    -- Live worked example on hover, so the percentage becomes concrete.
+    slider:EnableMouse(true)
+    slider:SetScript("OnEnter", function(self)
+        local settings = EbonBuilds.BuildForm.GetEditingSettings()
+        local class = EbonBuilds.BuildForm.GetEditingClass()
+        local _, peak = EbonBuilds.Scoring.ComputePeak(class, settings)
+        local v = math.floor(self:GetValue())
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:AddLine(entry.label, 1, 1, 1)
+        if peak and peak > 0 then
+            local abs = math.floor(peak * v / 100)
+            if entry.key == "autoBanishPct" then
+                GameTooltip:AddLine(string.format("Example: at peak %d and %d%%, echoes scoring below %d get banished.", peak, v, abs), 0.8, 0.8, 0.8, true)
+            elseif entry.key == "autoRerollPct" then
+                GameTooltip:AddLine(string.format("Example: at peak %d and %d%%, a reroll triggers when all three offered echoes together score below %d.", peak, v, abs), 0.8, 0.8, 0.8, true)
+            elseif entry.key == "rerollGuardPct" then
+                GameTooltip:AddLine(string.format("Example: at peak %d and %d%%, no reroll happens if any single echo scores above %d.", peak, v, abs), 0.8, 0.8, 0.8, true)
+            elseif entry.key == "autoFreezePct" then
+                GameTooltip:AddLine(string.format("Example: at peak %d and %d%%, freezing kicks in when two offered echoes each score above %d.", peak, v, abs), 0.8, 0.8, 0.8, true)
+            elseif entry.key == "freezePenaltyPct" then
+                GameTooltip:AddLine(string.format("Example: a frozen echo scoring %d is treated as %d while frozen.", peak, math.floor(peak * (100 - v) / 100)), 0.8, 0.8, 0.8, true)
+            end
+        else
+            GameTooltip:AddLine("Percentages are relative to the peak score (currently unavailable).", 0.8, 0.8, 0.8, true)
+        end
+        GameTooltip:Show()
+    end)
+    slider:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+    local valText = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    valText:SetPoint("LEFT", slider, "RIGHT", 8, 0)
+    valText:SetWidth(40)
+    valText:SetJustifyH("LEFT")
+    slider._valText = valText
+
+    local absLabel = nil
+    if entry.key ~= "freezePenaltyPct" then
+        absLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        absLabel:SetPoint("LEFT", valText, "RIGHT", 2, 0)
+        absLabel:SetWidth(60)
+        absLabel:SetJustifyH("LEFT")
+    end
+    slider._absLabel = absLabel
+
+    slider:SetScript("OnMouseUp", function() PersistIfEditing() end)
+    slider:SetScript("OnValueChanged", function(self, value)
+        if suppressSliderWrite then return end
+        local v = math.floor(value + 0.5)
+        valText:SetText(v .. "%")
+        local settings = EbonBuilds.BuildForm.GetEditingSettings()
+        settings[entry.key] = v
+        if self._absLabel then
+            local peak = RefreshPeak()
+            if peak > 0 then
+                self._absLabel:SetText("= " .. math.floor(peak * v / 100))
+            else
+                self._absLabel:SetText("")
+            end
+        else
+            RefreshPeak()
+        end
+        RefreshConflictWarning()
+    end)
+
+    return slider
+end
+
+-- Forward declaration: the reset button inside BuildThresholdsSection needs
+-- RefreshInputs, which is defined further down. Without this, the closure
+-- would bind a nil global and error on click.
+local RefreshInputs
+
+local function BuildThresholdsSection(parent, x, y)
+    local header = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    header:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
+    header:SetText("Automation Thresholds:")
+
+    local sub = parent:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    sub:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -2)
+    sub:SetText("Values are percentages of the Peak score.")
+
+    local order = parent:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    order:SetPoint("TOPLEFT", sub, "BOTTOMLEFT", 0, -2)
+    order:SetText("Each evaluation tries these in order, stopping at the first that fires: Banish -> Reroll -> Freeze -> Select.")
+
+    conflictWarningLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    conflictWarningLabel:SetPoint("TOPLEFT", order, "BOTTOMLEFT", 0, -4)
+    conflictWarningLabel:SetWidth(SLIDER_W)
+    conflictWarningLabel:SetJustifyH("LEFT")
+    conflictWarningLabel:SetTextColor(1, 0.65, 0.15, 1)
+    conflictWarningLabel:SetText("")
+
+    local modeBtn = EbonBuilds.Theme.CreateButton(parent)
+    modeBtn:SetSize(210, 20)
+    modeBtn:SetPoint("TOPLEFT", conflictWarningLabel, "BOTTOMLEFT", 0, -6)
+    local function RefreshModeBtn()
+        local settings = EbonBuilds.BuildForm.GetEditingSettings()
+        if (settings.rerollMode or "sum") == "ev" then
+            modeBtn:SetText("Automation mode: Smart (EV)")
+        else
+            modeBtn:SetText("Automation mode: Classic (peak %)")
+        end
+    end
+    modeBtn:SetScript("OnClick", function()
+        local settings = EbonBuilds.BuildForm.GetEditingSettings()
+        settings.rerollMode = (settings.rerollMode or "sum") == "sum" and "ev" or "sum"
+        RefreshModeBtn()
+        PersistIfEditing()
+    end)
+    modeBtn:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:AddLine("Automation decision mode", 1, 1, 1)
+        GameTooltip:AddLine("Classic: reroll when the SUM of all three scores is below Auto-reroll %, unless the guard blocks it.", 0.8, 0.8, 0.8, true)
+        GameTooltip:AddLine("Smart: all thresholds are computed from expected values of random offers instead of peak percentages. Reroll when the best offer is below Smart reroll % of an average reroll (with charge pacing); banish below Smart banish % of an average card; freeze above Smart freeze % of an expected best-of-3. Immune to peak outliers.", 0.8, 0.8, 0.8, true)
+        GameTooltip:Show()
+    end)
+    modeBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    refreshRerollModeBtn = RefreshModeBtn
+    RefreshModeBtn()
+
+    local resetBtn = EbonBuilds.Theme.CreateButton(parent)
+    resetBtn:SetSize(150, 20)
+    resetBtn:SetPoint("TOPLEFT", modeBtn, "BOTTOMLEFT", 0, -4)
+    resetBtn:SetText("Reset thresholds to default")
+    resetBtn:SetScript("OnClick", function()
+        local settings = EbonBuilds.BuildForm.GetEditingSettings()
+        local defaults = EbonBuilds.Build.DefaultSettings()
+        for _, entry in ipairs(THRESHOLDS) do
+            settings[entry.key] = defaults[entry.key]
+        end
+        RefreshInputs()
+        PersistIfEditing()
+        EbonBuilds.Toast.Show("Automation thresholds reset to default")
+    end)
+
+    for i, entry in ipairs(THRESHOLDS) do
+        local cy = y - 124 - (i - 1) * 85
+        local slider = CreateThresholdSlider(parent, x + 10, cy, entry)
+        thresholdSliders[entry.key] = slider
+    end
+end
+
+------------------------------------------------------------------------
+-- Refresh (called on Mount)
+------------------------------------------------------------------------
+
+function RefreshInputs()
+    local settings = EbonBuilds.BuildForm.GetEditingSettings()
+    suppressSliderWrite = true
+    for _, entry in ipairs(THRESHOLDS) do
+        local slider = thresholdSliders[entry.key]
+        if slider then
+            local val = settings[entry.key] or 0
+            slider:SetValue(val)
+            slider._valText:SetText(val .. "%")
+        end
+    end
+    RefreshWhitelistToggles()
+    RefreshBanList()
+    if echoBanAllButton then
+        local mode = settings.echoBanAllMode or "highestScore"
+        echoBanAllButton._value = mode
+        echoBanAllButton:SetText(mode == "random" and "Random" or "Highest Score")
+    end
+    local peak = RefreshPeak()
+    for _, entry in ipairs(THRESHOLDS) do
+        local slider = thresholdSliders[entry.key]
+        if slider and slider._absLabel then
+            local val = settings[entry.key] or 0
+            if peak > 0 then
+                slider._absLabel:SetText("= " .. math.floor(peak * val / 100))
+            else
+                slider._absLabel:SetText("")
+            end
+        end
+    end
+    suppressSliderWrite = false
+    RefreshConflictWarning()
+    if refreshRerollModeBtn then refreshRerollModeBtn() end
+end
+
+local function CommitFocusedBoxes()
+end
+
+------------------------------------------------------------------------
+-- Scroll helpers
+------------------------------------------------------------------------
+
+local function UpdateScrollRange()
+    if not scrollFrame or not scrollBar then return end
+    local sfHeight = scrollFrame:GetHeight()
+    local range = math.max(0, CONTENT_HEIGHT - sfHeight)
+    scrollBar:SetMinMaxValues(0, range)
+    if scrollBar:GetValue() > range then scrollBar:SetValue(range) end
+end
+
+------------------------------------------------------------------------
+-- Frame
+------------------------------------------------------------------------
+
+local function BuildViewFrame(parent)
+    local f = CreateFrame("Frame", nil, parent)
+
+    local header = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    header:SetPoint("TOPLEFT", f, "TOPLEFT", 10, -10)
+    header:SetText("Automation")
+
+    scrollFrame = CreateFrame("ScrollFrame", nil, f)
+    scrollFrame:SetPoint("TOPLEFT",     f, "TOPLEFT",     0, -28)
+    scrollFrame:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -22, 10)
+
+    scrollChild = CreateFrame("Frame", nil, scrollFrame)
+    scrollChild:SetWidth(520)
+    scrollChild:SetHeight(CONTENT_HEIGHT)
+    scrollFrame:SetScrollChild(scrollChild)
+
+    scrollBar = CreateFrame("Slider", nil, scrollFrame, "UIPanelScrollBarTemplate")
+    scrollBar:SetPoint("TOPLEFT",     scrollFrame, "TOPRIGHT",     -2, -4)
+    scrollBar:SetPoint("BOTTOMLEFT",  scrollFrame, "BOTTOMRIGHT",  -2,  4)
+    scrollBar:SetValueStep(20)
+    scrollBar:SetValue(0)
+
+    scrollBar:SetScript("OnValueChanged", function(self, value)
+        scrollChild:SetPoint("TOPLEFT", scrollFrame, "TOPLEFT", 0, value)
+    end)
+
+    scrollFrame:EnableMouseWheel(true)
+    scrollFrame:SetScript("OnMouseWheel", function(self, delta)
+        local current  = scrollBar:GetValue()
+        local min, max = scrollBar:GetMinMaxValues()
+        scrollBar:SetValue(math.max(min, math.min(max, current - delta * 20)))
+    end)
+
+    scrollFrame:SetScript("OnSizeChanged", UpdateScrollRange)
+
+    BuildBanishWhitelistSection (scrollChild, 10,  -5)
+    BuildEchoBanSection         (scrollChild, 10, -150)
+    BuildPeakRow                (scrollChild, 10, -390)
+    BuildThresholdsSection      (scrollChild, 10, -440)
+
+    return f
+end
+
+local function EnsureBuilt(container)
+    if viewFrame then return end
+    viewFrame = BuildViewFrame(container)
+end
+
+function EbonBuilds.SettingsView.Mount(container)
+    EnsureBuilt(container)
+    viewFrame:SetParent(container)
+    viewFrame:ClearAllPoints()
+    viewFrame:SetAllPoints(container)
+    RefreshInputs()
+    viewFrame:Show()
+    UpdateScrollRange()
+    scrollBar:SetValue(0)
+end
+
+function EbonBuilds.SettingsView.Unmount()
+    if not viewFrame then return end
+    CommitFocusedBoxes()
+    viewFrame:Hide()
+end
+
+function EbonBuilds.SettingsView.Init()
+end
