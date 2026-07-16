@@ -15,8 +15,17 @@ local R = "|r"
 
 local PAGES = {
 {
-    title = "What's New in 2.17",
+    title = "What's New in 2.18",
     lines = {
+        GOLD .. "2.18: no more duplicate build titles" .. R,
+        "- Fixed the actual cause of Public Builds filling up with the",
+        "  same title from many authors: editing an imported build",
+        "  forked it under your name but kept the title + public flag",
+        "- Saving/creating now checks if the title is already public",
+        "  under someone else -- if so, unpublished + explained via popup",
+        "- Existing duplicates already in the list get collapsed too",
+        "  (earliest-known copy kept, both in the browser and relaying)",
+        "",
         GOLD .. "2.17: Public Builds paging fix" .. R,
         "- Fixed: browsing got snapped back to page 1 every time a new",
         "  build arrived during a sync -- now stays on your page",
@@ -323,6 +332,28 @@ local PAGES = {
         GOLD .. "Fixed in 2.11" .. R,
         "The comparison now ignores the realm suffix, so this can't",
         "happen again.",
+    },
+},
+{
+    title = "\"This name is already public\" popup (2.18)",
+    lines = {
+        "You imported someone's build, tweaked something, and saved --",
+        "which forks your copy under your own name (see the previous",
+        "page). Your copy kept the original title AND stayed public,",
+        "which is why Public Builds used to fill up with the same",
+        "title from many different authors.",
+        "",
+        GOLD .. "What happens now" .. R,
+        "Saving checks if the title is already public under someone",
+        "else. If so: your copy is unpublished (not deleted) and this",
+        "popup explains whose name it belongs to.",
+        "",
+        GOLD .. "What to do" .. R,
+        "Rename it via Edit Build, then make it public again -- now",
+        "under its own name, no longer colliding with anyone else's.",
+        "",
+        GREY .. "Best-effort check based on what your own client has" .. R,
+        GREY .. "seen; there's no central registry to enforce this." .. R,
     },
 },
 {

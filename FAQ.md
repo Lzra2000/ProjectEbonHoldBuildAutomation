@@ -1,6 +1,6 @@
 # EbonBuilds — FAQ & Changelog
 
-*This file is updated with every release. Latest version: 2.17 — also available in-game via* `/ebb faq`
+*This file is updated with every release. Latest version: 2.18 — also available in-game via* `/ebb faq`
 
 ---
 
@@ -121,7 +121,23 @@ That's the small "EbonBuilds Settings" popup (gear icon next to the window's clo
 
 The dialog scrolls if it ever grows past the window (same fix as the FAQ window in 2.14), so more settings can be added here later without risk of overflow.
 
+### Why do I get a popup saying my build's name is taken? (new in 2.18)
+Public Builds used to fill up with dozens of near-identical entries -- the same title from many different authors, e.g. "[WIP] Scourgebeast's Solo DK v1.1" by five different people. The actual cause: importing someone's public build, then making even a tiny edit and saving, silently forks your copy under your own name (an existing, intentional data-loss protection from 2.11) -- but it used to keep the original title and public status, so every edited import quietly added another duplicate to the list.
+
+As of 2.18, saving (or creating) a build checks whether its exact title is already public under a *different* author. If so:
+- Your copy is automatically un-published (not deleted -- just no longer shared).
+- A popup explains the name is taken and who it belongs to.
+- Rename it (Edit Build) and it can be made public again under its own name.
+
+This is a best-effort, client-side check -- there's no central registry, so it's based on what your own client has seen. Existing duplicates already in Public Builds are also cleaned up automatically: the browser (and what gets relayed to other players) now collapses same-titled entries down to the earliest-known one.
+
 ## Changelog
+
+### 2.18 (2026-07-16) -- stop duplicate build titles at the source
+
+- **Fixed: editing an imported public build silently created a same-titled duplicate.** `Build.Save()`'s existing fork-on-foreign-author protection (2.11) kept the original title and public flag when forking a copy to the new author -- multiplied across many players editing the same popular build, this is what filled Public Builds with pages of near-identical entries. Saving or creating a build now checks whether its title is already public under someone else; if so the copy is un-published and a popup explains why, prompting a rename.
+- **New: `EbonBuilds.Build.FindTitleOwner(title, excludeId, excludeAuthor)`** -- best-effort client-side check for whether a title is already claimed by a different author, used by both the save-time guard above and:
+- **Fixed: existing duplicate titles are now collapsed in the Public Builds list.** `Build.ListPublic()` -- used by both the browsing UI and `HandleRequest` (what gets relayed to other players) -- now keeps only the earliest-known copy per exact title, cleaning up duplicates that already existed before this fix without waiting on network propagation.
 
 ### 2.17 (2026-07-16) -- Public Builds no longer resets to page 1 while syncing
 

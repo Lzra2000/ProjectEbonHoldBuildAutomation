@@ -262,14 +262,38 @@ function EbonBuilds.Build.ListPublic()
             out[#out + 1] = b
         end
     end
+
+    -- Collapse same-titled builds from different authors down to one (the
+    -- earliest-known copy). Build.Save() now stops NEW duplicates from
+    -- being created, but this cleans up anything that already exists
+    -- (from before that fix, or synced from a peer who hasn't updated
+    -- yet) immediately, in both the browsing list and anything relayed
+    -- onward via HandleRequest (which also calls ListPublic()).
+    local byTitle = {}
+    local deduped = {}
+    for _, b in ipairs(out) do
+        local key = (b.title or ""):lower():gsub("^%s+", ""):gsub("%s+$", "")
+        if key == "" then
+            deduped[#deduped + 1] = b -- never collapse untitled builds against each other
+        else
+            local existing = byTitle[key]
+            if not existing then
+                byTitle[key] = b
+            elseif (b.lastModified or "") < (existing.lastModified or "") then
+                byTitle[key] = b
+            end
+        end
+    end
+    for _, b in pairs(byTitle) do deduped[#deduped + 1] = b end
+
     -- Validated builds (proven to reach level 80) first, then by recency.
-    table.sort(out, function(a, b)
+    table.sort(deduped, function(a, b)
         local av = a.validated and 1 or 0
         local bv = b.validated and 1 or 0
         if av ~= bv then return av > bv end
         return (a.lastModified or "") > (b.lastModified or "")
     end)
-    return out
+    return deduped
 end
 
 function EbonBuilds.Build.Get(id)
@@ -304,6 +328,87 @@ function EbonBuilds.Build.GetActiveWeights()
     end
     EbonBuildsDB.pendingWeights = EbonBuildsDB.pendingWeights or {}
     return EbonBuildsDB.pendingWeights
+end
+
+-- UnitName("player") is not guaranteed to return the same FORMAT across
+-- sessions -- it can come back with or without a "-Realm" suffix depending
+-- on connection state (this is a known WoW client quirk around cross-realm
+-- zones and reconnects). Comparing it exactly against a stored author name
+-- risks treating the player's OWN build as foreign, which forks it under a
+-- new id and DELETES the original -- a real data-loss bug. Strip the realm
+-- suffix and case before comparing, same normalization already used for
+-- sync/affix sender checks.
+local function NormalizePlayerName(name)
+    name = tostring(name or ""):lower()
+    return name:match("^([^-]+)") or name
+end
+EbonBuilds.Build._NormalizePlayerName = NormalizePlayerName
+
+local function NormalizeTitle(title)
+    return tostring(title or ""):lower():gsub("^%s+", ""):gsub("%s+$", "")
+end
+
+-- Is `title` already publicly claimed by someone other than `author`?
+-- Scans this player's own public builds plus everything received via
+-- sync (EbonBuildsDB.remoteBuilds). Only the earliest-known build under
+-- that exact name is considered its "owner" -- there's no central
+-- registry to authorize this against (ProjectEbonhold is the server and
+-- this addon doesn't touch it), so this is a best-effort, client-side
+-- safeguard: it stops any individual honest client from re-publishing a
+-- name it can see is already taken, which is what actually causes the
+-- same title to multiply across many authors in Public Builds (each
+-- import -> tiny edit -> save silently forks a same-titled public copy).
+local function FindTitleOwner(title, excludeId, excludeAuthor)
+    local norm = NormalizeTitle(title)
+    if norm == "" then return nil end
+    local excludeNorm = excludeAuthor and NormalizePlayerName(excludeAuthor)
+
+    local function Check(b)
+        if not b or b.id == excludeId then return nil end
+        if NormalizeTitle(b.title) ~= norm then return nil end
+        if excludeNorm and NormalizePlayerName(b.author or "") == excludeNorm then return nil end
+        return b
+    end
+
+    local best = nil
+    local function Consider(b)
+        local hit = Check(b)
+        if hit and (not best or (hit.lastModified or "") < (best.lastModified or "")) then
+            best = hit
+        end
+    end
+
+    for _, b in pairs(EbonBuildsDB.builds) do
+        if b.isPublic then Consider(b) end
+    end
+    if EbonBuildsDB.remoteBuilds then
+        for _, b in pairs(EbonBuildsDB.remoteBuilds) do Consider(b) end
+    end
+    return best
+end
+EbonBuilds.Build.FindTitleOwner = FindTitleOwner
+
+StaticPopupDialogs["EBONBUILDS_TITLE_TAKEN"] = {
+    text = "The build name \"%s\" is already public under %s.\n\nYour copy has been unpublished so Public Builds doesn't end up with duplicates of the same name. Rename it (Edit Build) if you'd like to share your own version.",
+    button1 = "OK",
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+}
+
+-- If this build is public and its title collides with someone else's
+-- already-public/known build, un-publish it and tell the player why.
+-- Called both right after a fork (the usual trigger: import -> edit ->
+-- save) and generally whenever isPublic is turned on (including a brand
+-- new build created with "Make Public" already checked), so a
+-- coincidental name collision is always caught, not just the fork case.
+local function EnforceTitleUniqueness(build)
+    if not build.isPublic then return end
+    local owner = FindTitleOwner(build.title, build.id, build.author)
+    if owner then
+        build.isPublic = false
+        StaticPopup_Show("EBONBUILDS_TITLE_TAKEN", build.title, owner.author or "another player")
+    end
 end
 
 function EbonBuilds.Build.NewObject(data)
@@ -346,6 +451,7 @@ function EbonBuilds.Build.Create(data)
     build.echoWeights = EbonBuildsDB.pendingWeights or build.echoWeights
     EbonBuildsDB.pendingWeights = nil
     EbonBuildsDB.builds[build.id] = build
+    EnforceTitleUniqueness(build)
     return build
 end
 
@@ -400,29 +506,15 @@ function EbonBuilds.Build.UpdateFromPublic(localBuild, publicBuild)
     return localBuild
 end
 
--- UnitName("player") is not guaranteed to return the same FORMAT across
--- sessions -- it can come back with or without a "-Realm" suffix depending
--- on connection state (this is a known WoW client quirk around cross-realm
--- zones and reconnects). Comparing it exactly against a stored author name
--- risks treating the player's OWN build as foreign, which forks it under a
--- new id and DELETES the original -- a real data-loss bug. Strip the realm
--- suffix and case before comparing, same normalization already used for
--- sync/affix sender checks.
-local function NormalizePlayerName(name)
-    name = tostring(name or ""):lower()
-    return name:match("^([^-]+)") or name
-end
-EbonBuilds.Build._NormalizePlayerName = NormalizePlayerName
-
 function EbonBuilds.Build.Save(id, data)
     local build = EbonBuildsDB.builds[id]
     if not build then return nil end
     local oldChecksum = build._checksum
     local classChanged = data.class and data.class ~= build.class
     build.title           = data.title           or build.title
-    build.class           = data.class           or build.class
-    build.spec            = data.spec            or build.spec
-    build.comments        = data.comments        or build.comments
+    build.class            = data.class           or build.class
+    build.spec             = data.spec            or build.spec
+    build.comments         = data.comments        or build.comments
     build.lockedEchoes = data.lockedEchoes or build.lockedEchoes
     if data.settings then build.settings = data.settings end
     if data.echoWeights then build.echoWeights = data.echoWeights end
@@ -452,6 +544,7 @@ function EbonBuilds.Build.Save(id, data)
             end
         end
     end
+    EnforceTitleUniqueness(build)
     if classChanged and EbonBuildsCharDB.activeBuildId == id then
         Notify()
     end
