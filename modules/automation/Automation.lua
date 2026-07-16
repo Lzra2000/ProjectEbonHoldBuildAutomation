@@ -323,6 +323,10 @@ function EbonBuilds.Automation.Evaluate()
                     EbonBuilds.Calibration.RecordSample(s.score / peakScore * 100)
                 end
             end
+            -- Opt-in, rate-limited: only actually does anything once every
+            -- TUNE_INTERVAL_SAMPLES calls, and only if the player enabled
+            -- continuous auto-tune in the Tuning Advisor window.
+            EbonBuilds.Calibration.MaybeAutoTune()
         end
 
         local banList    = settings.echoBanList or {}

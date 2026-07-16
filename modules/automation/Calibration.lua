@@ -57,6 +57,35 @@ function EbonBuilds.Calibration.Clear()
     EbonBuildsCharDB.calibration.samples = {}
 end
 
+------------------------------------------------------------------------
+-- Continuous auto-tune (opt-in)
+--
+-- Off by default. When enabled, thresholds don't just get SUGGESTED --
+-- every TUNE_INTERVAL_SAMPLES newly-collected samples, each supported
+-- metric takes one gradual step (TUNE_STEP fraction of the gap) toward
+-- its suggested value and saves to the active build automatically.
+-- Gradual and rate-limited on purpose: jumping straight to a suggestion
+-- computed from a small, noisy recent batch would overreact and could
+-- oscillate; small repeated steps converge toward the real distribution
+-- as more data accumulates and self-correct if the distribution shifts
+-- (new build, different content, etc.) without ever making a single
+-- drastic change to live automation behavior.
+------------------------------------------------------------------------
+
+local TUNE_STEP = 0.25             -- close 25% of the gap per adjustment
+local TUNE_INTERVAL_SAMPLES = 20   -- newly-collected samples between passes
+local TUNE_MIN_GAP = 1.5           -- ignore gaps smaller than this (percentage points)
+
+function EbonBuilds.Calibration.IsAutoTuneEnabled()
+    return EbonBuildsCharDB.calibration and EbonBuildsCharDB.calibration.autoTuneEnabled == true
+end
+
+function EbonBuilds.Calibration.SetAutoTuneEnabled(on)
+    EbonBuildsCharDB.calibration = EbonBuildsCharDB.calibration or {}
+    EbonBuildsCharDB.calibration.autoTuneEnabled = on and true or false
+    EbonBuildsCharDB.calibration.samplesSinceLastTune = 0
+end
+
 -- Value at the given percentile (0-100) of an already-sorted list.
 local function Percentile(sorted, p)
     if #sorted == 0 then return 0 end
@@ -169,6 +198,67 @@ function EbonBuilds.Calibration.SuggestSmartFreeze(settings)
 end
 
 ------------------------------------------------------------------------
+-- Auto-tune pass (see the opt-in block above for the rationale)
+------------------------------------------------------------------------
+
+-- One gradual step for a single metric: nudges `field` by TUNE_STEP of
+-- the gap to its suggestion. Returns true if it actually changed anything.
+local function StepField(settings, result, field)
+    if result.insufficientData then return false end
+    local gap = result.suggestedFieldPct - result.currentFieldPct
+    if math.abs(gap) < TUNE_MIN_GAP then return false end
+    local newValue = result.currentFieldPct + gap * TUNE_STEP
+    settings[field] = math.floor(newValue + 0.5)
+    return true, settings[field]
+end
+
+-- Called after every recorded sample. Cheap check (a counter compare) on
+-- every call; the actual analysis (sorting samples, computing suggestions)
+-- only runs once every TUNE_INTERVAL_SAMPLES, and only if the player has
+-- opted in.
+function EbonBuilds.Calibration.MaybeAutoTune()
+    if not EbonBuilds.Calibration.IsAutoTuneEnabled() then return end
+    EbonBuildsCharDB.calibration.samplesSinceLastTune = (EbonBuildsCharDB.calibration.samplesSinceLastTune or 0) + 1
+    if EbonBuildsCharDB.calibration.samplesSinceLastTune < TUNE_INTERVAL_SAMPLES then return end
+    EbonBuildsCharDB.calibration.samplesSinceLastTune = 0
+
+    local build = EbonBuilds.Build.GetActive()
+    if not build then return end
+    local liveSettings = build.settings or EbonBuilds.Build.DefaultSettings()
+    local settings = EbonBuilds.Build.CloneSettings(liveSettings)
+    local isSmart = (liveSettings.rerollMode or "sum") == "ev"
+
+    local changed = {}
+    local okB, valB = StepField(settings,
+        isSmart and EbonBuilds.Calibration.SuggestSmartBanish(liveSettings) or EbonBuilds.Calibration.SuggestBanish(liveSettings),
+        isSmart and "banishEVPct" or "autoBanishPct")
+    if okB then changed[#changed + 1] = ("Banish " .. valB .. "%") end
+
+    local okF, valF = StepField(settings,
+        isSmart and EbonBuilds.Calibration.SuggestSmartFreeze(liveSettings) or EbonBuilds.Calibration.SuggestFreeze(liveSettings),
+        isSmart and "freezeEVPct" or "autoFreezePct")
+    if okF then changed[#changed + 1] = ("Freeze " .. valF .. "%") end
+
+    if not isSmart then
+        local okR, valR = StepField(settings, EbonBuilds.Calibration.SuggestReroll(liveSettings), "autoRerollPct")
+        if okR then changed[#changed + 1] = ("Reroll " .. valR .. "%") end
+    end
+
+    if #changed == 0 then return end
+
+    local saved = EbonBuilds.Build.Save(build.id, { settings = settings })
+    if not saved then return end
+
+    local summary = table.concat(changed, ", ")
+    if EbonBuilds.Toast then
+        EbonBuilds.Toast.Show("Auto-tuned: " .. summary)
+    end
+    if EbonBuilds.DebugLog and EbonBuilds.DebugLog.IsEnabled() then
+        EbonBuilds.DebugLog.AddF("-> AUTO-TUNE: %s", summary)
+    end
+end
+
+------------------------------------------------------------------------
 -- Window
 ------------------------------------------------------------------------
 
@@ -242,7 +332,7 @@ end
 
 local function BuildWindow()
     local f = CreateFrame("Frame", "EbonBuildsTuningAdvisorWindow", UIParent)
-    f:SetSize(560, 360)
+    f:SetSize(560, 400)
     f:SetPoint("CENTER", UIParent, "CENTER")
     f:SetFrameStrata("FULLSCREEN_DIALOG")
     f:SetToplevel(true)
@@ -284,6 +374,24 @@ local function BuildWindow()
     rerollRow = BuildRow(f, -220, "Reroll")
     freezeRow = BuildRow(f, -280, "Freeze")
 
+    local autoTuneCB = CreateFrame("CheckButton", nil, f, "UICheckButtonTemplate")
+    autoTuneCB:SetWidth(24)
+    autoTuneCB:SetHeight(24)
+    autoTuneCB:SetPoint("TOPLEFT", freezeRow.suggestion, "BOTTOMLEFT", -4, -10)
+    local autoTuneLabel = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    autoTuneLabel:SetPoint("LEFT", autoTuneCB, "RIGHT", 2, 0)
+    autoTuneLabel:SetText("Continuous auto-tune")
+    autoTuneCB:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:AddLine("Continuous auto-tune", 1, 1, 1)
+        GameTooltip:AddLine("Off by default. When on, thresholds nudge themselves toward their suggested value automatically -- a small step (25% of the gap) every ~20 newly-recorded offers, not an instant jump. You'll get a toast every time it actually changes something. Rate-limited and gradual on purpose, so it can't overreact to a short noisy streak or make one drastic change to live automation behavior.", 0.8, 0.8, 0.8, true)
+        GameTooltip:Show()
+    end)
+    autoTuneCB:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    autoTuneCB:SetScript("OnClick", function(self)
+        EbonBuilds.Calibration.SetAutoTuneEnabled(self:GetChecked() and true or false)
+    end)
+
     local clearBtn = EbonBuilds.Theme.CreateButton(f, "danger")
     clearBtn:SetSize(140, 20)
     clearBtn:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 16, 12)
@@ -302,6 +410,7 @@ local function BuildWindow()
     countLabel = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     countLabel:SetPoint("BOTTOM", f, "BOTTOM", 0, 18)
 
+    f._autoTuneCB = autoTuneCB
     tinsert(UISpecialFrames, "EbonBuildsTuningAdvisorWindow")
     f:Hide()
     return f
@@ -309,6 +418,9 @@ end
 
 function EbonBuilds.Calibration.RefreshWindow()
     if not frame then return end
+    if frame._autoTuneCB then
+        frame._autoTuneCB:SetChecked(EbonBuilds.Calibration.IsAutoTuneEnabled())
+    end
     local build = EbonBuilds.Build.GetActive()
     if not build then
         modeWarning:SetText("No active build selected.")

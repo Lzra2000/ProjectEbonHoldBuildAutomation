@@ -15,8 +15,17 @@ local R = "|r"
 
 local PAGES = {
 {
-    title = "What's New in 2.34",
+    title = "What's New in 2.35",
     lines = {
+        GOLD .. "2.35: continuous auto-tune (opt-in)" .. R,
+        "- New checkbox in /ebb tuning: thresholds nudge themselves",
+        "  toward their suggestion automatically -- no more manual",
+        "  Apply clicks needed if you don't want them",
+        "- Gradual: small step (25% of the gap) every ~20 new offers,",
+        "  never an instant jump -- won't overreact to a noisy streak",
+        "- Toast every time it actually changes something",
+        "- Off by default; Smart Reroll still not tuned",
+        "",
         GOLD .. "2.34: Tuning Advisor now supports Smart (EV) mode" .. R,
         "- Banish + Freeze suggestions now work in Smart mode too,",
         "  not just Classic -- converted through the live mean/peak",
@@ -546,6 +555,11 @@ local PAGES = {
         GOLD .. "Apply" .. R,
         "One click writes the suggested % straight to your active",
         "build's settings.",
+        "",
+        GOLD .. "Continuous auto-tune (2.35)" .. R,
+        "Checkbox, off by default. When on, thresholds nudge toward",
+        "their suggestion automatically -- small gradual steps, not",
+        "an instant jump, with a toast every time something changes.",
         "",
         GREY .. "Smart Reroll isn't supported -- its threshold is scaled" .. R,
         GREY .. "by a dynamic pacing factor through the run, so there's" .. R,

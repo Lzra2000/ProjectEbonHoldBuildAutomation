@@ -1,6 +1,6 @@
 # EbonBuilds — FAQ & Changelog
 
-*This file is updated with every release. Latest version: 2.34 — also available in-game via* `/ebb faq`
+*This file is updated with every release. Latest version: 2.35 — also available in-game via* `/ebb faq`
 
 ---
 
@@ -174,7 +174,16 @@ It used to be deliberately hidden there (you already have it in your left sideba
 
 Works with **both Classic and Smart (EV) mode** now. Smart mode's fields are a % of mean/evBest3 rather than peak directly -- the advisor converts through the current mean/peak or evBest3/peak ratio so both modes analyze against the same underlying sample data (cross-checked: a Classic and a Smart suggestion targeting the same percentile land on the same real threshold). **Smart Reroll isn't supported** -- its effective threshold is scaled by a "pacing" factor that changes dynamically through a run based on remaining reroll charges, so there's no single static value to suggest. "Clear Collected Data" is worth using after a major reweight, since old samples reflect the previous weighting.
 
+### Continuous auto-tune (2.35) -- do I have to keep clicking Apply?
+Not if you don't want to. `/ebb tuning` has a **Continuous auto-tune** checkbox (off by default). Turn it on and thresholds nudge themselves toward their suggested value automatically -- a small gradual step (25% of the gap) every ~20 newly-recorded offers, never an instant jump. You'll get a toast every time it actually adjusts something, so you're never left wondering why automation's behavior changed. It's deliberately gradual and rate-limited so it can't overreact to a short noisy streak; simulated tests show it converges smoothly to a stable value over a few hundred samples rather than oscillating.
+
 ## Changelog
+
+### 2.35 (2026-07-16) -- Tuning Advisor: continuous auto-tune (opt-in)
+
+- **New: "Continuous auto-tune" checkbox in `/ebb tuning`.** Off by default. When on, Banish/Freeze (and Reroll in Classic mode) thresholds nudge themselves toward their suggested value automatically -- a gradual step (25% of the gap) every ~20 newly-recorded offers, not an instant jump to the suggestion. You get a toast every time it actually changes something (e.g. "Auto-tuned: Banish 22%, Freeze 15%"), consolidated into one message per pass rather than one per metric.
+- Deliberately rate-limited and gradual: verified via simulation that it converges smoothly toward a stable value without oscillating, even starting from thresholds far off from the real distribution (tested from Banish 10% -> stabilized around 22-28%, Freeze 95% -> ~15-16%, Reroll 90% -> ~57-58%, over ~400 samples).
+- Smart Reroll still isn't tuned (same pacing-factor limitation as the manual suggestion).
 
 ### 2.34 (2026-07-16) -- Tuning Advisor: Smart (EV) mode support
 
