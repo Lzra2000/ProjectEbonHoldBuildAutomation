@@ -1,6 +1,6 @@
 # EbonBuilds — FAQ & Changelog
 
-*This file is updated with every release. Latest version: 2.22 — also available in-game via* `/ebb faq`
+*This file is updated with every release. Latest version: 2.23 — also available in-game via* `/ebb faq`
 
 ---
 
@@ -146,7 +146,14 @@ Yes (2.21). Importing a public build used to delete Public Builds' cached copy o
 ### EbonBuilds won't even enable / greyed out in the addon list with ProjectEbonhold Enhanced. Fixed?
 Yes (2.22). The `.toc` declared a hard `## Dependencies: ProjectEbonhold` -- WoW's client won't let you enable an addon at all if a hard dependency's exact folder name isn't found, and "ProjectEbonhold Enhanced" ships under a different folder name even though it provides the same API. Switched to `## OptionalDeps: ProjectEbonhold, ProjectEbonholdEnhanced`, which still makes sure whichever one you have loads first (so EbonBuilds sees it), but no longer blocks enabling EbonBuilds if the folder name doesn't match exactly. No more manually editing the `.toc` by hand after every update.
 
+### Sync is flooding my chat with "[EbonBuilds Sync] Build ... stored in remote" spam. Fixed?
+Yes (2.23). Several internal sync diagnostics (one line per build received, one line per REQ broadcast, channel-index bookkeeping) were printing to general chat unconditionally instead of only when `/ebbsync verbose` is on -- always been there, but the 2.15 staggered all-classes sync made it much worse, since a single "All Classes" Reload can now pull in dozens of builds and fires the REQ-sent line up to 10x (once per class) instead of once. All of that moved behind the existing verbose toggle; real problems (a build failing to assemble) now go to `/ebb errors` instead of the chat window. Command output (`/ebbsync status`, `/ebbsync reset`, etc.) and cooldown/actionable messages are unaffected -- you'll still see those.
+
 ## Changelog
+
+### 2.23 (2026-07-16) -- sync chat spam fixed
+
+- **Fixed: several internal sync messages printed to general chat unconditionally**, most visibly "Build X stored in remote (author: Y)" once per synced build and "REQ sent on channel index N" once per REQ broadcast. Both existed before, but the 2.15 staggered all-classes sync turned the second one into up to 10 lines per Reload (once per class) and the first into potentially dozens during a busy sync. Moved to the existing `VerboseLog` path (gated behind `/ebbsync verbose`, off by default) along with channel-index learning/update messages. A real assembly error now records to `/ebb errors` (2.12's always-on error log) instead of only flashing through chat. User-initiated command output and cooldown/actionable messages are unchanged.
 
 ### 2.22 (2026-07-16) -- works with ProjectEbonhold Enhanced without manual .toc edits
 

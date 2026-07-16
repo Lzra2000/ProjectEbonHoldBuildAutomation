@@ -15,8 +15,16 @@ local R = "|r"
 
 local PAGES = {
 {
-    title = "What's New in 2.22",
+    title = "What's New in 2.23",
     lines = {
+        GOLD .. "2.23: sync chat spam fixed" .. R,
+        "- Fixed: 'Build X stored in remote' + 'REQ sent on channel'",
+        "  printed to chat for every build/request, unconditionally",
+        "- Made much worse by 2.15's staggered all-classes sync (up",
+        "  to 10 REQ lines per Reload instead of 1)",
+        "- Moved behind /ebbsync verbose (off by default); real",
+        "  errors now go to /ebb errors instead of chat",
+        "",
         GOLD .. "2.22: works with ProjectEbonhold Enhanced" .. R,
         "- Fixed: EbonBuilds couldn't even be enabled with only",
         "  'ProjectEbonhold Enhanced' installed (different folder",

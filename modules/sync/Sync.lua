@@ -223,7 +223,7 @@ local function RefreshChannel()
     local idx = FindSyncChannel()
     if idx and idx > 0 then
         if syncChannelIndex ~= idx then
-            Log("Sync channel index updated: " .. (syncChannelIndex or "nil") .. " -> " .. idx)
+            VerboseLog("Sync channel index updated: " .. (syncChannelIndex or "nil") .. " -> " .. idx)
             syncChannelIndex = idx
         end
     elseif syncChannelIndex and syncChannelIndex > 0 then
@@ -316,7 +316,7 @@ local function AssembleBuild(sender, buildId, base64)
         local localDate   = existing.lastModified or ""
         if incomingDate > localDate then
             EbonBuilds.Build.UpdateFromPublic(existing, imported)
-            Log("Build " .. buildId .. " updated (incoming=" .. incomingDate .. " > local=" .. localDate .. ")")
+            VerboseLog("Build " .. buildId .. " updated (incoming=" .. incomingDate .. " > local=" .. localDate .. ")")
         end
         return
     end
@@ -329,12 +329,12 @@ local function AssembleBuild(sender, buildId, base64)
         if incomingDate > storedDate then
             imported.id = buildId
             EbonBuildsDB.remoteBuilds[buildId] = imported
-            Log("Build " .. buildId .. " updated in remote (incoming=" .. incomingDate .. ")")
+            VerboseLog("Build " .. buildId .. " updated in remote (incoming=" .. incomingDate .. ")")
         end
     else
         imported.id = buildId
         EbonBuildsDB.remoteBuilds[buildId] = imported
-        Log("Build " .. buildId .. " stored in remote (author: " .. (imported.author or "?") .. ")")
+        VerboseLog("Build " .. buildId .. " stored in remote (author: " .. (imported.author or "?") .. ")")
     end
 
     if EbonBuilds.PublicBuildsView and EbonBuilds.PublicBuildsView.RefreshIfMounted then
@@ -551,7 +551,7 @@ local function HandleChannelMessage(msg, sender, _, channelName, _, _, _, channe
     if channelNumber and type(channelNumber) == "number" and channelNumber > 0 then
         if not syncChannelIndex or syncChannelIndex ~= channelNumber then
             syncChannelIndex = channelNumber
-            Log("Sync channel index learned: " .. channelNumber)
+            VerboseLog("Sync channel index learned: " .. channelNumber)
         end
     end
 
@@ -610,7 +610,10 @@ local function HandleChunk(payload, sender)
                 syncSession.received = syncSession.received + 1
             end
         else
-            Log("Error assembling build " .. buildId .. ": " .. tostring(err))
+            if EbonBuilds.ErrorLog then
+                EbonBuilds.ErrorLog.Record("Sync.AssembleBuild", "Error assembling build " .. buildId .. ": " .. tostring(err))
+            end
+            VerboseLog("Error assembling build " .. buildId .. ": " .. tostring(err))
         end
     end
 
@@ -1036,20 +1039,20 @@ function EbonBuilds.Sync.Init()
             if syncChannelIndex and syncChannelIndex > 0 then
                 local ok, err = pcall(SendChatMessage, channelRetries.payload, "CHANNEL", nil, syncChannelIndex)
                 if ok then
-                    Log("REQ sent on channel index " .. syncChannelIndex)
+                    VerboseLog("REQ sent on channel index " .. syncChannelIndex)
                     sent = true
                 else
-                    Log("REQ by index failed: " .. tostring(err) .. " — trying by name")
+                    VerboseLog("REQ by index failed: " .. tostring(err) .. " — trying by name")
                 end
             end
             -- Fallback: send by channel name string
             if not sent then
                 local ok, err = pcall(SendChatMessage, channelRetries.payload, "CHANNEL", nil, SYNC_CHANNEL)
                 if ok then
-                    Log("REQ sent on channel name " .. SYNC_CHANNEL)
+                    VerboseLog("REQ sent on channel name " .. SYNC_CHANNEL)
                     sent = true
                 else
-                    Log("REQ by name also failed: " .. tostring(err))
+                    VerboseLog("REQ by name also failed: " .. tostring(err))
                 end
             end
             if sent or channelRetries.remaining == 0 then
