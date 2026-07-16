@@ -684,9 +684,16 @@ end
 function EbonBuilds.PublicBuildsView.RefreshIfMounted()
     if viewFrame and viewFrame:IsVisible() then
         state.builds     = GetFilteredBuilds()
-        state.page       = 1
         state.totalPages = math.max(1, math.ceil(#state.builds / PAGE_SIZE))
-        scrollBar:SetValue(0)
+        -- Preserve whatever page the player is currently browsing. This
+        -- used to hard-reset to page 1 on every single incoming build --
+        -- fine for one build, but a sync (especially the staggered
+        -- all-classes sync, 2.15) can stream in dozens over several
+        -- seconds, snapping the view back to page 1 over and over and
+        -- making it impossible to actually browse while syncing.
+        if state.page > state.totalPages then
+            state.page = state.totalPages
+        end
         Render()
     end
 end

@@ -15,8 +15,14 @@ local R = "|r"
 
 local PAGES = {
 {
-    title = "What's New in 2.16",
+    title = "What's New in 2.17",
     lines = {
+        GOLD .. "2.17: Public Builds paging fix" .. R,
+        "- Fixed: browsing got snapped back to page 1 every time a new",
+        "  build arrived during a sync -- now stays on your page",
+        "- Most noticeable after 2.15's all-classes sync, which streams",
+        "  in many builds over several seconds",
+        "",
         GOLD .. "2.16: Settings dialog expanded" .. R,
         "- Toast duration finally has an explanation (was missing one)",
         "- New checkboxes: Auto-sell junk, Bag affix dots -- same as",

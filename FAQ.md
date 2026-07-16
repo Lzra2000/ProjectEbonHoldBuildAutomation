@@ -1,6 +1,6 @@
 # EbonBuilds — FAQ & Changelog
 
-*This file is updated with every release. Latest version: 2.16 — also available in-game via* `/ebb faq`
+*This file is updated with every release. Latest version: 2.17 — also available in-game via* `/ebb faq`
 
 ---
 
@@ -122,6 +122,10 @@ That's the small "EbonBuilds Settings" popup (gear icon next to the window's clo
 The dialog scrolls if it ever grows past the window (same fix as the FAQ window in 2.14), so more settings can be added here later without risk of overflow.
 
 ## Changelog
+
+### 2.17 (2026-07-16) -- Public Builds no longer resets to page 1 while syncing
+
+- **Fixed: browsing Public Builds got snapped back to page 1 on every single incoming build during a sync.** `RefreshIfMounted()` (called once per received build) unconditionally reset the current page to 1 -- barely noticeable for one build, but the 2.15 staggered all-classes sync streams in dozens over several seconds, making it effectively impossible to browse past page 1 while a sync was still running. It now keeps you on whatever page you're viewing (only clamping down if that page no longer exists).
 
 ### 2.16 (2026-07-16) -- Settings dialog expanded
 
