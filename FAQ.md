@@ -1,6 +1,6 @@
 # EbonBuilds — FAQ & Changelog
 
-*This file is updated with every release. Latest version: 2.15 — also available in-game via* `/ebb faq`
+*This file is updated with every release. Latest version: 2.16 — also available in-game via* `/ebb faq`
 
 ---
 
@@ -111,7 +111,22 @@ Four small standalone tools:
 ### Why did Reload get faster / show fewer builds? (2.13)
 The Public Builds **Reload** button now only requests builds for the class currently selected in the dropdown (your own class by default), instead of every class from every peer on every reload. Switch the dropdown to "All Classes" if you want the old everything-at-once behavior back. This cuts sync traffic and page count dramatically on classes many players share builds for.
 
+### What do the checkboxes in the gear-icon Settings dialog do? (new in 2.16)
+That's the small "EbonBuilds Settings" popup (gear icon next to the window's close button, not the per-build Automation tab). It now covers:
+
+- **Action delay** — how long automation waits before acting on a new echo screen. Very low values may cause the addon to malfunction.
+- **Toast duration** — how long pick/reroll/freeze/banish notifications stay on screen.
+- **Auto-sell junk at vendors** — same as `/ebb autosell`, now with a persistent checkbox instead of only a slash command.
+- **Bag affix dots** — same as `/ebb bagdots`, likewise now a checkbox here.
+
+The dialog scrolls if it ever grows past the window (same fix as the FAQ window in 2.14), so more settings can be added here later without risk of overflow.
+
 ## Changelog
+
+### 2.16 (2026-07-16) -- Settings dialog expanded
+
+- **New: the gear-icon Settings dialog now has explanations and more toggles.** Toast duration finally has flavor text (it was the only slider without one). Auto-sell junk and Bag affix dots -- previously only reachable via `/ebb autosell` / `/ebb bagdots` with no persistent UI -- now have checkboxes with explanations here too, so you don't need to remember slash commands to turn them on. Also rebuilt as a scrollframe so it can keep growing without ever overflowing the window (same fix class as 2.14's FAQ window).
+- Known gap noted for a follow-up: Talent Auto-Learn (`build.talentAutoLearnMode`, added in 2.12) still has no UI control anywhere -- it can currently only be set by editing SavedVariables directly. It's per-build, so it belongs in the Automation tab (Settings view) rather than this global popup; flagging it rather than rushing it into an already dense, absolutely-positioned panel.
 
 ### 2.15 (2026-07-16) -- staggered all-classes sync
 

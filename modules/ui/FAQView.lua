@@ -15,8 +15,14 @@ local R = "|r"
 
 local PAGES = {
 {
-    title = "What's New in 2.15",
+    title = "What's New in 2.16",
     lines = {
+        GOLD .. "2.16: Settings dialog expanded" .. R,
+        "- Toast duration finally has an explanation (was missing one)",
+        "- New checkboxes: Auto-sell junk, Bag affix dots -- same as",
+        "  /ebb autosell / /ebb bagdots, now with a persistent UI too",
+        "- Scrolls if it grows further -- can't overflow the window",
+        "",
         GOLD .. "2.15: 'All Classes' sync no longer floods responders" .. R,
         "- Reload with 'All Classes' selected now asks each class",
         "  separately, 1.5s apart, instead of one giant unfiltered blast",
@@ -354,6 +360,29 @@ local PAGES = {
         "Diagnostic for \"I clicked and nothing happened.\" Logs every",
         "themed button click and view change, so a report can show",
         "whether the click even reached EbonBuilds.",
+    },
+},
+{
+    title = "Settings dialog (gear icon, 2.16)",
+    lines = {
+        "Click the gear icon next to the window's close button (this is",
+        "separate from the per-build Automation tab).",
+        "",
+        GOLD .. "Action delay" .. R,
+        "How long automation waits before acting on a new echo screen.",
+        "Very low values may cause the addon to malfunction.",
+        "",
+        GOLD .. "Toast duration" .. R,
+        "How long pick/reroll/freeze/banish toasts stay on screen.",
+        "",
+        GOLD .. "Auto-sell junk at vendors" .. R,
+        "Same toggle as /ebb autosell, now persistent here too.",
+        "",
+        GOLD .. "Bag affix dots" .. R,
+        "Same toggle as /ebb bagdots, now persistent here too.",
+        "",
+        GREY .. "This dialog scrolls if it grows further, so it can't" .. R,
+        GREY .. "spill past the window no matter how much gets added." .. R,
     },
 },
 }

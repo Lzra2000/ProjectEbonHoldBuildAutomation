@@ -49,7 +49,7 @@ end
 
 local function BuildSettingsPopup()
     local popup = CreateFrame("Frame", "EbonBuildsGlobalSettingsPopup", UIParent)
-    popup:SetSize(340, 230)
+    popup:SetSize(380, 430)
     popup:SetPoint("CENTER", UIParent, "CENTER")
     popup:SetFrameStrata("DIALOG")
     popup:SetToplevel(true)
@@ -77,17 +77,55 @@ local function BuildSettingsPopup()
     closeBtn:SetPoint("TOPRIGHT", popup, "TOPRIGHT", -5, -5)
     closeBtn:SetScript("OnClick", function() popup:Hide() end)
 
-    -- Helper: slider with track and value display
-    local function AddSlider(labelText, yAnchor, yOffset, value)
-        local label = popup:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    -- Scrollable body: as this dialog gains more settings over time, a
+    -- fixed-size popup with unclipped content would eventually overflow
+    -- exactly like the old FAQ window did (see 2.14) -- a scrollframe
+    -- means that can never happen here regardless of how much gets added.
+    local scrollFrame = CreateFrame("ScrollFrame", "EbonBuildsGlobalSettingsSF", popup, "UIPanelScrollFrameTemplate")
+    scrollFrame:SetPoint("TOPLEFT", popup, "TOPLEFT", 16, -44)
+    scrollFrame:SetPoint("BOTTOMRIGHT", popup, "BOTTOMRIGHT", -34, 50)
+
+    local scrollChild = CreateFrame("Frame", nil, scrollFrame)
+    scrollChild:SetWidth(330)
+    -- Generous fixed height: this is a bounded set of controls (unlike the
+    -- FAQ's ever-growing changelog), so a comfortably oversized scroll
+    -- child costs nothing -- the scrollbar simply won't move if content is
+    -- shorter than it.
+    scrollChild:SetHeight(700)
+    scrollFrame:SetScrollChild(scrollChild)
+
+    scrollFrame:EnableMouseWheel(true)
+    scrollFrame:SetScript("OnMouseWheel", function(self, delta)
+        local range = self:GetVerticalScrollRange()
+        local newScroll = self:GetVerticalScroll() - delta * 32
+        self:SetVerticalScroll(math.max(0, math.min(newScroll, range)))
+    end)
+
+    -- Helper: label -> optional flavor text -> slider with track and value
+    -- display. Anchored relative to the PREVIOUS element's actual rendered
+    -- bottom edge (not a fixed pixel offset), so wrapped flavor text can
+    -- never make two blocks overlap.
+    local function AddSlider(labelText, flavorText, yAnchor, yOffset, minV, maxV, value)
+        local label = scrollChild:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         label:SetPoint("TOPLEFT", yAnchor, "BOTTOMLEFT", 0, yOffset)
 
-        local slider = CreateFrame("Slider", nil, popup)
+        local anchorForSlider = label
+        local flavor
+        if flavorText then
+            flavor = scrollChild:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+            flavor:SetPoint("TOPLEFT", label, "BOTTOMLEFT", 0, -2)
+            flavor:SetPoint("RIGHT", scrollChild, "RIGHT", 0, 0)
+            flavor:SetJustifyH("LEFT")
+            flavor:SetText(flavorText)
+            anchorForSlider = flavor
+        end
+
+        local slider = CreateFrame("Slider", nil, scrollChild)
         slider:SetOrientation("HORIZONTAL")
         slider:SetWidth(190)
         slider:SetHeight(20)
-        slider:SetPoint("TOPLEFT", label, "BOTTOMLEFT", 0, -2)
-        slider:SetMinMaxValues(0.1, 3.0)
+        slider:SetPoint("TOPLEFT", anchorForSlider, "BOTTOMLEFT", 0, -4)
+        slider:SetMinMaxValues(minV, maxV)
         slider:SetValueStep(0.1)
         slider:SetValue(value)
         slider:SetThumbTexture("Interface\\Buttons\\UI-SliderBar-Button-Horizontal")
@@ -100,7 +138,7 @@ local function BuildSettingsPopup()
         track:SetPoint("LEFT", slider)
         track:SetPoint("RIGHT", slider)
 
-        local valText = popup:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        local valText = scrollChild:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         valText:SetPoint("LEFT", slider, "RIGHT", 6, 0)
 
         local function RefreshLabel()
@@ -112,51 +150,57 @@ local function BuildSettingsPopup()
         slider:SetScript("OnValueChanged", RefreshLabel)
         RefreshLabel()
 
-        return slider
+        return slider, slider
     end
 
-    -- Action delay (label → flavor text → slider)
-    local delayLabel = popup:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    delayLabel:SetPoint("TOPLEFT", popup, "TOPLEFT", 24, -44)
-    delayLabel:SetText("Action delay:")
+    -- Helper: native checkbox with a label and explanation, same
+    -- previous-element-relative anchoring as AddSlider.
+    local function AddCheckbox(labelText, flavorText, yAnchor, yOffset)
+        local cb = CreateFrame("CheckButton", nil, scrollChild, "UICheckButtonTemplate")
+        cb:SetWidth(24)
+        cb:SetHeight(24)
+        cb:SetPoint("TOPLEFT", yAnchor, "BOTTOMLEFT", -2, yOffset)
 
-    local delayFlavor = popup:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    delayFlavor:SetPoint("TOPLEFT", delayLabel, "BOTTOMLEFT", 0, -2)
-    delayFlavor:SetPoint("RIGHT", popup, "RIGHT", -24, 0)
-    delayFlavor:SetJustifyH("LEFT")
-    delayFlavor:SetText("Very low values may cause the addon to malfunction.")
+        local label = scrollChild:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        label:SetPoint("LEFT", cb, "RIGHT", 2, 0)
+        label:SetText(labelText)
 
-    local delaySlider = CreateFrame("Slider", nil, popup)
-    delaySlider:SetOrientation("HORIZONTAL")
-    delaySlider:SetWidth(190)
-    delaySlider:SetHeight(20)
-    delaySlider:SetPoint("TOPLEFT", delayFlavor, "BOTTOMLEFT", 0, -4)
-    delaySlider:SetMinMaxValues(0.1, 3.0)
-    delaySlider:SetValueStep(0.1)
-    delaySlider:SetValue(2)
-    delaySlider:SetThumbTexture("Interface\\Buttons\\UI-SliderBar-Button-Horizontal")
+        local flavor = scrollChild:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+        flavor:SetPoint("TOPLEFT", cb, "BOTTOMLEFT", 26, -2)
+        flavor:SetPoint("RIGHT", scrollChild, "RIGHT", 0, 0)
+        flavor:SetJustifyH("LEFT")
+        flavor:SetText(flavorText)
 
-    local delayTrack = delaySlider:CreateTexture(nil, "BACKGROUND")
-    delayTrack:SetTexture("Interface\\Buttons\\WHITE8X8")
-    delayTrack:SetVertexColor(0.25, 0.25, 0.25, 1)
-    delayTrack:SetHeight(6)
-    delayTrack:SetPoint("CENTER", delaySlider)
-    delayTrack:SetPoint("LEFT", delaySlider)
-    delayTrack:SetPoint("RIGHT", delaySlider)
+        return cb, flavor
+    end
 
-    local delayValText = popup:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    delayValText:SetPoint("LEFT", delaySlider, "RIGHT", 6, 0)
+    local delaySlider, delayBottom = AddSlider(
+        "Action delay:",
+        "Very low values may cause the addon to malfunction.",
+        scrollChild, 0, 0.1, 3.0, 2)
 
-    delaySlider:SetScript("OnValueChanged", function()
-        local v = delaySlider:GetValue()
-        delayValText:SetText(string.format("%.1fs", v))
-    end)
-    delaySlider:GetScript("OnValueChanged")()
+    local toastSlider, toastBottom = AddSlider(
+        "Toast duration:",
+        "How long pick/reroll/freeze/banish notifications stay on screen.",
+        delayBottom, -14, 0.5, 8.0, 3)
 
-    -- Toast duration (label → slider, no flavor text)
-    local toastSlider = AddSlider("Toast duration:", delaySlider, -14, 3)
+    -- Section header for the on/off feature toggles below
+    local togglesHeader = scrollChild:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    togglesHeader:SetPoint("TOPLEFT", toastBottom, "BOTTOMLEFT", 0, -18)
+    togglesHeader:SetText("Feature toggles")
+    togglesHeader:SetTextColor(unpack(EbonBuilds.Theme.ACCENT_GOLD))
 
-    -- Buttons
+    local autoSellCB, autoSellBottom = AddCheckbox(
+        "Auto-sell junk at vendors",
+        "Sells 0-copper bag items automatically while a vendor is open. Items with an unlearned affix stay protected even if worthless. Same as /ebb autosell.",
+        togglesHeader, -8)
+
+    local bagDotsCB, bagDotsBottom = AddCheckbox(
+        "Bag affix dots",
+        "Colored dot on bag items missing an affix: red for a new line, purple for a rank you're missing on one you already have. Same as /ebb bagdots.",
+        autoSellBottom, -10)
+
+    -- Buttons (outside the scrollframe, always visible)
     local saveBtn = EbonBuilds.Theme.CreateButton(popup)
     saveBtn:SetSize(80, 22)
     saveBtn:SetPoint("BOTTOM", popup, "BOTTOM", 43, 18)
@@ -165,6 +209,12 @@ local function BuildSettingsPopup()
         local gs = EbonBuildsDB.globalSettings
         gs.evalDelay = delaySlider:GetValue()
         gs.toastDuration = toastSlider:GetValue()
+        if EbonBuilds.AutoSell then
+            EbonBuilds.AutoSell.SetEnabled(autoSellCB:GetChecked() and true or false)
+        end
+        if EbonBuilds.BagAffixDots then
+            EbonBuilds.BagAffixDots.SetEnabled(bagDotsCB:GetChecked() and true or false)
+        end
         popup:Hide()
     end)
 
@@ -178,6 +228,9 @@ local function BuildSettingsPopup()
         local gs = EbonBuildsDB.globalSettings
         delaySlider:SetValue(gs.evalDelay or 2)
         toastSlider:SetValue(gs.toastDuration or 3)
+        autoSellCB:SetChecked(EbonBuilds.AutoSell and EbonBuilds.AutoSell.IsEnabled())
+        bagDotsCB:SetChecked(EbonBuilds.BagAffixDots and EbonBuilds.BagAffixDots.IsEnabled())
+        scrollFrame:SetVerticalScroll(0)
     end)
 
     return popup
