@@ -1,6 +1,6 @@
 # EbonBuilds — FAQ & Changelog
 
-*This file is updated with every release. Latest version: 2.42 — also available in-game via* `/ebb faq`
+*This file is updated with every release. Latest version: 2.43 — also available in-game via* `/ebb faq`
 
 ---
 
@@ -197,6 +197,11 @@ Next to the regular Export button (build edit screen, any tab) is a new **Export
 This is deliberately approximate, not a controlled measurement: echoes stack together and fight difficulty/duration/execution vary a lot run to run, so it can't isolate any single echo's true causal effect. Treat it as a rough supplementary signal to combine with the scoring model and Tuning Advisor data, not a replacement for either. If Details! isn't installed, the checkbox tells you and won't enable.
 
 ## Changelog
+
+### 2.43 (2026-07-16) -- Export (AI): flags echoes tracked as an indistinguishable group
+
+- **New: Export (AI) now detects and calls out "co-active clusters."** A real Export (AI) dump showed 11 completely different echoes sharing a byte-identical DPS value and sample count -- concrete proof of the documented limitation (DPS tracking can't isolate one echo's effect when several are active together) actually showing up in practice, in a way that wasn't obvious just from reading the numbers row by row. When two or more echoes share the exact same avg DPS + sample count (meaning every sample was taken while all of them were active together), they're now called out in a NOTE block before the echo table, so it's clear those specific numbers can't be used to compare that group against each other.
+- Practical takeaway for anyone using DPS tracking: varying your active loadout across runs (rather than always running the same combo) is what lets individual echoes start showing distinguishable numbers.
 
 ### 2.42 (2026-07-16) -- fix: Tuning Advisor's Freeze target was backwards (found from a real Export (AI) dump)
 

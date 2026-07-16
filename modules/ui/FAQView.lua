@@ -15,8 +15,18 @@ local R = "|r"
 
 local PAGES = {
 {
-    title = "What's New in 2.42",
+    title = "What's New in 2.43",
     lines = {
+        GOLD .. "2.43: Export (AI) flags indistinguishable echo groups" .. R,
+        "- New: echoes sharing byte-identical DPS + sample count (were",
+        "  always active together during tracking) get called out in",
+        "  a NOTE block before the echo table",
+        "- Found from a real export showing 11 different echoes with",
+        "  the exact same DPS number -- makes the 'can't isolate one",
+        "  echo's effect' caveat concrete instead of just a disclaimer",
+        "- Tip: vary your loadout across runs so individual echoes",
+        "  start showing distinguishable numbers",
+        "",
         GOLD .. "2.42: fixed -- Freeze target was backwards" .. R,
         "- Found from a real Export (AI) dump: Freeze suggestions",
         "  targeted catching 90% of ALL offers instead of the top 10%",

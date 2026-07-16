@@ -547,6 +547,35 @@ function EbonBuilds.ExportImport.GenerateAIText(build)
         add("Format: Name | weight | quality | family/families | avg DPS while active (samples) | effect")
         add("(DPS tracking is a rough signal, not a controlled measurement -- echoes stack together")
         add("and fights vary a lot, so this can't isolate any single echo's true effect on its own.)")
+
+        -- Concrete evidence of that limitation: echoes with byte-identical
+        -- avg DPS + sample count were active at the exact same sampling
+        -- ticks (the same loadout, the same fights) -- their numbers
+        -- reflect the whole active set, not any one echo individually, so
+        -- they can't be compared against each other from this data alone.
+        local clusters = {}
+        for _, e in ipairs(entries) do
+            local perf = EbonBuilds.EchoPerformance.GetStats(e.name)
+            if perf then
+                local key = string.format("%.2f|%d", perf.avgDPS, perf.sampleCount)
+                clusters[key] = clusters[key] or {}
+                clusters[key][#clusters[key] + 1] = e.name
+            end
+        end
+        local clusterLines = {}
+        for _, names in pairs(clusters) do
+            if #names > 1 then
+                table.sort(names)
+                clusterLines[#clusterLines + 1] = table.concat(names, ", ")
+            end
+        end
+        if #clusterLines > 0 then
+            add("NOTE: these groups were always active together during tracking -- their identical")
+            add("DPS numbers reflect the whole active set that run, not any one echo in the group:")
+            for _, line in ipairs(clusterLines) do
+                add("  - %s", line)
+            end
+        end
     else
         add("Format: Name | weight | quality | family/families | effect")
     end
