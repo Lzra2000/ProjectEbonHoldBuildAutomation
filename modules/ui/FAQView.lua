@@ -15,8 +15,16 @@ local R = "|r"
 
 local PAGES = {
 {
-    title = "What's New in 2.56",
+    title = "What's New in 2.57",
     lines = {
+        GOLD .. "2.57: fixed -- Tuning Advisor layout overlap risk" .. R,
+        "- The bottom sample-count text was anchored to a fixed spot",
+        "  near the window's bottom edge while the checkbox/button",
+        "  stack above it had grown across several updates",
+        "- Structural fix: it now chains below Clear Collected Data",
+        "  instead, so it can't be caught out by future additions",
+        "- Window also grown for real margin, not another guess",
+        "",
         GOLD .. "2.56: Sync Now button" .. R,
         "- New button in /ebb tuning, next to Clear Collected Data",
         "- DPS/appearance sharing used to only broadcast on a 3-minute",

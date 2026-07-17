@@ -1,6 +1,6 @@
 # EbonBuilds — FAQ & Changelog
 
-*This file is updated with every release. Latest version: 2.56 — also available in-game via* `/ebb faq`
+*This file is updated with every release. Latest version: 2.57 — also available in-game via* `/ebb faq`
 
 ---
 
@@ -197,6 +197,12 @@ Next to the regular Export button (build edit screen, any tab) is a new **Export
 This is deliberately approximate, not a controlled measurement: echoes stack together and fight difficulty/duration/execution vary a lot run to run, so it can't isolate any single echo's true causal effect. Treat it as a rough supplementary signal to combine with the scoring model and Tuning Advisor data, not a replacement for either. If Details! isn't installed, the checkbox tells you and won't enable.
 
 ## Changelog
+
+### 2.57 (2026-07-16) -- fix (structural): Tuning Advisor button/label overlap risk
+
+- **Fixed: `countLabel` at the bottom of the Tuning Advisor was anchored to a fixed offset from the window's bottom edge, while the checkbox/button stack above it (Continuous auto-tune, DPS sharing, appearance sharing, auto-apply weights, Clear Collected Data, Sync Now) had grown across 2.35 through 2.56 without that fixed anchor ever being revisited.** Independently re-derived the actual pixel math for the current stack and found clearBtn's bottom and countLabel's position landed at nearly the same Y coordinate even at the window's current 500px height -- close enough to overlap depending on font metrics. Growing the window height with a guessed buffer each time a row was added (the pattern used in 2.53/2.54/2.56) was treating the symptom, not the cause.
+- **Real fix: `countLabel` now chains below `clearBtn` instead of anchoring to the window bottom.** This is the structural fix -- it automatically stays clear of the stack above it no matter how many more rows get added in the future, instead of needing the window height re-guessed every time. Window height also grown to 560 (560x560) for real margin, not another thin estimate.
+- Not confirmed whether the reported screenshot was on an already-fixed version or an older one (it showed only 2 of the 4 current checkboxes, suggesting a pre-2.53 client) -- but the underlying anchor problem was real and present in 2.56 regardless, found independently via the pixel math rather than needing to wait for a repro.
 
 ### 2.56 (2026-07-16) -- "Sync Now" button for DPS/appearance sharing
 

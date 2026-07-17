@@ -610,7 +610,7 @@ end
 
 local function BuildWindow()
     local f = CreateFrame("Frame", "EbonBuildsTuningAdvisorWindow", UIParent)
-    f:SetSize(560, 500)
+    f:SetSize(560, 560)
     f:SetPoint("CENTER", UIParent, "CENTER")
     f:SetFrameStrata("FULLSCREEN_DIALOG")
     f:SetToplevel(true)
@@ -787,7 +787,9 @@ local function BuildWindow()
     end)
 
     countLabel = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    countLabel:SetPoint("BOTTOM", f, "BOTTOM", 0, 18)
+    countLabel:SetPoint("TOPLEFT", clearBtn, "BOTTOMLEFT", 0, -14)
+    countLabel:SetPoint("RIGHT", f, "RIGHT", -16, 0)
+    countLabel:SetJustifyH("LEFT")
 
     f._autoTuneCB = autoTuneCB
     f._perfCB = perfCB
