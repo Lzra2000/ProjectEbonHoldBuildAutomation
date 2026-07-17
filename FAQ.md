@@ -253,7 +253,15 @@ This is deliberately approximate, not a controlled measurement: echoes stack tog
 
 ## Changelog
 
-### 2.6 (2026-07-18) -- Consolidated UI, analytics, and workflow update
+### 3.0 (2026-07-18) -- merge: Family Bonus tuning ported in from the parallel 2.59 branch
+
+- This build and a separately-versioned 2.59 branch (see that entry's own changelog for its full history) had diverged after roughly the 2.54-2.58 point and developed independently -- this one toward the Stats/Logbook/EWL/test-suite work below, the other toward Manual Training refinements and a Quality/Family Bonus tuning pair. Comparing the two found exactly one capability present in 2.59 and missing here: **Family Bonus suggestions**, the family counterpart to the Quality Bonus suggestions already in this build.
+- Ported `SuggestFamilyBonusAdjustment` in, but rewrote its internals rather than copying verbatim: the original 2.59 version divided DPS by a flat per-echo weight, which predates this build's per-quality-rank weight system (`Weights.GetFromWeights`) and real final-score-based comparison (`Scoring.ScorePerQuality`, matching how Quality Bonus suggestions already work here). Also caught and fixed a missing `None -> "No family"` mapping that would have silently miscategorized any echo whose family list literally contains the string `"None"` as unresolvably ambiguous instead of correctly grouping it with the no-family tier.
+- Same sidestep-the-hard-problem philosophy as Quality Bonus: only echoes with exactly one matching family (or explicitly none) are used, since a multi-family echo's score already has several family modifiers stacked onto it at once, and disentangling one family's own marginal contribution from that would need real regression. Multi-family echoes are excluded from the comparison entirely rather than guessed at.
+- Shown in Export (AI) right after Quality Bonus suggestions, same format and same experimental/report-only status -- no auto-apply path for either bonus type.
+- Verified against this build's real Scoring/Weights pipeline (not a mock): a synthetic dataset with 5 pure-Tank echoes, 5 pure-Caster echoes, and 5 Tank+Caster multi-family echoes with a deliberately extreme DPS value confirmed the multi-family echoes are excluded from both the suggestions and the tier averages, while the two pure tiers are correctly flagged in the right direction. Full existing test suite (52 files, 38 UI contracts) re-verified passing after the change.
+
+### 2.99 (2026-07-18) -- Consolidated UI, analytics, and workflow update
 
 Compared with the uploaded 2.59 build:
 

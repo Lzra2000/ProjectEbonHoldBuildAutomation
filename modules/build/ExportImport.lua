@@ -518,6 +518,28 @@ function EbonBuilds.ExportImport.GenerateAIText(build)
             end
             add("")
         end
+
+        -- Family Bonus suggestions -- same idea as Quality, but only
+        -- uses echoes with exactly one matching family (or none).
+        -- Multi-family echoes get every matching family's modifier
+        -- applied to the same score at once (see Scoring.ApplyFamilyBonuses),
+        -- so untangling one family's own contribution from a multi-family
+        -- echo would need real regression -- this sidesteps that by
+        -- simply not using ambiguous data, the same way co-active
+        -- clusters are excluded above.
+        local familySuggestions = EbonBuilds.EchoPerformance.SuggestFamilyBonusAdjustment(build)
+        if #familySuggestions > 0 then
+            add("--- Family Bonus suggestions (experimental, report only) ---")
+            add("Same comparison as Quality Bonus, restricted to echoes with exactly ONE")
+            add("matching family (or none) -- multi-family echoes are excluded entirely rather")
+            add("than guessed at, since their score already stacks several family modifiers at once.")
+            for _, sug in ipairs(familySuggestions) do
+                add("%s family bonus: %d -> %d suggested (%.0f%% %s average value-per-score, %d echoes)",
+                    sug.family, sug.currentBonus, sug.suggestedBonus,
+                    math.abs(sug.deviationPct), sug.deviationPct > 0 and "above" or "below", sug.tierEchoCount)
+            end
+            add("")
+        end
     end
 
     -- Locked echo slots

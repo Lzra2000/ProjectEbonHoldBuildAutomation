@@ -25,7 +25,7 @@ local function CreateTitleBar(frame)
 
     local version = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     version:SetPoint("LEFT", title, "RIGHT", 8, -1)
-    version:SetText("v" .. tostring((GetAddOnMetadata and GetAddOnMetadata("EbonBuilds", "Version")) or EbonBuilds.VERSION or "2.6"))
+    version:SetText("v" .. tostring((GetAddOnMetadata and GetAddOnMetadata("EbonBuilds", "Version")) or EbonBuilds.VERSION or "3.0"))
     version:SetTextColor(unpack(EbonBuilds.Theme.TEXT_MUTED))
 
     pageLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")

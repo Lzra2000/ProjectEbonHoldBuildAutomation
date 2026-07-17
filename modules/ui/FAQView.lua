@@ -15,9 +15,23 @@ local R = "|r"
 
 local PAGES = {
 {
-    title = "What's New in 2.6",
+    title = "What's New in 3.0",
     lines = {
-        GOLD .. "2.6: Consolidated update from 2.59" .. R,
+        GOLD .. "3.0: Family Bonus tuning merged in from 2.59" .. R,
+        "- Ported over the one capability the parallel 2.59 branch had that",
+        "  this build didn't: Family Bonus suggestions",
+        "- Rewritten (not copy-pasted) to use this build's real per-quality",
+        "  weights and final-score comparison, matching how Quality Bonus",
+        "  suggestions already work here",
+        "- Only uses echoes with exactly one matching family (or none) --",
+        "  multi-family echoes are excluded, not guessed at",
+        "- Shown in Export (AI) right after Quality Bonus suggestions",
+    },
+},
+{
+    title = "What's New in 2.99",
+    lines = {
+        GOLD .. "2.99: Consolidated update from 2.59" .. R,
         "- Unified build workspace and improved editor workflows",
         "- Rebuilt Stats: Summary, Echoes, Actions, and split Recommendations",
         "- Reworked Logbook with run navigation, filters, sorting, and inspector",
