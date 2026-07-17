@@ -1,0 +1,19 @@
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# WoW-side files that don't belong in the addon source (if ever copied in by accident)
+*.wtf
+SavedVariables/
+
+# Packaging output
+*.zip
+/dist/
+/build/

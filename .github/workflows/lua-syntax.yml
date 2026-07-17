@@ -1,0 +1,36 @@
+name: Lua syntax check
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  syntax-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Lua 5.1 (matches WotLK 3.3.5a's runtime)
+        run: sudo apt-get update && sudo apt-get install -y lua5.1
+
+      - name: Check every .lua file with luac5.1 -p
+        run: |
+          fail=0
+          for f in $(find . -name "*.lua"); do
+            if ! luac5.1 -p "$f"; then
+              echo "::error file=$f::Syntax error"
+              fail=1
+            fi
+          done
+          exit $fail
+
+      - name: Verify every .lua file listed in the .toc exists on disk
+        run: |
+          fail=0
+          grep -E '^\S+\.lua$' EbonBuilds.toc > /tmp/toc_files.txt
+          while IFS= read -r line; do
+            [ -f "$line" ] || { echo "::error::Missing file listed in EbonBuilds.toc: $line"; fail=1; }
+          done < /tmp/toc_files.txt
+          exit $fail
