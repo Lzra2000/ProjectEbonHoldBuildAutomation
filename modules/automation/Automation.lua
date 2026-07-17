@@ -324,14 +324,7 @@ function EbonBuilds.Automation.Evaluate()
 
     local function body()
         local build = EbonBuilds.Build.GetActive()
-        if not build or not build.automationEnabled then return false end
-        -- Manual Training Mode: an independent opt-in toggle, not tied to
-        -- automationEnabled. When on, automation never acts for this
-        -- build regardless of its own automationEnabled setting -- same
-        -- fallback path as automation being off (native UI shows after
-        -- the eval timer's brief delay), so the player can pick manually
-        -- while EbonBuilds.ManualTraining observes what they choose.
-        if EbonBuilds.ManualTraining and EbonBuilds.ManualTraining.IsEnabled(build) then return false end
+        if not build then return false end
 
         local choices = ProjectEbonhold.PerkService.GetCurrentChoice()
         if not choices or #choices == 0 then return false end
@@ -353,8 +346,14 @@ function EbonBuilds.Automation.Evaluate()
         end
         if #scored == 0 then return false end
 
-        -- Feed the Tuning Advisor: what does this build actually get
-        -- offered, in practice? Cheap append, no analysis happens here.
+        -- Feed the Tuning Advisor and the appearance-rate tracker: what
+        -- does this build actually get offered, in practice? This runs
+        -- on EVERY evaluation regardless of whether automation is
+        -- enabled or Manual Training is active -- the offer itself
+        -- happens either way, whoever ends up making the pick, so
+        -- tracking "what gets offered" shouldn't depend on "who picks."
+        -- Only the decision logic below (banish/reroll/freeze/select)
+        -- is gated behind automation actually being on.
         if peakScore and peakScore > 0 and EbonBuilds.Calibration then
             for _, s in ipairs(scored) do
                 if s.score then
@@ -367,10 +366,6 @@ function EbonBuilds.Automation.Evaluate()
             EbonBuilds.Calibration.MaybeAutoTune()
         end
 
-        -- How often does each echo actually show up on a choice screen?
-        -- Always-on (cheap, no Details! needed) -- separate from the
-        -- score-based samples above, which are about VALUE, not
-        -- FREQUENCY.
         if EbonBuilds.Calibration and EbonBuilds.Calibration.RecordAppearance then
             EbonBuilds.Calibration.RecordEvaluation()
             for _, s in ipairs(scored) do
@@ -379,6 +374,15 @@ function EbonBuilds.Automation.Evaluate()
                 end
             end
         end
+
+        if not build.automationEnabled then return false end
+        -- Manual Training Mode: an independent opt-in toggle, not tied to
+        -- automationEnabled. When on, automation never acts for this
+        -- build regardless of its own automationEnabled setting -- same
+        -- fallback path as automation being off (native UI shows after
+        -- the eval timer's brief delay), so the player can pick manually
+        -- while EbonBuilds.ManualTraining observes what they choose.
+        if EbonBuilds.ManualTraining and EbonBuilds.ManualTraining.IsEnabled(build) then return false end
 
         local banList    = settings.echoBanList or {}
         local whitelist  = settings.banishFamilyWhitelist or {}

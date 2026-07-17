@@ -15,8 +15,20 @@ local R = "|r"
 
 local PAGES = {
 {
-    title = "What's New in 2.57",
+    title = "What's New in 2.58",
     lines = {
+        GOLD .. "2.58: fixed -- tracking needed Automation ON" .. R,
+        "- Calibration samples and appearance-rate tracking (both",
+        "  documented as always-on) actually only recorded data when",
+        "  Automation was enabled and Manual Training was off",
+        "- Found from a report that the Echo tab tooltip (2.55) never",
+        "  showed an appearance line at all on an up-to-date client",
+        "- Fixed: scoring + all data recording now runs on every",
+        "  evaluation regardless of automation state -- only the",
+        "  actual pick/banish/reroll/freeze stays gated as before",
+        "- Side effect: Continuous Auto-Tune can now pre-calibrate",
+        "  from data collected while Automation is off",
+        "",
         GOLD .. "2.57: fixed -- Tuning Advisor layout overlap risk" .. R,
         "- The bottom sample-count text was anchored to a fixed spot",
         "  near the window's bottom edge while the checkbox/button",

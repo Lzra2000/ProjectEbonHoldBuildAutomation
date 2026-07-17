@@ -1,6 +1,6 @@
 # EbonBuilds — FAQ & Changelog
 
-*This file is updated with every release. Latest version: 2.57 — also available in-game via* `/ebb faq`
+*This file is updated with every release. Latest version: 2.58 — also available in-game via* `/ebb faq`
 
 ---
 
@@ -197,6 +197,12 @@ Next to the regular Export button (build edit screen, any tab) is a new **Export
 This is deliberately approximate, not a controlled measurement: echoes stack together and fight difficulty/duration/execution vary a lot run to run, so it can't isolate any single echo's true causal effect. Treat it as a rough supplementary signal to combine with the scoring model and Tuning Advisor data, not a replacement for either. If Details! isn't installed, the checkbox tells you and won't enable.
 
 ## Changelog
+
+### 2.58 (2026-07-16) -- fix: appearance/threshold sample tracking silently required Automation to be ON
+
+- **Fixed: Calibration's peak-relative samples and the 2.53 appearance-rate tracker only ever recorded data when the active build had Automation enabled and Manual Training Mode off.** Both were documented as "always-on, no toggle needed" (2.36, 2.53), but the recording calls sat *after* the `automationEnabled`/Manual Training early-return in `Automation.Evaluate()`, so anyone with Automation off, or actively using Manual Training Mode, got zero appearance data and zero new threshold samples -- found from a report that the Echo tab's new appearance-rate tooltip (2.55) never showed a line at all, on an otherwise up-to-date client.
+- Restructured `Evaluate()`: scoring and all data-recording (Calibration samples, Continuous Auto-Tune's periodic check, appearance tracking) now run on every evaluation regardless of automation state -- the offer itself happens whether automation or the player makes the final pick. Only the actual decision logic (Banish/Reroll/Freeze/Select) remains gated behind Automation being enabled and Manual Training being off, unchanged from before.
+- Side effect worth knowing: Continuous Auto-Tune can now adjust thresholds/weights from data collected while Automation is off or Manual Training is active, since the underlying samples now always accumulate. This is intentional -- it means thresholds arrive already-calibrated by the time Automation gets turned back on, rather than starting cold.
 
 ### 2.57 (2026-07-16) -- fix (structural): Tuning Advisor button/label overlap risk
 
