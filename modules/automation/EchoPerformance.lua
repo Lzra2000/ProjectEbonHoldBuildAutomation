@@ -357,6 +357,99 @@ function EbonBuilds.EchoPerformance.SuggestWeightAdjustments(build)
 end
 
 ------------------------------------------------------------------------
+-- Quality bonus suggestions (experimental, report only -- no auto-apply
+-- path exists for this yet, unlike per-echo weights).
+--
+-- Different question from per-echo weight suggestions: instead of "is
+-- this ONE echo over/under-weighted relative to its peers," this asks
+-- "is a whole QUALITY TIER systematically over/under-delivering relative
+-- to its weight, in a way a single global Quality Bonus number might be
+-- able to fix." Compares each tier's average DPS-per-weight-point
+-- against the overall average across all weighted, tracked echoes.
+--
+-- Rationale for direction: a tier's current weight already reflects
+-- whatever quality bonus is currently applied. If that tier is STILL
+-- delivering above-average DPS per point of weight even after that
+-- bonus, its true value looks under-represented -- suggest raising the
+-- bonus further. If it's delivering below-average value despite the
+-- bonus, the bonus is likely inflating that tier's weight beyond what
+-- it earns -- suggest lowering it.
+--
+-- Deliberately conservative: needs more distinct echoes per tier than a
+-- single-echo weight suggestion does (aggregating many echoes into one
+-- number is a bigger generalization), and the suggested nudge is small,
+-- since a bonus change affects every echo of that quality simultaneously
+-- rather than just one.
+------------------------------------------------------------------------
+
+local MIN_ECHOES_PER_TIER_FOR_BONUS = 5
+local BONUS_DEVIATION_THRESHOLD = 0.25
+local BONUS_NUDGE = 3
+
+local QUALITY_BONUS_LABELS = { [0] = "Common", [1] = "Uncommon", [2] = "Rare", [3] = "Epic", [4] = "Legendary" }
+
+-- Returns a sorted list of { quality, qualityLabel, currentBonus,
+-- suggestedBonus, deviationPct, tierEchoCount }, or {} if there isn't
+-- enough data across enough distinct tiers to say anything.
+function EbonBuilds.EchoPerformance.SuggestQualityBonusAdjustment(build)
+    if not build or not build.class then return {} end
+    if not (EbonBuilds.EchoTableRows and EbonBuilds.EchoTableRows.BuildBestByName) then return {} end
+    local classMask = CLASS_MASK[build.class] or 0
+    local weights = build.echoWeights or {}
+
+    local signatureCounts = {}
+    local raw = {}
+    for name, info in pairs(EbonBuilds.EchoTableRows.BuildBestByName()) do
+        if classMask == 0 or bit.band(info.classMask or 0, classMask) ~= 0 then
+            local weight = weights[name] or 0
+            local perf = EbonBuilds.EchoPerformance.GetStats(name)
+            if weight > 0 and perf and perf.sampleCount >= MIN_SAMPLES_FOR_WEIGHT_SUGGESTION then
+                local sig = string.format("%.2f|%d", perf.avgDPS, perf.sampleCount)
+                signatureCounts[sig] = (signatureCounts[sig] or 0) + 1
+                raw[#raw + 1] = { name = name, quality = info.quality, ratio = perf.avgDPS / weight, sig = sig }
+            end
+        end
+    end
+
+    local tierSum, tierCount = {}, {}
+    local globalSum, globalCount = 0, 0
+    for _, e in ipairs(raw) do
+        if signatureCounts[e.sig] <= MAX_CLUSTER_SIZE_TO_TRUST then
+            tierSum[e.quality] = (tierSum[e.quality] or 0) + e.ratio
+            tierCount[e.quality] = (tierCount[e.quality] or 0) + 1
+            globalSum = globalSum + e.ratio
+            globalCount = globalCount + 1
+        end
+    end
+    if globalCount < MIN_ECHOES_PER_TIER_FOR_BONUS then return {} end
+    local globalAvg = globalSum / globalCount
+    if globalAvg <= 0 then return {} end
+
+    local settings = build.settings or {}
+    local suggestions = {}
+    for quality, count in pairs(tierCount) do
+        if count >= MIN_ECHOES_PER_TIER_FOR_BONUS then
+            local tierAvg = tierSum[quality] / count
+            local deviation = (tierAvg - globalAvg) / globalAvg
+            if math.abs(deviation) >= BONUS_DEVIATION_THRESHOLD then
+                local currentBonus = (settings.qualityBonus and settings.qualityBonus[quality]) or 0
+                local nudge = deviation > 0 and BONUS_NUDGE or -BONUS_NUDGE
+                suggestions[#suggestions + 1] = {
+                    quality = quality,
+                    qualityLabel = QUALITY_BONUS_LABELS[quality] or tostring(quality),
+                    currentBonus = currentBonus,
+                    suggestedBonus = math.max(0, currentBonus + nudge),
+                    deviationPct = deviation * 100,
+                    tierEchoCount = count,
+                }
+            end
+        end
+    end
+    table.sort(suggestions, function(a, b) return math.abs(a.deviationPct) > math.abs(b.deviationPct) end)
+    return suggestions
+end
+
+------------------------------------------------------------------------
 -- Sample ticker: only does anything while actually in combat, and only
 -- if the player opted in.
 ------------------------------------------------------------------------

@@ -500,6 +500,27 @@ function EbonBuilds.ExportImport.GenerateAIText(build)
         end
     end
 
+    -- Quality Bonus suggestions -- experimental, report only, no
+    -- auto-apply path exists for this. Compares DPS-per-weight-point
+    -- across quality tiers instead of individual echoes.
+    if EbonBuilds.EchoPerformance and EbonBuilds.EchoPerformance.IsEnabled() then
+        local bonusSuggestions = EbonBuilds.EchoPerformance.SuggestQualityBonusAdjustment(build)
+        if #bonusSuggestions > 0 then
+            add("--- Quality Bonus suggestions (experimental, report only) ---")
+            add("Compares average DPS-per-weight-point across quality tiers. A tier still")
+            add("delivering above-average value despite its current bonus suggests raising that")
+            add("bonus further; below-average suggests the bonus is inflating that tier's weight")
+            add("beyond what it earns. More speculative than the per-echo suggestions above --")
+            add("this affects every echo of that quality at once, so treat it cautiously.")
+            for _, sug in ipairs(bonusSuggestions) do
+                add("%s quality bonus: %d -> %d suggested (%.0f%% %s average value-per-weight, %d echoes)",
+                    sug.qualityLabel, sug.currentBonus, sug.suggestedBonus,
+                    math.abs(sug.deviationPct), sug.deviationPct > 0 and "above" or "below", sug.tierEchoCount)
+            end
+            add("")
+        end
+    end
+
     -- Locked echo slots
     add("--- Locked echoes (always picked if offered) ---")
     local anyLocked = false

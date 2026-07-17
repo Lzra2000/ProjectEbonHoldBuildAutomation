@@ -428,6 +428,15 @@ end
 -- every call; the actual analysis (sorting samples, computing suggestions)
 -- only runs once every TUNE_INTERVAL_SAMPLES, and only if the player has
 -- opted in.
+function EbonBuilds.Calibration.IsAutoApplyWeightsEnabled()
+    return EbonBuildsCharDB.calibration and EbonBuildsCharDB.calibration.autoApplyWeights == true
+end
+
+function EbonBuilds.Calibration.SetAutoApplyWeightsEnabled(on)
+    EbonBuildsCharDB.calibration = EbonBuildsCharDB.calibration or {}
+    EbonBuildsCharDB.calibration.autoApplyWeights = on and true or false
+end
+
 function EbonBuilds.Calibration.MaybeAutoTune()
     if not EbonBuilds.Calibration.IsAutoTuneEnabled() then return end
     EbonBuildsCharDB.calibration.samplesSinceLastTune = (EbonBuildsCharDB.calibration.samplesSinceLastTune or 0) + 1
@@ -459,9 +468,41 @@ function EbonBuilds.Calibration.MaybeAutoTune()
         if okR then changed[#changed + 1] = ("Reroll " .. valR .. "%") end
     end
 
+    -- Weight suggestions: a separate opt-in on top of Continuous Auto-Tune
+    -- itself, since applying these automatically is a bigger intervention
+    -- than nudging a threshold -- reuses the exact same suggestion
+    -- functions the manual "read the report" path uses, so there's only
+    -- one place either kind of suggestion is computed.
+    local weightsChanged = {}
+    local newWeights
+    if EbonBuilds.Calibration.IsAutoApplyWeightsEnabled() then
+        newWeights = {}
+        for k, v in pairs(build.echoWeights or {}) do newWeights[k] = v end
+
+        local function applySuggestionList(list)
+            for _, s in ipairs(list) do
+                if newWeights[s.name] ~= s.suggestedWeight then
+                    newWeights[s.name] = s.suggestedWeight
+                    weightsChanged[#weightsChanged + 1] = s.name
+                end
+            end
+        end
+        if EbonBuilds.EchoPerformance and EbonBuilds.EchoPerformance.IsEnabled() then
+            applySuggestionList(EbonBuilds.EchoPerformance.SuggestWeightAdjustments(build))
+        end
+        if EbonBuilds.ManualTraining then
+            applySuggestionList(EbonBuilds.ManualTraining.SuggestWeightAdjustments(build))
+        end
+        if #weightsChanged > 0 then
+            changed[#changed + 1] = string.format("%d weight(s)", #weightsChanged)
+        end
+    end
+
     if #changed == 0 then return end
 
-    local saved = EbonBuilds.Build.Save(build.id, { settings = settings })
+    local saveData = { settings = settings }
+    if newWeights and #weightsChanged > 0 then saveData.echoWeights = newWeights end
+    local saved = EbonBuilds.Build.Save(build.id, saveData)
     if not saved then return end
 
     local summary = table.concat(changed, ", ")
@@ -470,6 +511,9 @@ function EbonBuilds.Calibration.MaybeAutoTune()
     end
     if EbonBuilds.DebugLog and EbonBuilds.DebugLog.IsEnabled() then
         EbonBuilds.DebugLog.AddF("-> AUTO-TUNE: %s", summary)
+        if #weightsChanged > 0 then
+            EbonBuilds.DebugLog.AddF("-> AUTO-TUNE weights: %s", table.concat(weightsChanged, ", "))
+        end
     end
 end
 
@@ -547,7 +591,7 @@ end
 
 local function BuildWindow()
     local f = CreateFrame("Frame", "EbonBuildsTuningAdvisorWindow", UIParent)
-    f:SetSize(560, 470)
+    f:SetSize(560, 500)
     f:SetPoint("CENTER", UIParent, "CENTER")
     f:SetFrameStrata("FULLSCREEN_DIALOG")
     f:SetToplevel(true)
@@ -659,9 +703,29 @@ local function BuildWindow()
         EbonBuilds.Calibration.SetAppearanceSharingEnabled(self:GetChecked() and true or false)
     end)
 
+    local weightCB = CreateFrame("CheckButton", nil, f, "UICheckButtonTemplate")
+    weightCB:SetWidth(24)
+    weightCB:SetHeight(24)
+    weightCB:SetPoint("TOPLEFT", appearCB, "BOTTOMLEFT", 0, -6)
+    local weightLabel = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    weightLabel:SetPoint("LEFT", weightCB, "RIGHT", 2, 0)
+    weightLabel:SetText("Auto-apply weight suggestions")
+    weightCB:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:AddLine("Auto-apply weight suggestions", 1, 1, 1)
+        GameTooltip:AddLine("Off by default. Requires Continuous auto-tune above to also be on -- this piggybacks on the same periodic cycle. When on, the DPS-based and Manual Training weight suggestions (see Export (AI)) get applied automatically instead of staying a report you check manually.", 0.8, 0.8, 0.8, true)
+        GameTooltip:AddLine(" ", 1, 1, 1)
+        GameTooltip:AddLine("Weight changes are a bigger, more visible intervention than a threshold nudge, and the underlying data is noisier -- this is why it's a separate opt-in on top of Continuous auto-tune rather than folded into it. If DPS and Manual Training suggest opposite changes for the same echo in the same cycle, whichever is applied last wins that cycle; it'll resolve itself as more data comes in.", 0.8, 0.8, 0.8, true)
+        GameTooltip:Show()
+    end)
+    weightCB:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    weightCB:SetScript("OnClick", function(self)
+        EbonBuilds.Calibration.SetAutoApplyWeightsEnabled(self:GetChecked() and true or false)
+    end)
+
     local clearBtn = EbonBuilds.Theme.CreateButton(f, "danger")
     clearBtn:SetSize(140, 20)
-    clearBtn:SetPoint("TOPLEFT", appearCB, "BOTTOMLEFT", 0, -12)
+    clearBtn:SetPoint("TOPLEFT", weightCB, "BOTTOMLEFT", 0, -12)
     clearBtn:SetText("Clear Collected Data")
     clearBtn:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
@@ -681,6 +745,7 @@ local function BuildWindow()
     f._autoTuneCB = autoTuneCB
     f._perfCB = perfCB
     f._appearCB = appearCB
+    f._weightCB = weightCB
     tinsert(UISpecialFrames, "EbonBuildsTuningAdvisorWindow")
     f:Hide()
     return f
@@ -696,6 +761,9 @@ function EbonBuilds.Calibration.RefreshWindow()
     end
     if frame._appearCB then
         frame._appearCB:SetChecked(EbonBuilds.Calibration.IsAppearanceSharingEnabled())
+    end
+    if frame._weightCB then
+        frame._weightCB:SetChecked(EbonBuilds.Calibration.IsAutoApplyWeightsEnabled())
     end
     local build = EbonBuilds.Build.GetActive()
     if not build then

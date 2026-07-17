@@ -1,6 +1,6 @@
 # EbonBuilds — FAQ & Changelog
 
-*This file is updated with every release. Latest version: 2.53 — also available in-game via* `/ebb faq`
+*This file is updated with every release. Latest version: 2.54 — also available in-game via* `/ebb faq`
 
 ---
 
@@ -197,6 +197,13 @@ Next to the regular Export button (build edit screen, any tab) is a new **Export
 This is deliberately approximate, not a controlled measurement: echoes stack together and fight difficulty/duration/execution vary a lot run to run, so it can't isolate any single echo's true causal effect. Treat it as a rough supplementary signal to combine with the scoring model and Tuning Advisor data, not a replacement for either. If Details! isn't installed, the checkbox tells you and won't enable.
 
 ## Changelog
+
+### 2.54 (2026-07-16) -- auto-apply weight suggestions, and a first pass at Quality Bonus tuning
+
+- **New: "Auto-apply weight suggestions" toggle in `/ebb tuning`.** Off by default, requires Continuous auto-tune to also be on (piggybacks on the same periodic cycle). When on, both DPS-based and Manual Training weight suggestions get applied automatically instead of staying a manual-review report -- reuses the exact same suggestion functions the report already used, so there's only one place either kind of suggestion is computed. Deliberately a separate opt-in from the threshold auto-tune itself, since weight changes are a bigger, more visible intervention. If DPS and Manual Training suggest opposite changes for the same echo in the same cycle, whichever applies last wins that cycle -- it self-corrects as more data comes in.
+- **New: Quality Bonus suggestions (experimental, report only -- no auto-apply exists for this yet).** Compares average DPS-per-weight-point across quality tiers instead of individual echoes: a tier still delivering above-average value despite its current bonus suggests raising that bonus further; below-average suggests the bonus is inflating that tier's weight beyond what it earns. Needs more distinct echoes per tier than a per-echo suggestion does, and the nudge is small (±3, vs ±10 for a single echo), since a bonus change touches every echo of that quality at once. Shown in Export (AI).
+- Family Bonus tuning intentionally not included yet -- an echo can belong to multiple families at once (e.g. "Caster DPS/Melee DPS"), which needs a different attribution approach than quality's one-tier-per-echo case.
+- Verified in isolation: weight auto-apply correctly applied both a DPS-based raise and a Manual-Training-based lower within one simulated auto-tune cycle; Quality Bonus suggestions correctly identified an over-delivering tier (raise) and under-delivering tier (lower) in a synthetic dataset with a clear, known difference.
 
 ### 2.53 (2026-07-16) -- echo appearance rates, tracked always, shared opt-in
 

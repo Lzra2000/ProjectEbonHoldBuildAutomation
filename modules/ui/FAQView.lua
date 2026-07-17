@@ -15,8 +15,19 @@ local R = "|r"
 
 local PAGES = {
 {
-    title = "What's New in 2.53",
+    title = "What's New in 2.54",
     lines = {
+        GOLD .. "2.54: auto-apply weights + Quality Bonus tuning" .. R,
+        "- New: 'Auto-apply weight suggestions' toggle -- requires",
+        "  Continuous auto-tune too, applies DPS + Manual Training",
+        "  weight suggestions automatically instead of report-only",
+        "- New: Quality Bonus suggestions (experimental, report only,",
+        "  shown in Export (AI)) -- compares DPS-per-weight-point",
+        "  across quality tiers, suggests a small bonus nudge when a",
+        "  whole tier over/under-delivers relative to its weight",
+        "- Family Bonus tuning not included yet -- multi-family echoes",
+        "  need a different approach",
+        "",
         GOLD .. "2.53: echo appearance rates" .. R,
         "- New: tracks how often each echo actually appears on a",
         "  choice screen (% of evaluations), not how good it scores",
