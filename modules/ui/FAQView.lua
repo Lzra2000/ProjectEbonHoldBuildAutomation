@@ -15,8 +15,18 @@ local R = "|r"
 
 local PAGES = {
 {
-    title = "What's New in 2.45",
+    title = "What's New in 2.46",
     lines = {
+        GOLD .. "2.46: weight suggestions -- tightened cluster filter" .. R,
+        "- Fixed: most weight suggestions were contaminated by co-active",
+        "  clusters (2-3 echoes tracked together, same DPS number)",
+        "- Found from real data: cross-checking suggestions against the",
+        "  export's own cluster list showed most flagged echoes were",
+        "  sharing a signature with another echo, not independent proof",
+        "- Now requires a fully unique DPS+sample signature before an",
+        "  echo is trusted for a suggestion",
+        "- Expect fewer, more trustworthy suggestions per export",
+        "",
         GOLD .. "2.45: weight suggestions from DPS data" .. R,
         "- New: Export (AI) can now suggest weight nudges based on",
         "  tracked DPS -- compares each echo against others at the",

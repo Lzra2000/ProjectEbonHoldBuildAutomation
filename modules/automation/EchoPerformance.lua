@@ -108,11 +108,20 @@ end
 -- intervention, and this data is noisier (fight difficulty/duration
 -- varies, and see EchoPerformance's co-active cluster limitation) --
 -- this is meant to be read and judged, not blindly trusted.
+--
+-- Only echoes with a fully unique DPS+sample-count signature are
+-- considered (MAX_CLUSTER_SIZE_TO_TRUST = 1). Originally this allowed
+-- small clusters (up to 3) on the assumption that a couple of echoes
+-- briefly overlapping was a coincidence -- real data showed 2-3 member
+-- clusters are actually the common case (any two echoes active across
+-- the same handful of fights end up sharing a signature), so most
+-- "suggestions" at that looser threshold were really one data point
+-- duplicated across indistinguishable echoes, not independent evidence.
 ------------------------------------------------------------------------
 
 local MIN_SAMPLES_FOR_WEIGHT_SUGGESTION = 8  -- per-echo, before it's considered at all
 local MIN_TIER_BASELINE_SIZE = 2             -- how many clean data points a tier needs to have a baseline
-local MAX_CLUSTER_SIZE_TO_TRUST = 3          -- echoes sharing identical DPS+samples with more than this many others are excluded (can't be individually distinguished)
+local MAX_CLUSTER_SIZE_TO_TRUST = 1          -- an echo's DPS signature must be unique (shared with nobody else) to be trusted for a weight suggestion
 local WEIGHT_SUGGESTION_DEVIATION = 0.25     -- min fractional deviation from tier average to flag
 local WEIGHT_NUDGE = 10                      -- fixed, modest suggested adjustment
 

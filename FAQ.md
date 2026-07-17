@@ -1,6 +1,6 @@
 # EbonBuilds — FAQ & Changelog
 
-*This file is updated with every release. Latest version: 2.45 — also available in-game via* `/ebb faq`
+*This file is updated with every release. Latest version: 2.46 — also available in-game via* `/ebb faq`
 
 ---
 
@@ -197,6 +197,12 @@ Next to the regular Export button (build edit screen, any tab) is a new **Export
 This is deliberately approximate, not a controlled measurement: echoes stack together and fight difficulty/duration/execution vary a lot run to run, so it can't isolate any single echo's true causal effect. Treat it as a rough supplementary signal to combine with the scoring model and Tuning Advisor data, not a replacement for either. If Details! isn't installed, the checkbox tells you and won't enable.
 
 ## Changelog
+
+### 2.46 (2026-07-16) -- weight suggestions: tightened cluster filter (found from real data)
+
+- **Fixed: most weight suggestions were actually contaminated by co-active clusters.** 2.45 trusted clusters up to 3 members, on the assumption that a couple of echoes briefly overlapping was rare. A real Export (AI) dump showed the opposite: cross-referencing the suggestion list against the same export's own cluster NOTE block showed the majority of flagged echoes (Curse of the Plaguebringer/Precision Strike/Steel Brand, Archmage's Mark/Burning Touch, Glass Canon/Resonant Build, Backstabber's Edge/Edict of the Iron Council, Brittle Forging/Contagion, and more) were sharing a signature with at least one other echo -- meaning the "suggestion" was really one data point duplicated across indistinguishable echoes, not independent evidence for any one of them.
+- Tightened to require a fully unique DPS+sample-count signature (shared with nobody) before an echo is trusted for a weight suggestion. Re-verified in isolation: a 2-member cluster that would have looked like the most extreme outlier in the set is now correctly excluded entirely, leaving only genuinely distinguishable echoes.
+- Expect fewer suggestions per export as a result -- that's the correct behavior. Playing more varied loadouts (per the 2.43 tip) is still what grows the pool of trustworthy, individually-distinguishable data over time.
 
 ### 2.45 (2026-07-16) -- weight suggestions from DPS data (Export (AI), read-only)
 
