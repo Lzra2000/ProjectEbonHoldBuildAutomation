@@ -1,0 +1,248 @@
+-- EbonBuilds: modules/ui/BuildTabs.lua
+-- Accessible, high-contrast tab container for editing a build.
+
+EbonBuilds.BuildTabs = {}
+
+local viewFrame
+local contentArea
+local tabs = {}
+local saveBtn, cancelBtn, saveStatus
+local activeTab = 1
+local dirty = false
+local state = { context = nil }
+
+local TAB_DEFS = {
+    { label = "Build",       hint = "Identity, class, locked Echoes, and sharing." },
+    { label = "Priorities",  hint = "Set rank-specific Echo values and protect must-keep Echoes." },
+    { label = "Modifiers",   hint = "Adjust rank, family, and unique-Echo strategy." },
+    { label = "Autopilot",   hint = "Choose an automation intent and tune its decisions." },
+}
+
+local function RefreshSaveState()
+    if saveStatus then
+        local active = EbonBuilds.Build.GetActive and EbonBuilds.Build.GetActive()
+        if dirty then
+            local warning = active and active.automationEnabled ~= false and " · Autopilot uses last saved settings" or ""
+            saveStatus:SetText("Unsaved changes" .. warning)
+            saveStatus:SetTextColor(unpack(EbonBuilds.Theme.WARNING))
+        else
+            saveStatus:SetText("All changes saved")
+            saveStatus:SetTextColor(unpack(EbonBuilds.Theme.TEXT_MUTED))
+        end
+    end
+    if saveBtn then
+        if dirty or (state.context and state.context.mode == "create") then
+            saveBtn:Enable()
+            EbonBuilds.Theme.SetButtonAccent(saveBtn, "gold")
+        else
+            saveBtn:Disable()
+        end
+    end
+    if EbonBuilds.MainWindow and EbonBuilds.MainWindow.SetDirtyState then
+        EbonBuilds.MainWindow.SetDirtyState(dirty)
+    end
+end
+
+function EbonBuilds.BuildTabs.MarkDirty()
+    dirty = true
+    RefreshSaveState()
+end
+
+function EbonBuilds.BuildTabs.ClearDirty()
+    dirty = false
+    RefreshSaveState()
+end
+
+function EbonBuilds.BuildTabs.IsDirty()
+    return dirty
+end
+
+local function UnmountAll()
+    EbonBuilds.BuildForm.Unmount()
+    EbonBuilds.WeightsView.Unmount()
+    EbonBuilds.BonusView.Unmount()
+    EbonBuilds.SettingsView.Unmount()
+end
+
+local function RefreshTabs()
+    for i, btn in ipairs(tabs) do
+        EbonBuilds.Theme.SetTabSelected(btn, i == activeTab)
+    end
+end
+
+local function CanLeaveActiveTab(nextIndex)
+    if nextIndex == activeTab then return true end
+    if activeTab == 2 and EbonBuilds.EchoTable and EbonBuilds.EchoTable.ValidateAndCommitAll then
+        local ok, err = EbonBuilds.EchoTable.ValidateAndCommitAll()
+        if not ok then
+            if EbonBuilds.Toast and EbonBuilds.Toast.Show then EbonBuilds.Toast.Show(err or "Fix the invalid Echo value first") end
+            return false
+        end
+    elseif activeTab == 3 and EbonBuilds.BonusView and EbonBuilds.BonusView.ValidateAndCommitAll then
+        local ok, err = EbonBuilds.BonusView.ValidateAndCommitAll()
+        if not ok then
+            if EbonBuilds.Toast and EbonBuilds.Toast.Show then EbonBuilds.Toast.Show(err or "Fix the invalid bonus value first") end
+            return false
+        end
+    elseif activeTab == 4 and EbonBuilds.SettingsView and EbonBuilds.SettingsView.ValidateAndCommitAll then
+        local ok, err = EbonBuilds.SettingsView.ValidateAndCommitAll()
+        if not ok then
+            if EbonBuilds.Toast and EbonBuilds.Toast.Show then EbonBuilds.Toast.Show(err or "Fix the invalid Autopilot value first") end
+            return false
+        end
+    end
+    return true
+end
+
+local function ShowTab(index)
+    if not CanLeaveActiveTab(index) then return false end
+    activeTab = index
+    UnmountAll()
+    if index == 1 then
+        EbonBuilds.BuildForm.Mount(contentArea, state.context)
+    elseif index == 2 then
+        EbonBuilds.WeightsView.Mount(contentArea)
+    elseif index == 3 then
+        EbonBuilds.BonusView.Mount(contentArea)
+    elseif index == 4 then
+        EbonBuilds.SettingsView.Mount(contentArea)
+    end
+    RefreshTabs()
+    if EbonBuilds.MainWindow and EbonBuilds.MainWindow.SetPageContext then
+        local prefix = state.context and state.context.mode == "create" and "New Build" or "Edit Build"
+        EbonBuilds.MainWindow.SetPageContext(prefix .. " · " .. TAB_DEFS[index].label)
+    end
+    return true
+end
+
+function EbonBuilds.BuildTabs.GetActiveTab()
+    return activeTab
+end
+
+function EbonBuilds.BuildTabs.ShowTab(index)
+    if index and TAB_DEFS[index] then ShowTab(index) end
+end
+
+function EbonBuilds.BuildTabs.OnBuildSaved()
+    state.context = { mode = "edit", build = EbonBuilds.Build.GetActive() }
+    EbonBuilds.BuildTabs.ClearDirty()
+end
+
+local function CreateTabs(parent)
+    local anchor
+    for i, def in ipairs(TAB_DEFS) do
+        local btn = EbonBuilds.Theme.CreateTab(parent, def.label)
+        btn:SetWidth(i == 2 and 120 or i == 4 and 112 or 100)
+        if not anchor then
+            btn:SetPoint("TOPLEFT", parent, "TOPLEFT", 8, -2)
+        else
+            btn:SetPoint("LEFT", anchor, "RIGHT", 5, 0)
+        end
+        btn:SetScript("OnClick", function() ShowTab(i) end)
+        EbonBuilds.Theme.AttachTooltip(btn, def.label, def.hint)
+        tabs[i] = btn
+        anchor = btn
+    end
+    RefreshTabs()
+end
+
+local function CreateContentArea(parent)
+    local frame = CreateFrame("Frame", nil, parent)
+    frame:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -34)
+    frame:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", 0, 42)
+    EbonBuilds.Theme.ApplyPanel(frame)
+
+    local inner = CreateFrame("Frame", nil, frame)
+    inner:SetPoint("TOPLEFT", frame, "TOPLEFT", 8, -8)
+    inner:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -8, 8)
+    return inner
+end
+
+local function AddButtonTooltip(btn, title, body)
+    EbonBuilds.Theme.AttachTooltip(btn, title, body)
+end
+
+local function BuildViewFrame()
+    local f = CreateFrame("Frame", "EbonBuildsBuildTabs", UIParent)
+    CreateTabs(f)
+    contentArea = CreateContentArea(f)
+
+    saveBtn = EbonBuilds.Theme.CreateButton(f, "gold")
+    saveBtn:SetSize(96, 24)
+    saveBtn:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -10, 8)
+    saveBtn:SetText("Save build")
+    saveBtn:SetScript("OnClick", function() EbonBuilds.BuildForm.Save() end)
+    AddButtonTooltip(saveBtn, "Save build", "Validate active fields and save build details, Echo values, bonuses, and visibility.")
+
+    cancelBtn = EbonBuilds.Theme.CreateButton(f)
+    cancelBtn:SetSize(86, 24)
+    cancelBtn:SetPoint("RIGHT", saveBtn, "LEFT", -6, 0)
+    cancelBtn:SetText("Cancel")
+    cancelBtn:SetScript("OnClick", function() EbonBuilds.BuildForm.Cancel() end)
+    AddButtonTooltip(cancelBtn, "Cancel editing", "Discard all unsaved build details, Echo values, modifiers, protection rules, and Autopilot tuning.")
+
+    local exportBtn = EbonBuilds.Theme.CreateButton(f)
+    exportBtn:SetSize(82, 24)
+    exportBtn:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 10, 8)
+    exportBtn:SetText("Export")
+    AddButtonTooltip(exportBtn, "Export build", "Create a compact string that another EbonBuilds user can import.")
+    exportBtn:SetScript("OnClick", function()
+        local build = (state.context and state.context.build) or EbonBuilds.Build.GetActive()
+        if build then EbonBuilds.ExportImport.ShowExportDialog(build) end
+    end)
+
+    local exportAIBtn = EbonBuilds.Theme.CreateButton(f)
+    exportAIBtn:SetSize(90, 24)
+    exportAIBtn:SetPoint("LEFT", exportBtn, "RIGHT", 6, 0)
+    exportAIBtn:SetText("AI report")
+    AddButtonTooltip(exportAIBtn, "AI tuning report", "Create a readable report of weights, bonuses, thresholds, and tuning data for analysis. It cannot be imported back.")
+    exportAIBtn:SetScript("OnClick", function()
+        local build = (state.context and state.context.build) or EbonBuilds.Build.GetActive()
+        if build then EbonBuilds.ExportImport.ShowAIExportDialog(build) end
+    end)
+
+    saveStatus = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    saveStatus:SetPoint("LEFT", exportAIBtn, "RIGHT", 10, 0)
+    saveStatus:SetPoint("RIGHT", cancelBtn, "LEFT", -10, 0)
+    saveStatus:SetJustifyH("CENTER")
+    saveStatus:SetText("All changes saved")
+    saveStatus:SetTextColor(unpack(EbonBuilds.Theme.TEXT_MUTED))
+
+    return f
+end
+
+function EbonBuilds.BuildTabs.EnableEchoesTab()
+    if tabs[2] then tabs[2]:Enable() end
+end
+
+local view = {}
+
+function view.Show(container, context)
+    viewFrame:SetParent(container)
+    viewFrame:ClearAllPoints()
+    viewFrame:SetAllPoints(container)
+    state.context = context or { mode = "create" }
+    dirty = state.context.mode == "create"
+
+    for _, tab in ipairs(tabs) do tab:Enable() end
+    activeTab = 1
+    ShowTab(1)
+    RefreshSaveState()
+    viewFrame:Show()
+end
+
+function view.Hide()
+    EbonBuildsDB._isEditingBuild = nil
+    EbonBuildsDB.pendingWeights = nil
+    EbonBuildsDB._wizardPrefill = nil
+    UnmountAll()
+    dirty = false
+    RefreshSaveState()
+    if viewFrame then viewFrame:Hide() end
+end
+
+function EbonBuilds.BuildTabs.Init()
+    viewFrame = BuildViewFrame()
+    viewFrame:Hide()
+    EbonBuilds.ViewRouter.Register("buildTabs", view)
+end

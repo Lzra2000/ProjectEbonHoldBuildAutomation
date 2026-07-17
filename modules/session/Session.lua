@@ -1,0 +1,482 @@
+-- EbonBuilds: modules/session/Session.lua
+-- Responsibility: session lifecycle management (start, end, log actions).
+-- A session spans from level 1 until the player dies and resets back to
+-- level 1. Logs are persisted per-session in EbonBuildsDB.sessions.
+
+EbonBuilds.Session = {}
+
+local POLL_INTERVAL = 2  -- seconds between level checks for reset detection
+local EARLY_OFFER_MAX_LEVEL = 3
+local EPIC_QUALITY = 3
+
+local maxLevel     = 0   -- highest level seen in the active session
+local pollFrame    = nil
+local pollElapsed  = 0
+
+local function NotifyHistoryChanged()
+    if EbonBuilds.SessionHistory and EbonBuilds.SessionHistory.OnHistoryChanged then
+        EbonBuilds.SessionHistory.OnHistoryChanged()
+    end
+end
+
+------------------------------------------------------------------------
+-- Internal helpers
+------------------------------------------------------------------------
+
+local function GetRunSoulAshes()
+    local rd = EbonholdPlayerRunData
+    if not rd and ProjectEbonhold and ProjectEbonhold.PlayerRunService then
+        local get = ProjectEbonhold.PlayerRunService.GetCurrentData
+        if get then rd = get() end
+    end
+    return (rd and rd.soulPoints) or 0
+end
+
+local function GetClassName()
+    local _, class = UnitClass("player")
+    return class  -- English token (WARRIOR, MAGE, etc.)
+end
+
+local function GetActiveBuildTitle()
+    local build = EbonBuilds.Build.GetActive()
+    return build and build.title or "No Build"
+end
+
+local function GetActiveBuildId()
+    local build = EbonBuilds.Build.GetActive()
+    return build and build.id or nil
+end
+
+local function CreateSession()
+    local sessions = EbonBuildsDB.sessions
+    local id = tostring(time()) .. "-" .. tostring(#sessions + 1)
+
+    local session = {
+        id            = id,
+        characterName = UnitName("player"),
+        className     = GetClassName(),
+        startTime     = time(),
+        endTime       = nil,
+        soulAshes     = 0,
+        buildId       = GetActiveBuildId(),
+        buildTitle    = GetActiveBuildTitle(),
+        startLevel    = UnitLevel("player"),
+        logs          = {},
+        -- Original offers for the first three levels. Each level is written
+        -- at most once, before any automated action or manual-mode opt-out,
+        -- so rerolls and banish replacements cannot inflate the statistic.
+        earlyEpicOffers = {},
+        analyticsRevision = 0,
+    }
+
+    table.insert(sessions, 1, session)
+    EbonBuildsDB.currentSessionIndex = 1
+    maxLevel = UnitLevel("player")
+    session.maxLevel = maxLevel
+
+    -- New run: the automation peak was locked for the previous run and must
+    -- be recomputed fresh (weights or settings may have changed in between).
+    if EbonBuilds.Automation and EbonBuilds.Automation.ResetPeakCache then
+        EbonBuilds.Automation.ResetPeakCache()
+    end
+
+    NotifyHistoryChanged()
+    return session
+end
+
+-- Keep the live session's persisted maxLevel in step with the local tracker,
+-- so a relog can restore it and death-reset detection works across logouts.
+local function TrackMaxLevel(level)
+    if level <= maxLevel then return end
+    maxLevel = level
+    local idx = EbonBuildsDB.currentSessionIndex
+    local session = idx and EbonBuildsDB.sessions[idx]
+    if session then session.maxLevel = maxLevel end
+end
+
+------------------------------------------------------------------------
+-- Event handlers
+------------------------------------------------------------------------
+
+local function OnPlayerEnteringWorld()
+    local level = UnitLevel("player")
+
+    -- No active session: start one at the current level
+    if not EbonBuildsDB.currentSessionIndex then
+        CreateSession()
+        return
+    end
+
+    -- Fresh login/reload: the local maxLevel tracker resets to 0, so restore
+    -- it from the live session record. Without this, a death-reset that
+    -- spans a logout (relog at level 1) would never be detected and the old
+    -- session would keep accumulating a second run's logs.
+    local session = EbonBuildsDB.sessions[EbonBuildsDB.currentSessionIndex]
+    if session and session.maxLevel and session.maxLevel > maxLevel then
+        maxLevel = session.maxLevel
+    end
+
+    -- Active session exists, but player is now level 1 after being higher:
+    -- the run ended (death accepted, reset to level 1)
+    if level == 1 and maxLevel > 1 then
+        EbonBuilds.Session.EndCurrentSession()
+        CreateSession()
+        return
+    end
+
+    -- Update max level if player leveled up while offline / zoning
+    TrackMaxLevel(level)
+end
+
+local function OnPlayerLevelUp(newLevel)
+    if not EbonBuildsDB.currentSessionIndex then
+        -- No session yet: start one at the current level
+        CreateSession()
+        return
+    end
+
+    TrackMaxLevel(newLevel)
+end
+
+local function OnPollUpdate(self, dt)
+    pollElapsed = pollElapsed + dt
+    if pollElapsed < POLL_INTERVAL then return end
+    pollElapsed = 0
+
+    local level = UnitLevel("player")
+
+    -- Level reset detection: player went from >1 back to 1
+    if EbonBuildsDB.currentSessionIndex and level == 1 and maxLevel > 1 then
+        EbonBuilds.Session.EndCurrentSession()
+        CreateSession()
+        return
+    end
+
+    TrackMaxLevel(level)
+end
+
+local function DecisionMetadata(action, settings, build, source)
+    settings = settings or (build and build.settings) or EbonBuilds.Build.DefaultSettings()
+    local classToken = build and build.class
+    local smart = (settings.rerollMode or "sum") == "ev"
+    local threshold, reasonCode
+    if tostring(action or ""):find("^Manual") then
+        reasonCode = "MANUAL_CHOICE"
+    elseif smart then
+        local stats = EbonBuilds.Scoring.ComputeOutcomeStats(classToken, settings)
+        if action == "Banish" then
+            threshold = (stats.mean or 0) * (settings.banishEVPct or 0) / 100
+            reasonCode = "BELOW_BANISH_THRESHOLD"
+        elseif action == "Reroll" then
+            threshold = (stats.evBest3 or 0) * (settings.rerollEVPct or 0) / 100
+            reasonCode = "BOARD_BELOW_REROLL_THRESHOLD"
+        elseif action == "Freeze" then
+            threshold = (stats.evBest3 or 0) * (settings.freezeEVPct or 0) / 100
+            reasonCode = "TWO_OFFERS_ABOVE_FREEZE_THRESHOLD"
+        else
+            reasonCode = "HIGHEST_FINAL_SCORE"
+        end
+    else
+        local _, peak = EbonBuilds.Scoring.ComputePeak(classToken, settings)
+        if action == "Banish" then
+            threshold = (peak or 0) * (settings.autoBanishPct or 0) / 100
+            reasonCode = "BELOW_BANISH_THRESHOLD"
+        elseif action == "Reroll" then
+            threshold = (peak or 0) * (settings.autoRerollPct or 0) / 100
+            reasonCode = "BOARD_BELOW_REROLL_THRESHOLD"
+        elseif action == "Freeze" then
+            threshold = (peak or 0) * (settings.autoFreezePct or 0) / 100
+            reasonCode = "TWO_OFFERS_ABOVE_FREEZE_THRESHOLD"
+        else
+            reasonCode = "HIGHEST_FINAL_SCORE"
+        end
+    end
+    return {
+        source = source or "automatic",
+        model = smart and "expected value" or "classic peak",
+        threshold = threshold,
+        reasonCode = reasonCode,
+        buildId = build and build.id or nil,
+        buildTitle = build and build.title or "No Build",
+    }
+end
+
+------------------------------------------------------------------------
+-- Early-offer analytics
+------------------------------------------------------------------------
+
+local function ChoiceQuality(choice)
+    if type(choice) ~= "table" then return nil end
+    local quality = tonumber(choice.quality)
+    if quality ~= nil then return quality end
+
+    local spellId = tonumber(choice.spellId)
+    local database = ProjectEbonhold and ProjectEbonhold.PerkDatabase
+    local data = spellId and database and (database[spellId] or database[tostring(spellId)])
+    return data and tonumber(data.quality) or nil
+end
+
+local function CountEpicChoices(choices)
+    local count = 0
+    for _, choice in ipairs(type(choices) == "table" and choices or {}) do
+        if ChoiceQuality(choice) == EPIC_QUALITY then count = count + 1 end
+    end
+    return count
+end
+
+-- Records the original offer at run levels 1, 2, and 3. Automation calls this
+-- immediately after reading GetCurrentChoice(), before banish/reroll/freeze or
+-- any manual/autopilot early return. Repeated evaluations at the same level are
+-- intentionally ignored.
+function EbonBuilds.Session.RecordInitialOffer(choices)
+    local level = tonumber(UnitLevel("player")) or 0
+    if level < 1 or level > EARLY_OFFER_MAX_LEVEL then return false end
+    if type(choices) ~= "table" or #choices == 0 then return false end
+
+    -- Keep the same reset safety as LogAction so the first offer after a death
+    -- cannot be attached to the previous run when no loading screen occurred.
+    if EbonBuildsDB.currentSessionIndex and level == 1 and maxLevel > 1 then
+        EbonBuilds.Session.EndCurrentSession()
+        CreateSession()
+    end
+
+    local idx = EbonBuildsDB.currentSessionIndex
+    if not idx then
+        CreateSession()
+        idx = EbonBuildsDB.currentSessionIndex
+    end
+    local session = idx and EbonBuildsDB.sessions[idx]
+    if not session then return false end
+
+    session.earlyEpicOffers = session.earlyEpicOffers or {}
+    local existing = session.earlyEpicOffers[level] or session.earlyEpicOffers[tostring(level)]
+    if type(existing) == "table" and existing.tracked ~= false then return false end
+    if type(existing) == "boolean" then return false end
+
+    local build = EbonBuilds.Build.GetActive()
+    local epicCount = CountEpicChoices(choices)
+    session.earlyEpicOffers[level] = {
+        tracked = true,
+        epicSeen = epicCount > 0,
+        epicCount = epicCount,
+        timestamp = time(),
+        buildId = build and build.id or nil,
+        buildTitle = build and build.title or "No Build",
+    }
+    session.analyticsRevision = (tonumber(session.analyticsRevision) or 0) + 1
+
+    if EbonBuilds.StatsView and EbonBuilds.StatsView.OnSessionAnalyticsChanged then
+        EbonBuilds.StatsView.OnSessionAnalyticsChanged(build and build.id or nil)
+    end
+    return true
+end
+
+------------------------------------------------------------------------
+-- Public API
+------------------------------------------------------------------------
+
+function EbonBuilds.Session.EndCurrentSession()
+    local idx = EbonBuildsDB.currentSessionIndex
+    if not idx then return end
+
+    local session = EbonBuildsDB.sessions[idx]
+    if not session then
+        EbonBuildsDB.currentSessionIndex = nil
+        return
+    end
+
+    session.endTime   = time()
+    session.soulAshes = GetRunSoulAshes()
+    session.maxLevel  = maxLevel
+
+    -- Per-build run counters for the Stats tab (were never written before).
+    local build = EbonBuilds.Build.GetActive()
+    if build and build.stats then
+        if (session.maxLevel or 0) >= 80 then
+            build.stats.runsCompleted = (build.stats.runsCompleted or 0) + 1
+        else
+            build.stats.runsReset = (build.stats.runsReset or 0) + 1
+        end
+    end
+
+    EbonBuildsDB.currentSessionIndex = nil
+    maxLevel = 0
+    NotifyHistoryChanged()
+end
+
+function EbonBuilds.Session.LogAction(scored, action, targetIndex, source)
+    -- Detect run reset: player is level 1 but we tracked a higher peak.
+    -- This catches resets that happen without a loading screen where
+    -- PLAYER_ENTERING_WORLD never fires.
+    local level = UnitLevel("player")
+    if EbonBuildsDB.currentSessionIndex and level == 1 and maxLevel > 1 then
+        EbonBuilds.Session.EndCurrentSession()
+        CreateSession()
+    end
+
+    local idx = EbonBuildsDB.currentSessionIndex
+    if not idx then
+        -- No active session yet: create one on the fly so logs are never lost
+        CreateSession()
+        idx = EbonBuildsDB.currentSessionIndex
+        if not idx then return end
+    end
+
+    local session = EbonBuildsDB.sessions[idx]
+    if not session then return end
+
+    local build = EbonBuilds.Build.GetActive()
+    local settings = build and build.settings or EbonBuilds.Build.DefaultSettings()
+    local choices = {}
+    for _, s in ipairs(scored) do
+        local canonical = s.spellId and EbonBuilds.Weights.CanonicalName(s.spellId) or s.name
+        local baseWeight = EbonBuilds.Weights.Get(canonical, s.quality) or 0
+        choices[#choices + 1] = {
+            index         = s.index,
+            name          = s.name,
+            score         = s.score,
+            quality       = s.quality,
+            spellId       = s.spellId,
+            baseWeight    = baseWeight,
+            modifierDelta = (s.score or 0) - baseWeight,
+            families      = s.data and s.data.families or nil,
+        }
+    end
+
+    local rd = EbonholdPlayerRunData
+    if not rd and ProjectEbonhold and ProjectEbonhold.PlayerRunService then
+        local get = ProjectEbonhold.PlayerRunService.GetCurrentData
+        if get then rd = get() end
+    end
+
+    local charges = {
+        ban    = (rd and rd.remainingBanishes) or 0,
+        reroll = (rd and ((rd.totalRerolls or 0) - (rd.usedRerolls or 0))) or 0,
+        freeze = (rd and ((rd.totalFreezes or 0) - (rd.usedFreezes or 0))) or 0,
+    }
+
+    local decision = DecisionMetadata(action, settings, build, source)
+    local sortedScores = {}
+    for _, choice in ipairs(choices) do sortedScores[#sortedScores + 1] = tonumber(choice.score) or 0 end
+    table.sort(sortedScores, function(a, b) return a > b end)
+    local target = choices[targetIndex or 0]
+    local maxBase, targetBase = nil, target and (target.baseWeight or 0) or nil
+    for _, choice in ipairs(choices) do
+        local base = tonumber(choice.baseWeight) or 0
+        if maxBase == nil or base > maxBase then maxBase = base end
+    end
+    local normalizedAction = tostring(action or "")
+    local chargeKey = normalizedAction:find("^Banish") and "ban" or normalizedAction:find("^Reroll") and "reroll" or normalizedAction:find("^Freeze") and "freeze" or nil
+    decision.flags = {
+        closeDecision = #sortedScores >= 2 and math.abs(sortedScores[1] - sortedScores[2]) <= 3 or false,
+        lastCharge = chargeKey and (charges[chargeKey] or 0) <= 1 or false,
+        modifierOverride = targetBase ~= nil and maxBase ~= nil and targetBase < maxBase and target and (target.score or 0) >= sortedScores[1] or false,
+        manualDisagreement = source == "manual" and target and sortedScores[1] and (tonumber(target.score) or 0) < sortedScores[1] or false,
+    }
+
+    local entry = {
+        timestamp   = time(),
+        level       = level,
+        action      = action,
+        choices     = choices,
+        targetIndex = targetIndex,
+        charges     = charges,
+        decision    = decision,
+    }
+
+    session.logs[#session.logs + 1] = entry
+    session.analyticsRevision = (tonumber(session.analyticsRevision) or 0) + 1
+    if EbonBuilds.StatsView and EbonBuilds.StatsView.OnSessionAnalyticsChanged then
+        EbonBuilds.StatsView.OnSessionAnalyticsChanged(build and build.id or nil)
+    end
+    NotifyHistoryChanged()
+end
+
+function EbonBuilds.Session.GetSessions()
+    return EbonBuildsDB.sessions or {}
+end
+
+function EbonBuilds.Session.GetActiveSession()
+    local idx = EbonBuildsDB.currentSessionIndex
+    if not idx then return nil end
+    return EbonBuildsDB.sessions[idx]
+end
+
+function EbonBuilds.Session.DeleteSession(id)
+    -- Refuse to delete the active session individually
+    if EbonBuildsDB.currentSessionIndex then
+        local active = EbonBuildsDB.sessions[EbonBuildsDB.currentSessionIndex]
+        if active and active.id == id then
+            return false
+        end
+    end
+
+    local sessions = EbonBuildsDB.sessions
+    for i, s in ipairs(sessions) do
+        if s.id == id then
+            if EbonBuildsDB.currentSessionIndex and i < EbonBuildsDB.currentSessionIndex then
+                EbonBuildsDB.currentSessionIndex = EbonBuildsDB.currentSessionIndex - 1
+            end
+            table.remove(sessions, i)
+            NotifyHistoryChanged()
+            return true
+        end
+    end
+    return false
+end
+
+function EbonBuilds.Session.ClearAllSessions()
+    EbonBuildsDB.sessions = {}
+    EbonBuildsDB.currentSessionIndex = nil
+    maxLevel = 0
+    -- Immediately create a fresh session at the current player level.
+    -- CreateSession() performs the history notification.
+    CreateSession()
+end
+
+function EbonBuilds.Session.DeleteLogEntry(sessionId, logIndex)
+    local sessions = EbonBuildsDB.sessions
+    for _, s in ipairs(sessions) do
+        if s.id == sessionId then
+            if s.logs and logIndex >= 1 and logIndex <= #s.logs then
+                table.remove(s.logs, logIndex)
+                NotifyHistoryChanged()
+                return true
+            end
+            return false
+        end
+    end
+    return false
+end
+
+-- Test/integration helpers. These are pure and do not mutate saved data.
+EbonBuilds.Session._CountEpicChoices = CountEpicChoices
+EbonBuilds.Session._EarlyOfferMaxLevel = EARLY_OFFER_MAX_LEVEL
+
+------------------------------------------------------------------------
+-- Init
+------------------------------------------------------------------------
+
+function EbonBuilds.Session.Init()
+    -- Ensure DB arrays exist
+    EbonBuildsDB.sessions = EbonBuildsDB.sessions or {}
+    if EbonBuildsDB.currentSessionIndex == nil then
+        EbonBuildsDB.currentSessionIndex = nil  -- normalize falsey
+    end
+
+    -- Event frame for lifecycle detection
+    local ef = CreateFrame("Frame", nil, UIParent)
+    ef:RegisterEvent("PLAYER_ENTERING_WORLD")
+    ef:RegisterEvent("PLAYER_LEVEL_UP")
+    ef:SetScript("OnEvent", function(self, event, ...)
+        if event == "PLAYER_ENTERING_WORLD" then
+            OnPlayerEnteringWorld()
+        elseif event == "PLAYER_LEVEL_UP" then
+            OnPlayerLevelUp(...)
+        end
+    end)
+
+    -- Polling frame for level reset detection without loading screen
+    pollFrame = CreateFrame("Frame", nil, UIParent)
+    pollFrame:SetScript("OnUpdate", OnPollUpdate)
+end
