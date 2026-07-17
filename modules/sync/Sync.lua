@@ -545,6 +545,13 @@ local function HandleChannelMessage(msg, sender, _, channelName, _, _, _, channe
         HandleGet(decoded, sender)
         return
     end
+    if code == "PRF" then
+        if EbonBuilds.EchoPerformance and EbonBuilds.EchoPerformance.HandleBroadcast then
+            local ok, err = pcall(EbonBuilds.EchoPerformance.HandleBroadcast, decoded, sender)
+            if not ok then Log("EchoPerformance.HandleBroadcast error: " .. tostring(err)) end
+        end
+        return
+    end
     if code ~= "REQ" then return end
 
     -- We received a valid REQ on this channel — learn its index
@@ -805,6 +812,22 @@ function EbonBuilds.Sync.BroadcastTomeEntry(itemId, key, count)
     end
 end
 
+-- Broadcasts a batch of Echo Performance aggregate data (see
+-- EchoPerformance.lua's SerializeBatch) to everyone. Same
+-- channel+guild pattern as BroadcastTomeEntry; the payload already
+-- starts with "PRF|", not re-tagged here.
+function EbonBuilds.Sync.BroadcastPerfBatch(payload)
+    if not payload then return end
+    RefreshChannel()
+    if syncChannelIndex and syncChannelIndex > 0 then
+        local escaped = payload:gsub("|", "||")
+        pcall(SendChatMessage, escaped, "CHANNEL", nil, syncChannelIndex)
+    end
+    if GetGuildInfo("player") then
+        SendAddonMessage(PREFIX, payload, "GUILD")
+    end
+end
+
 ------------------------------------------------------------------------
 -- Dispatch (CHAT_MSG_ADDON events)
 ------------------------------------------------------------------------
@@ -835,6 +858,11 @@ local function DispatchAddon(prefix, payload, dist, sender)
         HandleRtx(payload, sender)
     elseif code == "GET" then
         HandleGet(payload, sender)
+    elseif code == "PRF" then
+        if EbonBuilds.EchoPerformance and EbonBuilds.EchoPerformance.HandleBroadcast then
+            local ok, err = pcall(EbonBuilds.EchoPerformance.HandleBroadcast, payload, sender)
+            if not ok then Log("EchoPerformance.HandleBroadcast error: " .. tostring(err)) end
+        end
     end
 end
 

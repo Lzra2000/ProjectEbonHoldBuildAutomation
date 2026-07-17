@@ -15,8 +15,18 @@ local R = "|r"
 
 local PAGES = {
 {
-    title = "What's New in 2.48",
+    title = "What's New in 2.49",
     lines = {
+        GOLD .. "2.49: community DPS sharing (opt-in)" .. R,
+        "- 'Track DPS by echo' renamed 'Track + share DPS by echo' --",
+        "  now also shares your per-echo averages with other same-",
+        "  class EbonBuilds users, and merges theirs into yours",
+        "- Same toggle controls both directions -- aggregate numbers",
+        "  only, never raw combat logs",
+        "- Safety: class must match, single-peer claims are capped,",
+        "  re-broadcasts can't double-count, self-broadcasts ignored",
+        "- Export (AI) shows the personal/shared split per echo",
+        "",
         GOLD .. "2.48: Smart Reroll now supported in Tuning Advisor" .. R,
         "- New: a second sample stream tracks the best offered score",
         "  per evaluation, with that evaluation's charge pacing",

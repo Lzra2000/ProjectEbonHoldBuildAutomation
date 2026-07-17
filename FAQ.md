@@ -1,6 +1,6 @@
 # EbonBuilds — FAQ & Changelog
 
-*This file is updated with every release. Latest version: 2.48 — also available in-game via* `/ebb faq`
+*This file is updated with every release. Latest version: 2.49 — also available in-game via* `/ebb faq`
 
 ---
 
@@ -197,6 +197,18 @@ Next to the regular Export button (build edit screen, any tab) is a new **Export
 This is deliberately approximate, not a controlled measurement: echoes stack together and fight difficulty/duration/execution vary a lot run to run, so it can't isolate any single echo's true causal effect. Treat it as a rough supplementary signal to combine with the scoring model and Tuning Advisor data, not a replacement for either. If Details! isn't installed, the checkbox tells you and won't enable.
 
 ## Changelog
+
+### 2.49 (2026-07-16) -- community DPS sharing (same-class, opt-in, auto-merged)
+
+- **New: "Track + share DPS by echo" (renamed from "Track DPS by echo") now also shares your per-echo DPS averages with other EbonBuilds users of the SAME class over the existing sync channel, and merges what they share back into your own data.** Same single toggle controls both directions. Only aggregate numbers travel (per-echo average DPS + sample count) -- never raw combat logs or session data.
+- **Safety measures**, since this merges data from other, untrusted clients automatically:
+  - Only merges from a peer whose declared class matches your active build's class (cross-class DPS data would just be noise).
+  - Rejects any single peer's claim of more than 500 samples for one echo, and rejects implausible average DPS values -- bounds a malicious or buggy client's ability to skew your data.
+  - Idempotent: each peer's contribution is stored keyed by that peer and replaced (not added to) on every message, so a peer re-broadcasting the same numbers repeatedly can't inflate the total -- the merged value is always the sum of each currently-known peer's latest reported numbers, not a running total of every message ever received.
+  - Self-broadcasts are ignored.
+- Broadcasts a small rotating batch (6 echoes) every 3 minutes rather than one giant message, keeping each transmission short.
+- Export (AI) now shows the personal/shared sample split per echo (e.g. "1234 DPS (35, 20 own+15 shared)") and notes where shared numbers come from.
+- Verified in isolation: serialize/parse round-trip, legitimate same-class merge, wrong-class rejection, oversized-count rejection, idempotent re-broadcast (no double-counting), and self-broadcast rejection all behave correctly.
 
 ### 2.48 (2026-07-16) -- Smart Reroll finally supported in the Tuning Advisor
 

@@ -38,6 +38,7 @@ end
 
 function EbonBuilds.EchoPerformance.Clear()
     EbonBuildsCharDB.echoPerformance = {}
+    EbonBuildsCharDB.echoPerformanceCommunity = {}
 end
 
 -- Current player DPS this combat, or nil if unavailable (not in combat,
@@ -100,13 +101,158 @@ function EbonBuilds.EchoPerformance.Sample()
     end
 end
 
--- Returns { avgDPS, sampleCount } for a given echo name, or nil if no
--- data has been collected for it.
+------------------------------------------------------------------------
+-- Community sharing (opt-in via the same "Track DPS by echo" toggle)
+--
+-- Broadcasts aggregate {sum, count} per echo -- never raw samples -- to
+-- other EbonBuilds users of the SAME class over the existing sync
+-- channel, and merges what they broadcast back into a separate
+-- "community" pool. GetStats() below returns personal + community
+-- combined, which is what weight suggestions and Export (AI) read.
+--
+-- Idempotent by design: each sender's contribution is stored keyed by
+-- sender name and REPLACED (not added to) on every receive, so a peer
+-- re-broadcasting the same totals repeatedly can't inflate the merged
+-- result -- the community total is always the sum of each currently-
+-- known peer's most recent reported {sum, count}, not a running total
+-- of every message ever received.
+------------------------------------------------------------------------
+
+local MAX_TRUSTED_COUNT_PER_ECHO = 500        -- reject a single peer claiming more samples than this for one echo
+local MAX_TRUSTED_DPS            = 50000000   -- reject implausibly large avg DPS (sanity ceiling, not a real limit)
+local BROADCAST_BATCH_SIZE       = 6          -- echoes per broadcast -- keeps each channel message short
+local BROADCAST_INTERVAL         = 180        -- seconds between broadcasts
+
+local function GetCommunityStore()
+    EbonBuildsCharDB.echoPerformanceCommunity = EbonBuildsCharDB.echoPerformanceCommunity or {}
+    return EbonBuildsCharDB.echoPerformanceCommunity
+end
+
+-- Called when a PRF broadcast is received from another player. class must
+-- match the currently active build's class -- echo pools and typical DPS
+-- differ by class, so cross-class data would just be noise, not signal.
+function EbonBuilds.EchoPerformance.MergeCommunityContribution(sender, class, name, sum, count)
+    if not (sender and class and name and sum and count) then return end
+    if sender == UnitName("player") then return end
+    local build = EbonBuilds.Build and EbonBuilds.Build.GetActive and EbonBuilds.Build.GetActive()
+    if not build or build.class ~= class then return end
+    count = tonumber(count)
+    sum = tonumber(sum)
+    if not count or not sum or count <= 0 or count > MAX_TRUSTED_COUNT_PER_ECHO then return end
+    local avg = sum / count
+    if avg < 0 or avg > MAX_TRUSTED_DPS then return end
+
+    local store = GetCommunityStore()
+    store[sender] = store[sender] or {}
+    store[sender][name] = { sum = sum, count = count }
+end
+
+-- Sum of every currently-known peer's contribution for one echo.
+local function CommunityTotal(name)
+    local store = GetCommunityStore()
+    local sum, count = 0, 0
+    for _, contributions in pairs(store) do
+        local c = contributions[name]
+        if c then
+            sum = sum + c.sum
+            count = count + c.count
+        end
+    end
+    return sum, count
+end
+
 function EbonBuilds.EchoPerformance.GetStats(name)
     local store = GetStore()
     local entry = store[name]
-    if not entry or entry.count == 0 then return nil end
-    return { avgDPS = entry.sum / entry.count, sampleCount = entry.count }
+    local personalSum, personalCount = 0, 0
+    if entry and entry.count > 0 then
+        personalSum, personalCount = entry.sum, entry.count
+    end
+    local communitySum, communityCount = CommunityTotal(name)
+    local totalSum, totalCount = personalSum + communitySum, personalCount + communityCount
+    if totalCount == 0 then return nil end
+    return { avgDPS = totalSum / totalCount, sampleCount = totalCount, personalCount = personalCount, communityCount = communityCount }
+end
+
+------------------------------------------------------------------------
+-- Wire format: PRF|<class>|name1:sum1:count1;name2:sum2:count2;...
+-- Kept deliberately short (a handful of echoes per message) since this
+-- goes out over the same chat-channel-based transport builds sync over.
+------------------------------------------------------------------------
+
+function EbonBuilds.EchoPerformance.SerializeBatch(class, names)
+    if not class or not names or #names == 0 then return nil end
+    local store = GetStore()
+    local parts = {}
+    for _, name in ipairs(names) do
+        local entry = store[name]
+        if entry and entry.count > 0 then
+            parts[#parts + 1] = string.format("%s:%.0f:%d", name, entry.sum, entry.count)
+        end
+    end
+    if #parts == 0 then return nil end
+    return "PRF|" .. class .. "|" .. table.concat(parts, ";")
+end
+
+function EbonBuilds.EchoPerformance.ParseBatch(payload)
+    local class, body = payload:match("^PRF|([^|]+)|(.+)$")
+    if not class then return nil end
+    local entries = {}
+    for entry in body:gmatch("[^;]+") do
+        local name, sum, count = entry:match("^(.+):(%-?%d+%.?%d*):(%d+)$")
+        if name then
+            entries[#entries + 1] = { name = name, sum = tonumber(sum), count = tonumber(count) }
+        end
+    end
+    return class, entries
+end
+
+-- Called by the receiving side (Sync.lua's channel dispatcher) for every
+-- incoming PRF message.
+function EbonBuilds.EchoPerformance.HandleBroadcast(payload, sender)
+    if not EbonBuilds.EchoPerformance.IsEnabled() then return end
+    local class, entries = EbonBuilds.EchoPerformance.ParseBatch(payload)
+    if not class then return end
+    for _, e in ipairs(entries) do
+        EbonBuilds.EchoPerformance.MergeCommunityContribution(sender, class, e.name, e.sum, e.count)
+    end
+end
+
+------------------------------------------------------------------------
+-- Broadcast rotation: cycles through known echoes a few at a time so no
+-- single message needs to carry the whole table.
+------------------------------------------------------------------------
+
+local broadcastElapsed = 0
+local broadcastCursor = 1
+
+local function MaybeBroadcast(dt)
+    if not EbonBuilds.EchoPerformance.IsEnabled() then return end
+    if not (EbonBuilds.Sync and EbonBuilds.Sync.BroadcastPerfBatch) then return end
+    broadcastElapsed = broadcastElapsed + dt
+    if broadcastElapsed < BROADCAST_INTERVAL then return end
+    broadcastElapsed = 0
+
+    local build = EbonBuilds.Build and EbonBuilds.Build.GetActive and EbonBuilds.Build.GetActive()
+    if not build or not build.class then return end
+
+    local store = GetStore()
+    local names = {}
+    for name in pairs(store) do names[#names + 1] = name end
+    if #names == 0 then return end
+    table.sort(names) -- stable order so the rotation actually cycles through everything
+
+    local batch = {}
+    for i = 1, BROADCAST_BATCH_SIZE do
+        local idx = ((broadcastCursor - 1 + i - 1) % #names) + 1
+        batch[#batch + 1] = names[idx]
+    end
+    broadcastCursor = ((broadcastCursor - 1 + BROADCAST_BATCH_SIZE) % #names) + 1
+
+    local payload = EbonBuilds.EchoPerformance.SerializeBatch(build.class, batch)
+    if payload then
+        EbonBuilds.Sync.BroadcastPerfBatch(payload)
+    end
 end
 
 ------------------------------------------------------------------------
@@ -220,6 +366,7 @@ local elapsed = 0
 
 local function OnTick(self, dt)
     if not EbonBuilds.EchoPerformance.IsEnabled() then return end
+    MaybeBroadcast(dt)
     if not UnitAffectingCombat("player") then return end
     elapsed = elapsed + dt
     if elapsed < SAMPLE_INTERVAL then return end

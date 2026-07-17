@@ -568,7 +568,9 @@ function EbonBuilds.ExportImport.GenerateAIText(build)
     if perfAvailable then
         add("Format: Name | weight | quality | family/families | avg DPS while active (samples) | effect")
         add("(DPS tracking is a rough signal, not a controlled measurement -- echoes stack together")
-        add("and fights vary a lot, so this can't isolate any single echo's true effect on its own.)")
+        add("and fights vary a lot, so this can't isolate any single echo's true effect on its own.")
+        add("Sample counts marked \"shared\" came from other same-class EbonBuilds users over sync,")
+        add("merged as aggregate averages only -- never raw combat data.)")
 
         -- Concrete evidence of that limitation: echoes with byte-identical
         -- avg DPS + sample count were active at the exact same sampling
@@ -604,7 +606,16 @@ function EbonBuilds.ExportImport.GenerateAIText(build)
     for _, e in ipairs(entries) do
         if perfAvailable then
             local perf = EbonBuilds.EchoPerformance.GetStats(e.name)
-            local perfText = perf and string.format("%.0f DPS (%d)", perf.avgDPS, perf.sampleCount) or "no data"
+            local perfText
+            if perf then
+                if perf.communityCount and perf.communityCount > 0 then
+                    perfText = string.format("%.0f DPS (%d, %d own+%d shared)", perf.avgDPS, perf.sampleCount, perf.personalCount, perf.communityCount)
+                else
+                    perfText = string.format("%.0f DPS (%d)", perf.avgDPS, perf.sampleCount)
+                end
+            else
+                perfText = "no data"
+            end
             add("%s | %d | %s | %s | %s | %s", e.name, e.weight, e.quality, e.families, perfText, GetDescription(e.spellId))
         else
             add("%s | %d | %s | %s | %s", e.name, e.weight, e.quality, e.families, GetDescription(e.spellId))
