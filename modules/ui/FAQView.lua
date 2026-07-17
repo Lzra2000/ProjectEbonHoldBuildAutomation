@@ -15,8 +15,18 @@ local R = "|r"
 
 local PAGES = {
 {
-    title = "What's New in 2.58",
+    title = "What's New in 2.59",
     lines = {
+        GOLD .. "2.59: Family Bonus tuning (experimental)" .. R,
+        "- New: family counterpart to Quality Bonus suggestions (2.54)",
+        "- Family is harder: an echo can belong to several families",
+        "  at once, all stacked onto the same score together",
+        "- Sidesteps that instead of guessing: only uses echoes with",
+        "  exactly ONE matching family (or none) -- multi-family",
+        "  echoes are excluded entirely, not modeled",
+        "- Shown in Export (AI) right after Quality Bonus suggestions",
+        "- Same 'experimental, report only' caveat -- no auto-apply",
+        "",
         GOLD .. "2.58: fixed -- tracking needed Automation ON" .. R,
         "- Calibration samples and appearance-rate tracking (both",
         "  documented as always-on) actually only recorded data when",

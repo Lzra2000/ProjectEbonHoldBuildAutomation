@@ -1,6 +1,6 @@
 # EbonBuilds — FAQ & Changelog
 
-*This file is updated with every release. Latest version: 2.58 — also available in-game via* `/ebb faq`
+*This file is updated with every release. Latest version: 2.59 — also available in-game via* `/ebb faq`
 
 ---
 
@@ -197,6 +197,13 @@ Next to the regular Export button (build edit screen, any tab) is a new **Export
 This is deliberately approximate, not a controlled measurement: echoes stack together and fight difficulty/duration/execution vary a lot run to run, so it can't isolate any single echo's true causal effect. Treat it as a rough supplementary signal to combine with the scoring model and Tuning Advisor data, not a replacement for either. If Details! isn't installed, the checkbox tells you and won't enable.
 
 ## Changelog
+
+### 2.59 (2026-07-16) -- Family Bonus tuning (experimental, report only)
+
+- **New: `SuggestFamilyBonusAdjustment`, the family counterpart to 2.54's Quality Bonus suggestions.** Family is a harder attribution problem than quality: an echo can belong to several families at once (e.g. "Caster DPS/Melee DPS/Ranged DPS/Tank"), and Scoring.lua's `ApplyFamilyBonuses` stacks every matching family's bonus onto the same score in sequence -- untangling one family's own marginal contribution from that would need real multi-variate regression across every echo's family membership.
+- Deliberately sidesteps that instead of attempting it: only echoes with exactly ONE matching family (or explicitly "No family") are used in the comparison at all. Multi-family echoes are excluded entirely rather than guessed at -- same philosophy as excluding co-active DPS clusters from weight suggestions, prefer throwing away ambiguous data over modeling it wrong.
+- Shown in Export (AI) right after Quality Bonus suggestions, same format and same "experimental, report only" caveat -- no auto-apply path for either bonus type yet.
+- Verified in isolation: a synthetic dataset with 5 pure-Tank echoes (high ratio), 5 pure-Caster echoes (low ratio), and 5 Tank+Caster multi-family echoes with a deliberately extreme ratio (~50, meant to prove exclusion) -- the multi-family echoes were correctly excluded entirely from both the suggestions and the global average (which stayed close to 15, not pulled toward 50), while Tank and Caster were correctly flagged with the right direction.
 
 ### 2.58 (2026-07-16) -- fix: appearance/threshold sample tracking silently required Automation to be ON
 

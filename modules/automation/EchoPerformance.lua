@@ -478,6 +478,113 @@ function EbonBuilds.EchoPerformance.SuggestQualityBonusAdjustment(build)
 end
 
 ------------------------------------------------------------------------
+-- Family Bonus suggestions (experimental, report only -- no auto-apply).
+--
+-- Same DPS-per-weight-point comparison as Quality Bonus, but family is a
+-- harder attribution problem: an echo can belong to SEVERAL families at
+-- once (e.g. "Caster DPS/Melee DPS/Ranged DPS/Tank"), and Scoring.lua's
+-- ApplyFamilyBonuses stacks every matching family's bonus onto the same
+-- score in sequence -- so a 4-family echo's score reflects FOUR bonuses
+-- compounded together, not one. Cleanly separating out each family's own
+-- marginal contribution from that would need real multi-variate
+-- regression across every echo's family membership.
+--
+-- Deliberately sidesteps that instead of attempting it: only echoes with
+-- EXACTLY ONE matching family (or explicitly none, i.e. "No family") are
+-- used at all. This throws away real data from multi-family echoes, but
+-- keeps every comparison unambiguous -- consistent with how co-active
+-- clusters are excluded from weight suggestions rather than guessed at.
+------------------------------------------------------------------------
+
+local FAMILY_BONUS_MAP = {
+    Tank = "Tank", Survivability = "Survivability", Healer = "Healer",
+    Caster = "Caster", ["Caster DPS"] = "Caster",
+    Melee  = "Melee",  ["Melee DPS"]  = "Melee",
+    Ranged = "Ranged", ["Ranged DPS"] = "Ranged",
+}
+
+-- Returns the single normalized family this echo belongs to, "No family"
+-- if it belongs to none, or nil if it belongs to more than one (the
+-- ambiguous case this function refuses to use).
+local function SingleFamilyOf(families)
+    if not families or #families == 0 then return "No family" end
+    local set = {}
+    for _, f in ipairs(families) do
+        local key = FAMILY_BONUS_MAP[f]
+        if key then set[key] = true end
+    end
+    local only
+    for key in pairs(set) do
+        if only then return nil end -- more than one distinct family, ambiguous
+        only = key
+    end
+    return only
+end
+
+-- Returns a sorted list of { family, currentBonus, suggestedBonus,
+-- deviationPct, tierEchoCount }, or {} if there isn't enough single-
+-- family data to say anything.
+function EbonBuilds.EchoPerformance.SuggestFamilyBonusAdjustment(build)
+    if not build or not build.class then return {} end
+    if not (EbonBuilds.EchoTableRows and EbonBuilds.EchoTableRows.BuildBestByName) then return {} end
+    local classMask = CLASS_MASK[build.class] or 0
+    local weights = build.echoWeights or {}
+
+    local signatureCounts = {}
+    local raw = {}
+    for name, info in pairs(EbonBuilds.EchoTableRows.BuildBestByName()) do
+        if classMask == 0 or bit.band(info.classMask or 0, classMask) ~= 0 then
+            local weight = weights[name] or 0
+            local perf = EbonBuilds.EchoPerformance.GetStats(name)
+            if weight > 0 and perf and perf.sampleCount >= MIN_SAMPLES_FOR_WEIGHT_SUGGESTION then
+                local family = SingleFamilyOf(info.families)
+                if family then
+                    local sig = string.format("%.2f|%d", perf.avgDPS, perf.sampleCount)
+                    signatureCounts[sig] = (signatureCounts[sig] or 0) + 1
+                    raw[#raw + 1] = { name = name, family = family, ratio = perf.avgDPS / weight, sig = sig }
+                end
+            end
+        end
+    end
+
+    local tierSum, tierCount = {}, {}
+    local globalSum, globalCount = 0, 0
+    for _, e in ipairs(raw) do
+        if signatureCounts[e.sig] <= MAX_CLUSTER_SIZE_TO_TRUST then
+            tierSum[e.family] = (tierSum[e.family] or 0) + e.ratio
+            tierCount[e.family] = (tierCount[e.family] or 0) + 1
+            globalSum = globalSum + e.ratio
+            globalCount = globalCount + 1
+        end
+    end
+    if globalCount < MIN_ECHOES_PER_TIER_FOR_BONUS then return {} end
+    local globalAvg = globalSum / globalCount
+    if globalAvg <= 0 then return {} end
+
+    local settings = build.settings or {}
+    local suggestions = {}
+    for family, count in pairs(tierCount) do
+        if count >= MIN_ECHOES_PER_TIER_FOR_BONUS then
+            local tierAvg = tierSum[family] / count
+            local deviation = (tierAvg - globalAvg) / globalAvg
+            if math.abs(deviation) >= BONUS_DEVIATION_THRESHOLD then
+                local currentBonus = (settings.familyBonus and settings.familyBonus[family]) or 0
+                local nudge = deviation > 0 and BONUS_NUDGE or -BONUS_NUDGE
+                suggestions[#suggestions + 1] = {
+                    family = family,
+                    currentBonus = currentBonus,
+                    suggestedBonus = math.max(0, currentBonus + nudge),
+                    deviationPct = deviation * 100,
+                    tierEchoCount = count,
+                }
+            end
+        end
+    end
+    table.sort(suggestions, function(a, b) return math.abs(a.deviationPct) > math.abs(b.deviationPct) end)
+    return suggestions
+end
+
+------------------------------------------------------------------------
 -- Sample ticker: only does anything while actually in combat, and only
 -- if the player opted in.
 ------------------------------------------------------------------------
