@@ -662,6 +662,49 @@ do
     EbonBuilds.ManualTraining.SuggestWeightAdjustments = oldTrainSuggest
 end
 
+-- Quality and Family Bonus suggestions compare DPS-per-final-score-point
+-- across tiers, and Family Bonus must exclude multi-family Echoes rather
+-- than guess at how to split a stacked modifier between them.
+do
+    local originalCatalog = EbonBuilds.EchoTableRows.BuildBestByName
+    EbonBuilds.EchoTableRows.BuildBestByName = function()
+        local t = {}
+        for i = 1, 5 do t["Tank" .. i] = { quality = 2, families = { "Tank" }, classMask = 128, spellId = 9000 + i } end
+        for i = 1, 5 do t["Caster" .. i] = { quality = 2, families = { "Caster DPS" }, classMask = 128, spellId = 9100 + i } end
+        for i = 1, 5 do t["Multi" .. i] = { quality = 2, families = { "Tank", "Caster DPS" }, classMask = 128, spellId = 9200 + i } end
+        return t
+    end
+
+    local build = EbonBuilds.Build.GetActive()
+    build.class = "MAGE"
+    build.settings.familyBonus = { Tank = 0, Caster = 10 }
+    build.settings.familyBonusMode = {}
+    build.settings.qualityBonus = build.settings.qualityBonus or {}
+    build.settings.qualityBonusMode = build.settings.qualityBonusMode or {}
+    build.echoWeights = {}
+    for i = 1, 5 do build.echoWeights["Tank" .. i] = 100 end
+    for i = 1, 5 do build.echoWeights["Caster" .. i] = 100 end
+    for i = 1, 5 do build.echoWeights["Multi" .. i] = 100 end
+
+    EbonBuilds.EchoPerformance.Clear()
+    EbonBuildsCharDB.echoPerformance = {}
+    for i = 1, 5 do EbonBuildsCharDB.echoPerformance["Tank" .. i] = { sum = (2000 + i * 5) * 10, count = 10 } end
+    for i = 1, 5 do EbonBuildsCharDB.echoPerformance["Caster" .. i] = { sum = (1000 + i * 5) * 10, count = 10 } end
+    for i = 1, 5 do EbonBuildsCharDB.echoPerformance["Multi" .. i] = { sum = (5000 + i * 5) * 10, count = 10 } end
+    EbonBuildsCharDB.echoPerformanceCommunity = {}
+
+    local familySuggestions = EbonBuilds.EchoPerformance.SuggestFamilyBonusAdjustment(build)
+    check(#familySuggestions == 2, "Family Bonus flags exactly the two pure-family tiers")
+    local byFamily = {}
+    for _, s in ipairs(familySuggestions) do byFamily[s.family] = s end
+    check(byFamily.Tank and byFamily.Tank.suggestedBonus > byFamily.Tank.currentBonus,
+        "higher-value pure-Tank tier is suggested upward")
+    check(byFamily.Caster and byFamily.Caster.suggestedBonus < byFamily.Caster.currentBonus,
+        "lower-value pure-Caster tier is suggested downward")
+
+    EbonBuilds.EchoTableRows.BuildBestByName = originalCatalog
+end
+
 if failures > 0 then
     io.stderr:write(string.format("%d test(s) failed.\n", failures))
     os.exit(1)
