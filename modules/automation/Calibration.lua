@@ -35,6 +35,30 @@ local function GetStore()
     return EbonBuildsCharDB.calibration.samples
 end
 
+-- Separate store: one sample per EVALUATION (not per offered echo) of the
+-- best offered score, with that evaluation's charge-pacing multiplier
+-- divided back out. Reroll (Smart mode) decides based on "best offered
+-- vs threshold", not individual echo scores, so it needs its own sample
+-- space -- and since the effective threshold moves with remaining
+-- charges, normalizing pacing out is what makes samples from different
+-- points in a run comparable to each other at all.
+local function GetBestStore()
+    EbonBuildsCharDB.calibration = EbonBuildsCharDB.calibration or {}
+    EbonBuildsCharDB.calibration.bestSamples = EbonBuildsCharDB.calibration.bestSamples or {}
+    return EbonBuildsCharDB.calibration.bestSamples
+end
+
+-- Called once per evaluation, with the best offered echo's score (as a
+-- % of peak) divided by that evaluation's reroll pacing multiplier.
+function EbonBuilds.Calibration.RecordBestSample(normalizedPct)
+    if not normalizedPct or normalizedPct < 0 then return end
+    local store = GetBestStore()
+    store[#store + 1] = normalizedPct
+    if #store > MAX_SAMPLES then
+        table.remove(store, 1)
+    end
+end
+
 -- Called once per offered echo during automation evaluation, with its
 -- score as a percentage of that evaluation's peak (0-100+, can exceed
 -- 100 for an echo scored above the cached peak). Cheap: no sorting or
@@ -52,9 +76,14 @@ function EbonBuilds.Calibration.SampleCount()
     return #GetStore()
 end
 
+function EbonBuilds.Calibration.BestSampleCount()
+    return #GetBestStore()
+end
+
 function EbonBuilds.Calibration.Clear()
     EbonBuildsCharDB.calibration = EbonBuildsCharDB.calibration or {}
     EbonBuildsCharDB.calibration.samples = {}
+    EbonBuildsCharDB.calibration.bestSamples = {}
 end
 
 ------------------------------------------------------------------------
@@ -107,8 +136,8 @@ end
 -- are recorded in). direction "below" = Banish/Reroll (triggers under the
 -- threshold, target = % you want rejected). direction "above" = Freeze
 -- (triggers over the threshold, target = % you want it to catch).
-local function BuildSuggestion(currentPctOfPeak, targetFraction, direction)
-    local store = GetStore()
+local function BuildSuggestion(currentPctOfPeak, targetFraction, direction, store)
+    store = store or GetStore()
     local result = {
         sampleCount = #store,
         currentPctOfPeak = currentPctOfPeak,
@@ -197,6 +226,29 @@ function EbonBuilds.Calibration.SuggestSmartFreeze(settings)
     return SuggestSmart(settings.freezeEVPct or 110, ratio, 10, "above")
 end
 
+-- Smart Reroll, finally supported: samples in bestSamples already have
+-- each evaluation's pacing multiplier divided out (see Automation.lua's
+-- reroll-check hook and RecordBestSample above), so comparing against
+-- them is equivalent to asking "what would this threshold do at full
+-- pacing (8+ charges)?" -- the live threshold at any given charge count
+-- still scales the same way as before via ChargePacing; this only
+-- fixes what the SUGGESTION itself is calculated from.
+function EbonBuilds.Calibration.SuggestSmartReroll(settings)
+    local ev   = EbonBuilds.Automation.GetRerollEV()
+    local peak = EbonBuilds.Automation.GetPeak()
+    if not (peak and peak > 0 and ev and ev > 0) then
+        return { insufficientData = true, sampleCount = EbonBuilds.Calibration.BestSampleCount() }
+    end
+    local ratio = ev / peak
+    local currentFieldPct = settings.rerollEVPct or 95
+    local r = BuildSuggestion(currentFieldPct * ratio, 45, "below", GetBestStore())
+    r.currentFieldPct = currentFieldPct
+    if not r.insufficientData then
+        r.suggestedFieldPct = r.suggestedPctOfPeak / ratio
+    end
+    return r
+end
+
 ------------------------------------------------------------------------
 -- Auto-tune pass (see the opt-in block above for the rationale)
 ------------------------------------------------------------------------
@@ -241,6 +293,9 @@ function EbonBuilds.Calibration.MaybeAutoTune()
 
     if not isSmart then
         local okR, valR = StepField(settings, EbonBuilds.Calibration.SuggestReroll(liveSettings), "autoRerollPct")
+        if okR then changed[#changed + 1] = ("Reroll " .. valR .. "%") end
+    else
+        local okR, valR = StepField(settings, EbonBuilds.Calibration.SuggestSmartReroll(liveSettings), "rerollEVPct")
         if okR then changed[#changed + 1] = ("Reroll " .. valR .. "%") end
     end
 
@@ -463,7 +518,7 @@ function EbonBuilds.Calibration.RefreshWindow()
     if (settings.rerollMode or "sum") == "ev" then
         modeWarning:SetText("Smart (EV) mode.")
         RefreshRow(banishRow, EbonBuilds.Calibration.SuggestSmartBanish(settings), "banishEVPct", "Smart Banish")
-        ClearRow(rerollRow, "|cff888888Smart Reroll isn't supported yet -- its effective threshold changes dynamically based on remaining reroll charges (pacing), so there's no single value to suggest.|r")
+        RefreshRow(rerollRow, EbonBuilds.Calibration.SuggestSmartReroll(settings), "rerollEVPct", "Smart Reroll")
         RefreshRow(freezeRow, EbonBuilds.Calibration.SuggestSmartFreeze(settings), "freezeEVPct", "Smart Freeze")
     else
         modeWarning:SetText("Classic mode.")
@@ -471,7 +526,8 @@ function EbonBuilds.Calibration.RefreshWindow()
         RefreshRow(rerollRow, EbonBuilds.Calibration.SuggestReroll(settings), "autoRerollPct", "Reroll")
         RefreshRow(freezeRow, EbonBuilds.Calibration.SuggestFreeze(settings), "autoFreezePct", "Freeze")
     end
-    local countText = string.format("%d total samples collected for %s", EbonBuilds.Calibration.SampleCount(), build.title or "this build")
+    local countText = string.format("%d samples (%d best-offer) collected for %s",
+        EbonBuilds.Calibration.SampleCount(), EbonBuilds.Calibration.BestSampleCount(), build.title or "this build")
     if EbonBuilds.EchoPerformance and EbonBuilds.EchoPerformance.IsEnabled() then
         local weightSuggestions = EbonBuilds.EchoPerformance.SuggestWeightAdjustments(build)
         if #weightSuggestions > 0 then

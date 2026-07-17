@@ -1,6 +1,6 @@
 # EbonBuilds — FAQ & Changelog
 
-*This file is updated with every release. Latest version: 2.47 — also available in-game via* `/ebb faq`
+*This file is updated with every release. Latest version: 2.48 — also available in-game via* `/ebb faq`
 
 ---
 
@@ -172,7 +172,7 @@ It used to be deliberately hidden there (you already have it in your left sideba
 ### Tuning Advisor: self-calibrating thresholds (2.33, Smart mode support in 2.34)
 `/ebb tuning` opens a window comparing your Banish/Reroll/Freeze thresholds against what your build has actually been offered, not just the theoretical scoring model. EbonBuilds records the score (as % of peak) of every echo automation evaluates, always-on and lightweight, into a per-character sample buffer. Once it has at least 30 samples, the advisor computes what threshold your CURRENT setting actually corresponds to (e.g. "rejects ~13% of real offers") and suggests a value to hit a sensible target (~15% for Banish, ~45% for Reroll, ~10% for Freeze), with an Apply button that writes it straight to your active build.
 
-Works with **both Classic and Smart (EV) mode** now. Smart mode's fields are a % of mean/evBest3 rather than peak directly -- the advisor converts through the current mean/peak or evBest3/peak ratio so both modes analyze against the same underlying sample data (cross-checked: a Classic and a Smart suggestion targeting the same percentile land on the same real threshold). **Smart Reroll isn't supported** -- its effective threshold is scaled by a "pacing" factor that changes dynamically through a run based on remaining reroll charges, so there's no single static value to suggest. "Clear Collected Data" is worth using after a major reweight, since old samples reflect the previous weighting.
+Works with **both Classic and Smart (EV) mode**, covering Banish, Reroll, and Freeze in both. Smart mode's fields are a % of mean/evBest3/EV rather than peak directly -- the advisor converts through the current mean/peak, evBest3/peak, or EV/peak ratio so both modes analyze against comparable underlying data (cross-checked: a Classic and a Smart suggestion targeting the same percentile land on the same real threshold). Smart Reroll's suggestion (2.48) uses its own sample stream with each evaluation's charge-pacing multiplier divided back out, since its live threshold moves with remaining charges -- the same pacing behavior as before, just now something the advisor can actually analyze. "Clear Collected Data" is worth using after a major reweight, since old samples reflect the previous weighting.
 
 ### Continuous auto-tune (2.35) -- do I have to keep clicking Apply?
 Not if you don't want to. `/ebb tuning` has a **Continuous auto-tune** checkbox (off by default). Turn it on and thresholds nudge themselves toward their suggested value automatically -- a small gradual step (25% of the gap) every ~20 newly-recorded offers, never an instant jump. You'll get a toast every time it actually adjusts something, so you're never left wondering why automation's behavior changed. It's deliberately gradual and rate-limited so it can't overreact to a short noisy streak; simulated tests show it converges smoothly to a stable value over a few hundred samples rather than oscillating.
@@ -197,6 +197,13 @@ Next to the regular Export button (build edit screen, any tab) is a new **Export
 This is deliberately approximate, not a controlled measurement: echoes stack together and fight difficulty/duration/execution vary a lot run to run, so it can't isolate any single echo's true causal effect. Treat it as a rough supplementary signal to combine with the scoring model and Tuning Advisor data, not a replacement for either. If Details! isn't installed, the checkbox tells you and won't enable.
 
 ## Changelog
+
+### 2.48 (2026-07-16) -- Smart Reroll finally supported in the Tuning Advisor
+
+- **New: a second sample stream (`bestSamples`) records the best offered echo's score for every Smart-mode reroll evaluation, with that evaluation's charge-pacing multiplier divided back out.** Smart Reroll decides based on "best offered vs threshold," not individual echo scores, and the live threshold moves with remaining charges -- the two reasons this was flagged unsupported since 2.33. Dividing pacing back out of each sample makes them comparable to a "what would this look like at full pacing" baseline, which reduces cleanly to the same percentile-suggestion math already used everywhere else.
+- `Calibration.SuggestSmartReroll(settings)` and `RecordBestSample()` added; wired into the Tuning Advisor window (replaces the old "not supported" message), Continuous Auto-Tune, and Export (AI).
+- Verified in isolation: 300 synthetic evaluations with randomized pacing (0.6-1.0) and a known 45%-below-threshold true distribution -- the suggestion correctly detected the current threshold was under-rejecting (34.7% vs 45% target) and proposed raising it, the right direction.
+- The actual live pacing behavior (threshold gets stricter as reroll charges run low) is unchanged -- this only fixes what the Tuning Advisor's *suggestion* is calculated from.
 
 ### 2.47 (2026-07-16) -- Echo Performance: switched to "active DPS" (Details!'s Tempo())
 

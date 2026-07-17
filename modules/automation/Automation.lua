@@ -512,6 +512,14 @@ function EbonBuilds.Automation.Evaluate()
                 local remaining = (runData.totalRerolls or 0) - (runData.usedRerolls or 0)
                 local pacing = ChargePacing(remaining, 8, 0.6, "below")
                 local threshold = ev * (settings.rerollEVPct or 95) / 100 * pacing
+                -- Feed the Tuning Advisor: normalize out this evaluation's
+                -- pacing multiplier so samples from different charge states
+                -- are directly comparable (see Calibration.lua's
+                -- RecordBestSample for how this gets turned into a
+                -- suggestion).
+                if peakScore and peakScore > 0 and pacing > 0 and EbonBuilds.Calibration then
+                    EbonBuilds.Calibration.RecordBestSample((best / peakScore * 100) / pacing)
+                end
                 EbonBuilds.DebugLog.AddF("reroll check (EV): best=%.0f vs %.0f (EV %.0f x %d%% x pacing %.2f)",
                     best, threshold, ev, settings.rerollEVPct or 95, pacing)
                 if best < threshold then

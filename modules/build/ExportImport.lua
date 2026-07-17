@@ -445,6 +445,7 @@ function EbonBuilds.ExportImport.GenerateAIText(build)
         end
         if (s.rerollMode or "sum") == "ev" then
             addSuggestion("Smart Banish", EbonBuilds.Calibration.SuggestSmartBanish(s))
+            addSuggestion("Smart Reroll", EbonBuilds.Calibration.SuggestSmartReroll(s))
             addSuggestion("Smart Freeze", EbonBuilds.Calibration.SuggestSmartFreeze(s))
         else
             addSuggestion("Banish", EbonBuilds.Calibration.SuggestBanish(s))
