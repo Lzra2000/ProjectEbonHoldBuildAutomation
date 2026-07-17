@@ -15,8 +15,18 @@ local R = "|r"
 
 local PAGES = {
 {
-    title = "What's New in 2.46",
+    title = "What's New in 2.47",
     lines = {
+        GOLD .. "2.47: DPS tracking uses 'active time' now" .. R,
+        "- Switched to Details!'s actor:Tempo() (activity time, skips",
+        "  movement/idle gaps) instead of combat:GetCombatTime()",
+        "  (effective time, includes them) where available",
+        "- Reduces noise: two runs with the same real damage output but",
+        "  different downtime used to show different DPS for reasons",
+        "  unrelated to which echoes were active",
+        "- Falls back to the old calculation on older Details versions",
+        "- Automatic -- no settings change needed if already tracking",
+        "",
         GOLD .. "2.46: weight suggestions -- tightened cluster filter" .. R,
         "- Fixed: most weight suggestions were contaminated by co-active",
         "  clusters (2-3 echoes tracked together, same DPS number)",

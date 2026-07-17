@@ -51,6 +51,18 @@ local function GetCurrentDPS()
         local playerName = UnitName("player")
         local actor = combat:GetActor(DETAILS_ATTRIBUTE_DAMAGE, playerName)
         if not actor or not actor.total then return nil end
+        -- Prefer "activity time" (actor:Tempo(), excludes idle/movement
+        -- gaps within the combat window) over "effective time"
+        -- (combat:GetCombatTime(), the whole window including those
+        -- gaps) -- Details' own docs distinguish the two, and activity
+        -- time is the less noisy signal: two players with identical
+        -- actual damage output but different amounts of downtime would
+        -- otherwise show different DPS for reasons that have nothing to
+        -- do with what echoes were active.
+        local activeTime = actor.Tempo and actor:Tempo()
+        if activeTime and activeTime > 0 then
+            return actor.total / activeTime
+        end
         local combatTime = combat:GetCombatTime()
         if not combatTime or combatTime <= 0 then return nil end
         return actor.total / combatTime

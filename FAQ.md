@@ -1,6 +1,6 @@
 # EbonBuilds — FAQ & Changelog
 
-*This file is updated with every release. Latest version: 2.46 — also available in-game via* `/ebb faq`
+*This file is updated with every release. Latest version: 2.47 — also available in-game via* `/ebb faq`
 
 ---
 
@@ -197,6 +197,12 @@ Next to the regular Export button (build edit screen, any tab) is a new **Export
 This is deliberately approximate, not a controlled measurement: echoes stack together and fight difficulty/duration/execution vary a lot run to run, so it can't isolate any single echo's true causal effect. Treat it as a rough supplementary signal to combine with the scoring model and Tuning Advisor data, not a replacement for either. If Details! isn't installed, the checkbox tells you and won't enable.
 
 ## Changelog
+
+### 2.47 (2026-07-16) -- Echo Performance: switched to "active DPS" (Details!'s Tempo())
+
+- **Improved: DPS sampling now prefers Details!'s "activity time" (`actor:Tempo()`) over "effective time" (`combat:GetCombatTime()`) when available.** Details' own documentation distinguishes the two: effective time is the whole combat window including movement/idle gaps, activity time excludes them. Two runs with identical actual damage output but different amounts of downtime would previously show different DPS for reasons unrelated to which echoes were active -- a real source of noise in a signal that's already documented as approximate. Falls back to effective time if `Tempo()` isn't available on a given Details version, same as before.
+- Verified in isolation: with `Tempo()` present, DPS is computed from active time (50000 dmg / 60s active = 833.33, correctly ignoring a 100s total window); without it, correctly falls back to the old calculation (500.00).
+- No settings change needed -- this applies automatically to anyone with Echo Performance tracking already enabled.
 
 ### 2.46 (2026-07-16) -- weight suggestions: tightened cluster filter (found from real data)
 
