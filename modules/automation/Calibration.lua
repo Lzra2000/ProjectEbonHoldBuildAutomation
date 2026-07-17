@@ -217,20 +217,15 @@ end
 local appearanceBroadcastElapsed = 0
 local appearanceBroadcastCursor = 1
 
-function EbonBuilds.Calibration.MaybeBroadcastAppearance(dt)
-    if not EbonBuilds.Calibration.IsAppearanceSharingEnabled() then return end
-    if not (EbonBuilds.Sync and EbonBuilds.Sync.BroadcastPerfBatch) then return end
-    appearanceBroadcastElapsed = appearanceBroadcastElapsed + (dt or 0)
-    if appearanceBroadcastElapsed < APPEARANCE_BROADCAST_INTERVAL then return end
-    appearanceBroadcastElapsed = 0
-
+local function SendOneAppearanceBatch()
+    if not (EbonBuilds.Sync and EbonBuilds.Sync.BroadcastPerfBatch) then return false end
     local build = EbonBuilds.Build and EbonBuilds.Build.GetActive and EbonBuilds.Build.GetActive()
-    if not build or not build.class then return end
+    if not build or not build.class then return false end
 
     local store = GetAppearanceStore()
     local names = {}
     for name in pairs(store.counts) do names[#names + 1] = name end
-    if #names == 0 then return end
+    if #names == 0 then return false end
     table.sort(names)
 
     local batch = {}
@@ -241,9 +236,33 @@ function EbonBuilds.Calibration.MaybeBroadcastAppearance(dt)
     appearanceBroadcastCursor = ((appearanceBroadcastCursor - 1 + APPEARANCE_BROADCAST_BATCH) % #names) + 1
 
     local payload = EbonBuilds.Calibration.SerializeAppearanceBatch(build.class, batch)
-    if payload then
-        EbonBuilds.Sync.BroadcastPerfBatch(payload)
+    if not payload then return false end
+    EbonBuilds.Sync.BroadcastPerfBatch(payload)
+    return true
+end
+
+function EbonBuilds.Calibration.MaybeBroadcastAppearance(dt)
+    if not EbonBuilds.Calibration.IsAppearanceSharingEnabled() then return end
+    appearanceBroadcastElapsed = appearanceBroadcastElapsed + (dt or 0)
+    if appearanceBroadcastElapsed < APPEARANCE_BROADCAST_INTERVAL then return end
+    appearanceBroadcastElapsed = 0
+    SendOneAppearanceBatch()
+end
+
+local SYNC_NOW_MAX_APPEARANCE_BATCHES = 3
+
+function EbonBuilds.Calibration.SyncAppearanceNow()
+    if not EbonBuilds.Calibration.IsAppearanceSharingEnabled() then
+        return false, "appearance sharing is off"
     end
+    appearanceBroadcastElapsed = 0
+    local sent = 0
+    for i = 1, SYNC_NOW_MAX_APPEARANCE_BATCHES do
+        if not SendOneAppearanceBatch() then break end
+        sent = sent + 1
+    end
+    if sent == 0 then return false, "nothing to sync yet" end
+    return true, sent
 end
 
 ------------------------------------------------------------------------
@@ -737,6 +756,34 @@ local function BuildWindow()
         EbonBuilds.Calibration.Clear()
         EbonBuilds.Calibration.ClearAppearance()
         EbonBuilds.Calibration.RefreshWindow()
+    end)
+
+    local syncNowBtn = EbonBuilds.Theme.CreateButton(f)
+    syncNowBtn:SetSize(100, 20)
+    syncNowBtn:SetPoint("LEFT", clearBtn, "RIGHT", 8, 0)
+    syncNowBtn:SetText("Sync Now")
+    syncNowBtn:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:AddLine("Sync Now", 1, 1, 1)
+        GameTooltip:AddLine("Pushes a few batches of your DPS and/or appearance-rate data right away instead of waiting for the periodic broadcast (every 3 min). Only sends whichever of those two you've actually enabled above -- does nothing if both are off.", 0.8, 0.8, 0.8, true)
+        GameTooltip:Show()
+    end)
+    syncNowBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    syncNowBtn:SetScript("OnClick", function()
+        local parts = {}
+        if EbonBuilds.EchoPerformance and EbonBuilds.EchoPerformance.SyncNow then
+            local ok, sentOrReason = EbonBuilds.EchoPerformance.SyncNow()
+            if ok then parts[#parts + 1] = string.format("%d DPS batch(es)", sentOrReason) end
+        end
+        if EbonBuilds.Calibration.SyncAppearanceNow then
+            local ok, sentOrReason = EbonBuilds.Calibration.SyncAppearanceNow()
+            if ok then parts[#parts + 1] = string.format("%d appearance batch(es)", sentOrReason) end
+        end
+        if #parts == 0 then
+            EbonBuilds.Toast.Show("Nothing to sync -- enable DPS or appearance sharing above first")
+        else
+            EbonBuilds.Toast.Show("Synced: " .. table.concat(parts, ", "))
+        end
     end)
 
     countLabel = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")

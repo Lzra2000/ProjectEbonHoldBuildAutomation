@@ -15,8 +15,15 @@ local R = "|r"
 
 local PAGES = {
 {
-    title = "What's New in 2.55",
+    title = "What's New in 2.56",
     lines = {
+        GOLD .. "2.56: Sync Now button" .. R,
+        "- New button in /ebb tuning, next to Clear Collected Data",
+        "- DPS/appearance sharing used to only broadcast on a 3-minute",
+        "  timer -- Sync Now pushes a few batches right away",
+        "- Capped at 3 batches per click, can't flood the channel",
+        "- Only sends whichever sharing toggle(s) you've enabled",
+        "",
         GOLD .. "2.55: appearance rate now shown on the Echo tab" .. R,
         "- Hovering an echo's icon on Echo Weights now shows its",
         "  appearance rate in the tooltip (was only in Export (AI))",

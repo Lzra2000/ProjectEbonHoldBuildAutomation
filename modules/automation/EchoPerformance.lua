@@ -226,20 +226,19 @@ end
 local broadcastElapsed = 0
 local broadcastCursor = 1
 
-local function MaybeBroadcast(dt)
-    if not EbonBuilds.EchoPerformance.IsEnabled() then return end
-    if not (EbonBuilds.Sync and EbonBuilds.Sync.BroadcastPerfBatch) then return end
-    broadcastElapsed = broadcastElapsed + dt
-    if broadcastElapsed < BROADCAST_INTERVAL then return end
-    broadcastElapsed = 0
-
+-- Sends one rotating batch. Shared by the automatic timer path and the
+-- manual "Sync Now" button -- same batching logic either way, so a
+-- manual sync can't accidentally send a differently-shaped payload than
+-- what a peer's automatic receive handler expects.
+local function SendOneBatch()
+    if not (EbonBuilds.Sync and EbonBuilds.Sync.BroadcastPerfBatch) then return false end
     local build = EbonBuilds.Build and EbonBuilds.Build.GetActive and EbonBuilds.Build.GetActive()
-    if not build or not build.class then return end
+    if not build or not build.class then return false end
 
     local store = GetStore()
     local names = {}
     for name in pairs(store) do names[#names + 1] = name end
-    if #names == 0 then return end
+    if #names == 0 then return false end
     table.sort(names) -- stable order so the rotation actually cycles through everything
 
     local batch = {}
@@ -250,9 +249,38 @@ local function MaybeBroadcast(dt)
     broadcastCursor = ((broadcastCursor - 1 + BROADCAST_BATCH_SIZE) % #names) + 1
 
     local payload = EbonBuilds.EchoPerformance.SerializeBatch(build.class, batch)
-    if payload then
-        EbonBuilds.Sync.BroadcastPerfBatch(payload)
+    if not payload then return false end
+    EbonBuilds.Sync.BroadcastPerfBatch(payload)
+    return true
+end
+
+local function MaybeBroadcast(dt)
+    if not EbonBuilds.EchoPerformance.IsEnabled() then return end
+    broadcastElapsed = broadcastElapsed + dt
+    if broadcastElapsed < BROADCAST_INTERVAL then return end
+    broadcastElapsed = 0
+    SendOneBatch()
+end
+
+-- Manual trigger: sends a few batches back-to-back right away instead of
+-- waiting for the periodic timer, and resets the timer so the next
+-- automatic broadcast doesn't fire immediately after. Capped at a few
+-- batches rather than everything at once, so clicking it can't flood
+-- the sync channel the way a single giant payload would.
+local SYNC_NOW_MAX_BATCHES = 3
+
+function EbonBuilds.EchoPerformance.SyncNow()
+    if not EbonBuilds.EchoPerformance.IsEnabled() then
+        return false, "DPS sharing is off"
     end
+    broadcastElapsed = 0
+    local sent = 0
+    for i = 1, SYNC_NOW_MAX_BATCHES do
+        if not SendOneBatch() then break end
+        sent = sent + 1
+    end
+    if sent == 0 then return false, "nothing to sync yet" end
+    return true, sent
 end
 
 ------------------------------------------------------------------------

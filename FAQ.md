@@ -1,6 +1,6 @@
 # EbonBuilds — FAQ & Changelog
 
-*This file is updated with every release. Latest version: 2.55 — also available in-game via* `/ebb faq`
+*This file is updated with every release. Latest version: 2.56 — also available in-game via* `/ebb faq`
 
 ---
 
@@ -197,6 +197,12 @@ Next to the regular Export button (build edit screen, any tab) is a new **Export
 This is deliberately approximate, not a controlled measurement: echoes stack together and fight difficulty/duration/execution vary a lot run to run, so it can't isolate any single echo's true causal effect. Treat it as a rough supplementary signal to combine with the scoring model and Tuning Advisor data, not a replacement for either. If Details! isn't installed, the checkbox tells you and won't enable.
 
 ## Changelog
+
+### 2.56 (2026-07-16) -- "Sync Now" button for DPS/appearance sharing
+
+- **New: "Sync Now" button in `/ebb tuning`**, next to Clear Collected Data. DPS and appearance-rate sharing (2.49, 2.53) previously only broadcast on a 3-minute timer with no way to push sooner. Sync Now sends up to 3 batches of whichever you've enabled right away, and resets the timer so the next automatic broadcast doesn't immediately follow. Capped at 3 batches per click so it can't flood the sync channel the way sending everything at once would.
+- Refactored the automatic and manual paths to share the same batch-sending logic (`SendOneBatch`/`SendOneAppearanceBatch`), so a manual sync can't accidentally send a differently-shaped payload than the periodic one already does.
+- Verified in isolation: correctly refuses with a reason when sharing is off or there's no data yet, and correctly sends exactly 3 batches (not more) when there's enough data to fill them.
 
 ### 2.55 (2026-07-16) -- echo appearance rate now shown in-game, on the Echo tab
 
