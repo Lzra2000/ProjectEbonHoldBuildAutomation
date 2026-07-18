@@ -253,6 +253,16 @@ This is deliberately approximate, not a controlled measurement: echoes stack tog
 
 ## Changelog
 
+### 3.09 (2026-07-18) -- "AI report" button: one test per layer
+
+Added while investigating a bug report that the "AI report" button in the build editor produces nothing and doesn't seem clickable. No root cause confirmed yet (needs `/ebb clicktrace` output to isolate whether the click is even reaching the button in-game), but this closes a real test-coverage gap found along the way: nothing previously exercised this button's own code path end to end.
+
+- `EbonBuilds.ExportImport.GenerateAIText`: verified it doesn't error for a plain build, a build with a conditional Echo policy set, or a nil build, and that the policy section only appears (and names the right Echo) once a policy is actually set.
+- `EbonBuilds.ExportImport.ShowAIExportDialog`: verified it doesn't error when assembling the dialog.
+- New `EbonBuilds.BuildTabs._TriggerExportAI` / `_SetContextForTest` test hooks (same pattern as `Session.lua`'s test helpers): verified the click handler resolves the build being edited, falls back to the active build outside an edit context, and is a safe no-op with neither -- without needing a simulated real click.
+- `Theme.CreateButton` + `ClickTrace`: verified a click still reaches both the caller's own `OnClick` handler and the separate `ClickTrace` hook Theme installs at button creation, confirming `HookScript` handlers survive a later `SetScript` call on the same event (the exact mechanism `exportAIBtn` in `BuildTabs.lua` relies on).
+- `modules/ui/BuildTabs.lua`: extracted the button's inline `OnClick` closure into a named local function (`OnClickExportAI`) so it's independently testable -- no behavior change.
+
 ### 3.08 (2026-07-18) -- GitHub Releases always include a working download link
 
 - `scripts/publish-github-release.sh` now prepends a pinned `Download EbonBuilds.zip` link to every release it publishes, pointing at `raw/<tag>/dist/EbonBuilds.zip` rather than `raw/main/...` -- so the link always serves the zip that actually matches that release, even after main moves on with later commits.

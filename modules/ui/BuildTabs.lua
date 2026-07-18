@@ -162,6 +162,14 @@ local function AddButtonTooltip(btn, title, body)
     EbonBuilds.Theme.AttachTooltip(btn, title, body)
 end
 
+-- Named (not inline) so it's independently testable via
+-- EbonBuilds.BuildTabs._TriggerExportAI, instead of only reachable through
+-- a real button click, which the test harness's frame stubs can't simulate.
+local function OnClickExportAI()
+    local build = (state.context and state.context.build) or EbonBuilds.Build.GetActive()
+    if build then EbonBuilds.ExportImport.ShowAIExportDialog(build) end
+end
+
 local function BuildViewFrame()
     local f = CreateFrame("Frame", "EbonBuildsBuildTabs", UIParent)
     CreateTabs(f)
@@ -196,10 +204,7 @@ local function BuildViewFrame()
     exportAIBtn:SetPoint("LEFT", exportBtn, "RIGHT", 6, 0)
     exportAIBtn:SetText("AI report")
     AddButtonTooltip(exportAIBtn, "AI tuning report", "Create a readable report of weights, bonuses, thresholds, and tuning data for analysis. It cannot be imported back.")
-    exportAIBtn:SetScript("OnClick", function()
-        local build = (state.context and state.context.build) or EbonBuilds.Build.GetActive()
-        if build then EbonBuilds.ExportImport.ShowAIExportDialog(build) end
-    end)
+    exportAIBtn:SetScript("OnClick", OnClickExportAI)
 
     saveStatus = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     saveStatus:SetPoint("LEFT", exportAIBtn, "RIGHT", 10, 0)
@@ -246,3 +251,14 @@ function EbonBuilds.BuildTabs.Init()
     viewFrame:Hide()
     EbonBuilds.ViewRouter.Register("buildTabs", view)
 end
+
+------------------------------------------------------------------------
+-- Test/integration helpers. These are pure and do not mutate saved data,
+-- except _SetContextForTest which exists only so tests can drive the same
+-- state real button clicks would (viewFrame:Show sets it normally).
+------------------------------------------------------------------------
+EbonBuilds.BuildTabs._TriggerExportAI = OnClickExportAI
+function EbonBuilds.BuildTabs._SetContextForTest(context)
+    state.context = context
+end
+

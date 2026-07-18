@@ -901,6 +901,136 @@ do
     CreateFrame = originalCreateFrame
 end
 
+-- "AI report" button (modules/ui/BuildTabs.lua -> ExportImport.lua): one
+-- test per layer, so a future regression here is pinpointed by which layer
+-- fails instead of "the button does nothing" with no further clue.
+do
+    -- Layer 1: content/logic (ExportImport.GenerateAIText) -- no UI at all.
+    local build = EbonBuilds.Build.Create({
+        title = "AI Report Test",
+        class = "MAGE",
+        spec = 1,
+        echoWeights = { ["Scorching Wounds"] = { [0] = 5 } },
+        settings = EbonBuilds.Build.NewBuildSettings(),
+    })
+
+    local okPlain, textPlain = pcall(EbonBuilds.ExportImport.GenerateAIText, build)
+    check(okPlain, "GenerateAIText does not error for a plain build")
+    check(okPlain and type(textPlain) == "string" and #textPlain > 0,
+        "GenerateAIText returns non-empty text for a plain build")
+    check(okPlain and not textPlain:find("Conditional Echo policies", 1, true),
+        "GenerateAIText omits the policy section when no policy is set")
+
+    EbonBuilds.EchoPolicy.Set(build.settings, "Scorching Wounds", EbonBuilds.EchoPolicy.BANISH_ON_SIGHT)
+    local okPolicy, textPolicy = pcall(EbonBuilds.ExportImport.GenerateAIText, build)
+    check(okPolicy, "GenerateAIText does not error once an Echo policy is set")
+    check(okPolicy and textPolicy:find("Conditional Echo policies", 1, true) ~= nil,
+        "GenerateAIText includes the policy section once a policy is set")
+    check(okPolicy and textPolicy:find("Scorching Wounds", 1, true) ~= nil,
+        "GenerateAIText's policy section names the affected Echo")
+
+    local okNilBuild, textNilBuild = pcall(EbonBuilds.ExportImport.GenerateAIText, nil)
+    check(okNilBuild and textNilBuild == "", "GenerateAIText(nil) is a safe no-op, not an error")
+
+    -- Layer 2: dialog assembly (ExportImport.ShowAIExportDialog) -- exercises
+    -- the same CreateFrame/EditBox path a real click reaches, using the
+    -- lenient test_load-style stub since only "does it error" matters here.
+    local function NewLooseStub()
+        local stub
+        stub = setmetatable({
+            SetScript = function() end,
+            HookScript = function() end,
+            CreateFontString = function() return NewLooseStub() end,
+            CreateTexture = function() return NewLooseStub() end,
+        }, { __index = function(_, key)
+            if type(key) == "string" and key:sub(1, 1) == "_" then return nil end
+            return function() return NewLooseStub() end
+        end })
+        return stub
+    end
+    local originalCreateFrame1 = CreateFrame
+    CreateFrame = function() return NewLooseStub() end
+    if not EbonBuilds.Theme then dofile("modules/ui/Theme.lua") end
+    local okDialog, dialogErr = pcall(EbonBuilds.ExportImport.ShowAIExportDialog, build)
+    CreateFrame = originalCreateFrame1
+    check(okDialog, "ShowAIExportDialog does not error: " .. tostring(dialogErr))
+
+    -- Layer 3: click-handler logic (BuildTabs._TriggerExportAI) -- calls the
+    -- exact function the button's OnClick invokes, without needing a real
+    -- clickable widget, and verifies it resolves the right build.
+    if not EbonBuilds.BuildTabs then dofile("modules/ui/BuildTabs.lua") end
+    local capturedBuild = "not called"
+    local originalShowAI = EbonBuilds.ExportImport.ShowAIExportDialog
+    EbonBuilds.ExportImport.ShowAIExportDialog = function(b) capturedBuild = b end
+
+    EbonBuilds.BuildTabs._SetContextForTest({ mode = "edit", build = build })
+    EbonBuilds.BuildTabs._TriggerExportAI()
+    check(capturedBuild == build, "click handler uses state.context.build when editing that build")
+
+    capturedBuild = "not called"
+    EbonBuilds.BuildTabs._SetContextForTest(nil)
+    EbonBuilds.Build.SetActive(build.id)
+    EbonBuilds.BuildTabs._TriggerExportAI()
+    check(capturedBuild == build, "click handler falls back to the active build with no edit context")
+
+    capturedBuild = "not called"
+    EbonBuilds.Build.SetActive(nil)
+    local okNoBuild = pcall(EbonBuilds.BuildTabs._TriggerExportAI)
+    check(okNoBuild, "click handler does not error with no context and no active build")
+    check(capturedBuild == "not called", "click handler is a silent no-op with no build available (by design)")
+
+    EbonBuilds.ExportImport.ShowAIExportDialog = originalShowAI
+
+    -- Layer 4: widget wiring (Theme.CreateButton + ClickTrace) -- the layer
+    -- Click Trace itself exists to diagnose: does a real click even reach
+    -- the handler Theme.CreateButton wires up, alongside its own
+    -- HookScript-based click logger, without one silently swallowing the
+    -- other.
+    local function NewClickableStub()
+        local hooks = {}
+        local handlers = {}
+        local stub
+        stub = setmetatable({
+            SetScript = function(self, name, fn) handlers[name] = fn end,
+            GetScript = function(self, name) return handlers[name] end,
+            -- Real WoW HookScript handlers survive later SetScript calls on
+            -- the same event -- that guarantee is exactly what lets
+            -- Theme.CreateButton's ClickTrace hook keep observing clicks
+            -- after a caller (e.g. BuildTabs.lua) sets its own OnClick.
+            HookScript = function(self, name, fn)
+                hooks[name] = hooks[name] or {}
+                hooks[name][#hooks[name] + 1] = fn
+            end,
+            Click = function(self)
+                if handlers.OnClick then handlers.OnClick(self) end
+                if hooks.OnClick then
+                    for _, fn in ipairs(hooks.OnClick) do fn(self) end
+                end
+            end,
+            GetText = function() return "AI report" end,
+            SetText = function() end,
+            CreateFontString = function() return NewClickableStub() end,
+            CreateTexture = function() return NewClickableStub() end,
+        }, { __index = function(_, key)
+            if type(key) == "string" and key:sub(1, 1) == "_" then return nil end
+            return function() return NewClickableStub() end
+        end })
+        return stub
+    end
+    local originalCreateFrame2 = CreateFrame
+    CreateFrame = function() return NewClickableStub() end
+    local btn = EbonBuilds.Theme.CreateButton(nil)
+    local realHandlerRan = false
+    btn:SetScript("OnClick", function() realHandlerRan = true end)
+    local traceRan = false
+    EbonBuilds.ClickTrace = { Log = function() traceRan = true end }
+    btn:Click()
+    CreateFrame = originalCreateFrame2
+    EbonBuilds.ClickTrace = nil
+    check(realHandlerRan, "Theme.CreateButton: a real click still fires the caller's own OnClick handler")
+    check(traceRan, "Theme.CreateButton: a real click also reaches the ClickTrace hook, neither shadows the other")
+end
+
 if failures > 0 then
     io.stderr:write(string.format("%d test(s) failed.\n", failures))
     os.exit(1)
