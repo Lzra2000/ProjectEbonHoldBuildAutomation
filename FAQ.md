@@ -253,6 +253,14 @@ This is deliberately approximate, not a controlled measurement: echoes stack tog
 
 ## Changelog
 
+### 3.06 (2026-07-18) -- Developer tooling: packaging and local checks
+
+- Added `scripts/build-dist.sh`, which packages `EbonBuilds.toc`, `FAQ.md`, `core/`, and `modules/` into `dist/EbonBuilds.zip`, ready to drop into `Interface/AddOns/`. No addon behavior change; internal tooling only.
+- Added `scripts/check.sh`, running the full CI check suite (Lua 5.1 syntax check, test suite, `.toc` file verification) locally in one command.
+- Added `scripts/dev-setup.sh` (one-time toolchain install) and `scripts/install-hooks.sh` with a `.githooks/pre-commit` hook that runs `scripts/check.sh` automatically before each commit.
+- Added `scripts/release.sh`, a release helper that refuses to run unless `FAQ.md` has changed since the last tag, then bumps the version, runs the check suite, rebuilds `dist/EbonBuilds.zip`, and commits + tags.
+- Documented all of the above in the README's Development section.
+
 ### 3.05 (2026-07-18) -- Conditional Echo policies
 
 - **New: per-Echo automation policies.** Each Echo can now be set to **Normal**, **Banish on Sight**, **Banish After Pick**, **Ignore After Pick**, or **Never Pick**, giving hard automation enforcement beyond plain weight tuning. Policies apply on top of scoring rather than replacing it, so a weighted Echo can still be force-excluded or force-picked without touching its underlying value.
