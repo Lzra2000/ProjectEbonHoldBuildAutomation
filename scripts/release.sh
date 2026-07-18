@@ -59,5 +59,6 @@ git commit -q -m "chore(release): bump version to $NEW_VERSION"
 git tag "v$NEW_VERSION" -m "v$NEW_VERSION"
 
 echo ""
-echo "Done. Review with 'git show HEAD' then push:"
+echo "Done. Review with 'git show HEAD' then push and publish:"
 echo "  git push origin main && git push origin v$NEW_VERSION"
+echo "  GITHUB_TOKEN=... sh scripts/publish-github-release.sh $NEW_VERSION   # a pushed tag alone is NOT a GitHub Release"
