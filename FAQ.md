@@ -253,6 +253,14 @@ This is deliberately approximate, not a controlled measurement: echoes stack tog
 
 ## Changelog
 
+### 3.10 (2026-07-18) -- fix: /ebb errors stayed empty no matter what actually failed
+
+Root cause found for the "AI report does nothing and /ebb errors is empty" report: `EbonBuilds.ErrorLog.Protect`, the wrapper that catches a handler's error and records it, was only ever used in two places in the whole addon (both in `AutoSell.lua`). Every UI button, including this one, ran its `OnClick` completely unwrapped -- so a real Lua error there never reached EbonBuilds' own log at all. It would only ever show up via WoW's own built-in Lua error display, which is off by default. That combination -- something visibly not working, with nothing in `/ebb errors` -- was never actually proof that nothing was failing.
+
+- `modules/ui/BuildTabs.lua`: the "AI report" button's `OnClick` is now wrapped in `EbonBuilds.ErrorLog.Protect`, so a real failure now lands in `/ebb errors` instead of vanishing. (Deferred to button-construction time rather than file scope, since this file loads before `core/ErrorLog.lua` in `EbonBuilds.toc`.)
+- New test confirms `ErrorLog.Protect` actually captures a simulated error and keeps its message, closing the gap that let this go unnoticed.
+- Still investigating the original click issue itself -- this fix means the next occurrence will actually leave a trace to look at.
+
 ### 3.09 (2026-07-18) -- "AI report" button: one test per layer
 
 Added while investigating a bug report that the "AI report" button in the build editor produces nothing and doesn't seem clickable. No root cause confirmed yet (needs `/ebb clicktrace` output to isolate whether the click is even reaching the button in-game), but this closes a real test-coverage gap found along the way: nothing previously exercised this button's own code path end to end.

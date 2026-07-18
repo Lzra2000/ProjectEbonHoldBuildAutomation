@@ -165,6 +165,14 @@ end
 -- Named (not inline) so it's independently testable via
 -- EbonBuilds.BuildTabs._TriggerExportAI, instead of only reachable through
 -- a real button click, which the test harness's frame stubs can't simulate.
+--
+-- Wrapped in ErrorLog.Protect below (in BuildViewFrame, not here -- this
+-- file loads before core/ErrorLog.lua in EbonBuilds.toc, so EbonBuilds.ErrorLog
+-- doesn't exist yet at this point): unlike most of the addon's OnClick
+-- handlers, this one calls into a large, recently-changed function
+-- (GenerateAIText) that a bug report claimed "does nothing" with nothing in
+-- /ebb errors -- unprotected, a real error here would reach WoW's own
+-- (usually disabled) Lua error display and never reach EbonBuilds' own log.
 local function OnClickExportAI()
     local build = (state.context and state.context.build) or EbonBuilds.Build.GetActive()
     if build then EbonBuilds.ExportImport.ShowAIExportDialog(build) end
@@ -204,7 +212,10 @@ local function BuildViewFrame()
     exportAIBtn:SetPoint("LEFT", exportBtn, "RIGHT", 6, 0)
     exportAIBtn:SetText("AI report")
     AddButtonTooltip(exportAIBtn, "AI tuning report", "Create a readable report of weights, bonuses, thresholds, and tuning data for analysis. It cannot be imported back.")
-    exportAIBtn:SetScript("OnClick", OnClickExportAI)
+    local protectedOnClickExportAI = EbonBuilds.ErrorLog and EbonBuilds.ErrorLog.Protect
+        and EbonBuilds.ErrorLog.Protect("BuildTabs.ExportAI", OnClickExportAI)
+        or OnClickExportAI
+    exportAIBtn:SetScript("OnClick", protectedOnClickExportAI)
 
     saveStatus = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     saveStatus:SetPoint("LEFT", exportAIBtn, "RIGHT", 10, 0)

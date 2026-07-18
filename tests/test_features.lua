@@ -1029,6 +1029,23 @@ do
     EbonBuilds.ClickTrace = nil
     check(realHandlerRan, "Theme.CreateButton: a real click still fires the caller's own OnClick handler")
     check(traceRan, "Theme.CreateButton: a real click also reaches the ClickTrace hook, neither shadows the other")
+
+    -- Layer 5: error capture. The original bug report was "nothing happens
+    -- and /ebb errors is empty" -- that combination is only possible
+    -- because nothing wrapped this click path in ErrorLog.Protect, so a
+    -- real error would go straight to WoW's own (usually disabled) error
+    -- display and never reach EbonBuilds' own log. Confirms the mechanism
+    -- BuildTabs.lua now wraps the button in actually captures a failure.
+    if not EbonBuilds.ErrorLog then dofile("core/ErrorLog.lua") end
+    EbonBuildsCharDB.errorLog = {}
+    local throwingTrigger = EbonBuilds.ErrorLog.Protect("test.ExportAI", function()
+        error("simulated failure inside GenerateAIText")
+    end)
+    throwingTrigger()
+    local logged = EbonBuilds.ErrorLog.GetAll()
+    check(#logged == 1, "ErrorLog.Protect captures a real error instead of letting it vanish")
+    check(#logged == 1 and logged[1].message:find("simulated failure", 1, true) ~= nil,
+        "captured error entry keeps the original error message")
 end
 
 if failures > 0 then
