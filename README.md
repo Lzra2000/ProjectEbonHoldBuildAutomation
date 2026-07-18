@@ -66,5 +66,9 @@ Attach `/ebb errors` output or an `/ebb debug` log to your report — it's the s
 ## Development
 
 - Pure Lua, WotLK 3.3.5a API (Interface 30300).
-- `luac5.1 -p` is used to syntax-check every file before each release; see `.github/workflows/lua-syntax.yml` for the same check running in CI.
-- No build step — the repo root *is* the addon folder structure expected by `Interface/AddOns/`.
+- One-time setup: `sh scripts/dev-setup.sh` installs the toolchain (`lua5.1`, `texlive-binaries` for the test suite, `zip`).
+- `sh scripts/check.sh` runs the full local check suite (syntax check, test suite, `.toc` file verification) — the same checks as `.github/workflows/lua-syntax.yml`, in one command.
+- `sh scripts/install-hooks.sh` wires up a pre-commit hook that runs `scripts/check.sh` automatically (skip once with `git commit --no-verify`).
+- `sh scripts/build-dist.sh` packages `EbonBuilds.toc`, `FAQ.md`, `core/`, and `modules/` into `dist/EbonBuilds.zip`, ready to drop into `Interface/AddOns/`.
+- `sh scripts/release.sh <version>` is the release helper: refuses to run unless `FAQ.md` has changed since the last tag, bumps the version in `EbonBuilds.toc` and `FAQ.md`, runs the check suite, rebuilds `dist/EbonBuilds.zip`, then commits and tags (does not push).
+- For day-to-day development the repo root itself already *is* the addon folder structure expected by `Interface/AddOns/` — the dist zip is only needed for a clean shareable release build.
