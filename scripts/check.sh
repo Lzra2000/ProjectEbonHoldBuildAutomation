@@ -17,12 +17,13 @@ if ! command -v luac5.1 >/dev/null 2>&1; then
     exit 1
 fi
 fail=0
-for f in $(find . -name "*.lua" -not -path "./tests/*" -not -path "./.git/*"); do
+find . -name "*.lua" -not -path "./tests/*" -not -path "./.git/*" > /tmp/ebb_lua_files.txt
+while IFS= read -r f; do
     if ! luac5.1 -p "$f"; then
         echo "SYNTAX ERROR: $f"
         fail=1
     fi
-done
+done < /tmp/ebb_lua_files.txt
 if [ "$fail" -eq 0 ]; then echo "OK: no syntax errors"; else overall_fail=1; fi
 
 echo ""
