@@ -535,8 +535,10 @@ end
 
 SLASH_EbonBuilds1 = "/ebb"
 SLASH_EbonBuilds2 = "/ebonbuilds"
-SlashCmdList["EbonBuilds"] = function(msg)
-    msg = (msg or ""):lower():match("^%s*(%S*)")
+SlashCmdList["EbonBuilds"] = function(rawMsg)
+    local msg, arg = (rawMsg or ""):lower():match("^%s*(%S*)%s*(.-)%s*$")
+    msg = msg or ""
+    arg = arg or ""
     if msg == "debug" then
         EbonBuilds.DebugLog.Toggle()
     elseif msg == "debuglog" or msg == "log" then
@@ -583,6 +585,31 @@ SlashCmdList["EbonBuilds"] = function(msg)
         EbonBuilds.BagAffixDots.SetEnabled(on)
         DEFAULT_CHAT_FRAME:AddMessage("|cff44ff44EbonBuilds:|r Bag affix dots are now " ..
             (on and "|cff44ff44ON|r" or "|cffff4444OFF|r") .. ".")
+    elseif msg == "locale" or msg == "language" then
+        if arg == "" then
+            local names = {}
+            for _, entry in ipairs(EbonBuilds.Locale.GetSupportedLocales()) do
+                names[#names + 1] = entry.code
+            end
+            DEFAULT_CHAT_FRAME:AddMessage("|cff44ff44EbonBuilds:|r " .. string.format(
+                EbonBuilds.L["Current language: %s. Use /ebb locale <code> to change it."],
+                EbonBuilds.Locale.GetActiveLocale()))
+            DEFAULT_CHAT_FRAME:AddMessage("|cff44ff44EbonBuilds:|r " .. table.concat(names, ", "))
+        else
+            local resolved = EbonBuilds.Locale.ResolveAlias(arg)
+            if resolved and EbonBuilds.Locale.SetLocale(resolved) then
+                DEFAULT_CHAT_FRAME:AddMessage("|cff44ff44EbonBuilds:|r " ..
+                    string.format(EbonBuilds.L["Language set to %s."], resolved))
+                DEFAULT_CHAT_FRAME:AddMessage("|cff44ff44EbonBuilds:|r " .. EbonBuilds.L["/reload to apply it everywhere."])
+            else
+                local names = {}
+                for _, entry in ipairs(EbonBuilds.Locale.GetSupportedLocales()) do
+                    names[#names + 1] = entry.code
+                end
+                DEFAULT_CHAT_FRAME:AddMessage("|cff44ff44EbonBuilds:|r " .. string.format(
+                    EbonBuilds.L["Unknown language \"%s\". Available: %s"], arg, table.concat(names, ", ")))
+            end
+        end
     else
         EbonBuilds.MainWindow.Toggle()
     end

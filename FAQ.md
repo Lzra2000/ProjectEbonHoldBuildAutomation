@@ -253,6 +253,17 @@ This is deliberately approximate, not a controlled measurement: echoes stack tog
 
 ## Changelog
 
+### 3.12 (2026-07-19) -- Multilanguage system
+
+Added an in-game translation system, matching the six languages this README is already available in.
+
+- New `modules/i18n/Locale.lua`: a translation registry and a live lookup table (`EbonBuilds.L`) keyed by the original English string. A key with no translation for the active locale falls back to the English string itself instead of erroring, so a locale file can be partial without breaking anything.
+- Auto-detects the language from the client's own `GetLocale()`, or a saved override via the new `/ebb locale <code>` command (`/ebb locale` alone shows the current language and lists what's available).
+- Six translation files under `modules/i18n/locales/`: German, Spanish, French, Polish, Brazilian Portuguese, and Russian. Game-specific terms (Echo, Build, Banish/Reroll/Freeze/Select, Autopilot) are kept in English throughout, matching the existing README translations' own convention.
+- Polish isn't an actual WoW 3.3.5a client locale, so it's only ever reachable via the `/ebb locale pl` override, the same way `README.pl.md` exists despite there being no Polish game client.
+- The build editor's tabs, buttons, and tooltips are wired up as the first translated surface. Everything else still shows English for now -- extending coverage elsewhere is just adding more `EbonBuilds.L[...]` call sites and matching translation entries.
+- New tests: fallback behavior, locale switching, alias resolution (`de`, `DE`, `german` all resolve to `deDE`), and a consistency check that every locale file actually defines a translation for every key the build editor looks up -- catches a forgotten translation in any of the six languages, not just whichever one happens to get tested by hand.
+
 ### 3.11 (2026-07-18) -- fix: AI report crashed for anyone with real DPS-tracking data
 
 Root cause, confirmed from an actual in-game error report: `EbonBuilds.EchoPerformance.SuggestQualityBonusAdjustment` was missing its final `return suggestions` -- it built the table, then fell off the end of the function and returned nil instead. `GenerateAIText` then did `#bonusSuggestions` on that nil and crashed with "attempt to get length of a nil value". Its sibling function, `SuggestFamilyBonusAdjustment` a few lines down, has the identical structure and does return correctly -- this was a copy-paste omission isolated to the one function.

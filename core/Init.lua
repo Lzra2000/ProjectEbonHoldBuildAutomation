@@ -33,6 +33,8 @@ local function OnAddonLoaded(addonName)
         activeBuildId = nil,
     }
 
+    EbonBuilds.Locale.Init()
+
     EbonBuilds.Build.Migrate()
     EbonBuilds.Session.Init()
     EbonBuilds.SessionHistory.Init()

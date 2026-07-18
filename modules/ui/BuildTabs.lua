@@ -11,22 +11,24 @@ local activeTab = 1
 local dirty = false
 local state = { context = nil }
 
-local TAB_DEFS = {
-    { label = "Build",       hint = "Identity, class, locked Echoes, and sharing." },
-    { label = "Priorities",  hint = "Set rank-specific Echo values and protect must-keep Echoes." },
-    { label = "Modifiers",   hint = "Adjust rank, family, and unique-Echo strategy." },
-    { label = "Autopilot",   hint = "Choose an automation intent and tune its decisions." },
-}
+local TAB_DEFS = {}
+local function PopulateTabDefs()
+    local L = EbonBuilds.L
+    TAB_DEFS[1] = { label = L["Build"],       hint = L["Identity, class, locked Echoes, and sharing."] }
+    TAB_DEFS[2] = { label = L["Priorities"],  hint = L["Set rank-specific Echo values and protect must-keep Echoes."] }
+    TAB_DEFS[3] = { label = L["Modifiers"],   hint = L["Adjust rank, family, and unique-Echo strategy."] }
+    TAB_DEFS[4] = { label = L["Autopilot"],   hint = L["Choose an automation intent and tune its decisions."] }
+end
 
 local function RefreshSaveState()
     if saveStatus then
         local active = EbonBuilds.Build.GetActive and EbonBuilds.Build.GetActive()
         if dirty then
-            local warning = active and active.automationEnabled ~= false and " · Autopilot uses last saved settings" or ""
-            saveStatus:SetText("Unsaved changes" .. warning)
+            local warning = active and active.automationEnabled ~= false and EbonBuilds.L[" · Autopilot uses last saved settings"] or ""
+            saveStatus:SetText(EbonBuilds.L["Unsaved changes"] .. warning)
             saveStatus:SetTextColor(unpack(EbonBuilds.Theme.WARNING))
         else
-            saveStatus:SetText("All changes saved")
+            saveStatus:SetText(EbonBuilds.L["All changes saved"])
             saveStatus:SetTextColor(unpack(EbonBuilds.Theme.TEXT_MUTED))
         end
     end
@@ -186,22 +188,22 @@ local function BuildViewFrame()
     saveBtn = EbonBuilds.Theme.CreateButton(f, "gold")
     saveBtn:SetSize(96, 24)
     saveBtn:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -10, 8)
-    saveBtn:SetText("Save build")
+    saveBtn:SetText(EbonBuilds.L["Save build"])
     saveBtn:SetScript("OnClick", function() EbonBuilds.BuildForm.Save() end)
-    AddButtonTooltip(saveBtn, "Save build", "Validate active fields and save build details, Echo values, bonuses, and visibility.")
+    AddButtonTooltip(saveBtn, EbonBuilds.L["Save build"], EbonBuilds.L["Validate active fields and save build details, Echo values, bonuses, and visibility."])
 
     cancelBtn = EbonBuilds.Theme.CreateButton(f)
     cancelBtn:SetSize(86, 24)
     cancelBtn:SetPoint("RIGHT", saveBtn, "LEFT", -6, 0)
-    cancelBtn:SetText("Cancel")
+    cancelBtn:SetText(EbonBuilds.L["Cancel"])
     cancelBtn:SetScript("OnClick", function() EbonBuilds.BuildForm.Cancel() end)
-    AddButtonTooltip(cancelBtn, "Cancel editing", "Discard all unsaved build details, Echo values, modifiers, protection rules, and Autopilot tuning.")
+    AddButtonTooltip(cancelBtn, EbonBuilds.L["Cancel editing"], EbonBuilds.L["Discard all unsaved build details, Echo values, modifiers, protection rules, and Autopilot tuning."])
 
     local exportBtn = EbonBuilds.Theme.CreateButton(f)
     exportBtn:SetSize(82, 24)
     exportBtn:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 10, 8)
-    exportBtn:SetText("Export")
-    AddButtonTooltip(exportBtn, "Export build", "Create a compact string that another EbonBuilds user can import.")
+    exportBtn:SetText(EbonBuilds.L["Export"])
+    AddButtonTooltip(exportBtn, EbonBuilds.L["Export build"], EbonBuilds.L["Create a compact string that another EbonBuilds user can import."])
     exportBtn:SetScript("OnClick", function()
         local build = (state.context and state.context.build) or EbonBuilds.Build.GetActive()
         if build then EbonBuilds.ExportImport.ShowExportDialog(build) end
@@ -210,8 +212,8 @@ local function BuildViewFrame()
     local exportAIBtn = EbonBuilds.Theme.CreateButton(f)
     exportAIBtn:SetSize(90, 24)
     exportAIBtn:SetPoint("LEFT", exportBtn, "RIGHT", 6, 0)
-    exportAIBtn:SetText("AI report")
-    AddButtonTooltip(exportAIBtn, "AI tuning report", "Create a readable report of weights, bonuses, thresholds, and tuning data for analysis. It cannot be imported back.")
+    exportAIBtn:SetText(EbonBuilds.L["AI report"])
+    AddButtonTooltip(exportAIBtn, EbonBuilds.L["AI tuning report"], EbonBuilds.L["Create a readable report of weights, bonuses, thresholds, and tuning data for analysis. It cannot be imported back."])
     local protectedOnClickExportAI = EbonBuilds.ErrorLog and EbonBuilds.ErrorLog.Protect
         and EbonBuilds.ErrorLog.Protect("BuildTabs.ExportAI", OnClickExportAI)
         or OnClickExportAI
@@ -221,7 +223,7 @@ local function BuildViewFrame()
     saveStatus:SetPoint("LEFT", exportAIBtn, "RIGHT", 10, 0)
     saveStatus:SetPoint("RIGHT", cancelBtn, "LEFT", -10, 0)
     saveStatus:SetJustifyH("CENTER")
-    saveStatus:SetText("All changes saved")
+    saveStatus:SetText(EbonBuilds.L["All changes saved"])
     saveStatus:SetTextColor(unpack(EbonBuilds.Theme.TEXT_MUTED))
 
     return f
@@ -258,6 +260,7 @@ function view.Hide()
 end
 
 function EbonBuilds.BuildTabs.Init()
+    PopulateTabDefs()
     viewFrame = BuildViewFrame()
     viewFrame:Hide()
     EbonBuilds.ViewRouter.Register("buildTabs", view)

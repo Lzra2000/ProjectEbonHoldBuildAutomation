@@ -58,6 +58,16 @@ Every command starts with `/ebb`. A full in-game reference is also available via
 | `/ebb debuglog` (or `/ebb log`) | View the captured debug log |
 | `/ebb errors` | View caught errors, for bug reports |
 | `/ebb clicktrace` | Log every UI button click, for "nothing happened" reports |
+| `/ebb locale` (or `/ebb language`) | Show the current UI language and list available ones |
+| `/ebb locale <code>` | Switch the UI language (e.g. `/ebb locale de`); requires `/reload` |
+
+## Localization
+
+The build editor's tabs, buttons, and tooltips are translated into German, Spanish, French, Polish, Brazilian Portuguese, and Russian, matching the languages this README is already available in. EbonBuilds picks a translation automatically from your client's own language, or you can override it with `/ebb locale <code>`.
+
+Translation strings live in `modules/i18n/locales/*.lua`, one file per language, each mapping the original English string to its translation. Adding a language: copy an existing locale file, translate its strings, register it under the new locale code, and add it to `EbonBuilds.toc`. Game-specific terms (Echo, Build, Banish/Reroll/Freeze/Select, Autopilot) are kept in English across all languages, matching the existing README translations -- follow that convention rather than translating them.
+
+Only the build editor is translated so far; the rest of the addon's UI still falls back to English (missing keys never error, they just show the English text). Extending coverage to more views is just adding more `EbonBuilds.L["..."]` call sites and the matching translation-table entries.
 
 ## Reporting bugs
 

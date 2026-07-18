@@ -84,6 +84,13 @@ EbonBuilds.Session = { LogAction = function() end, GetActiveSession = function()
 dofile("modules/data/Quality.lua")
 dofile("modules/weights/Weights.lua")
 dofile("modules/build/Build.lua")
+dofile("modules/i18n/Locale.lua")
+dofile("modules/i18n/locales/deDE.lua")
+dofile("modules/i18n/locales/esES.lua")
+dofile("modules/i18n/locales/frFR.lua")
+dofile("modules/i18n/locales/plPL.lua")
+dofile("modules/i18n/locales/ptBR.lua")
+dofile("modules/i18n/locales/ruRU.lua")
 dofile("modules/build/EchoPolicy.lua")
 dofile("modules/build/Scoring.lua")
 dofile("modules/build/ExportImport.lua")
@@ -1072,6 +1079,84 @@ do
     check(#logged == 1, "ErrorLog.Protect captures a real error instead of letting it vanish")
     check(#logged == 1 and logged[1].message:find("simulated failure", 1, true) ~= nil,
         "captured error entry keeps the original error message")
+end
+
+-- Locale module: fallback behavior, switching, alias resolution, and a
+-- consistency check across all six translation files so a string added to
+-- one locale but forgotten in another gets caught here instead of only
+-- being noticed by a player using that language.
+do
+    check(EbonBuilds.L["Save build"] == "Save build" or EbonBuilds.L["Save build"] ~= nil,
+        "L[] never returns nil for a known key")
+    check(EbonBuilds.L["Save build"] == "Save build", "default locale (enUS) returns the raw English string")
+    check(EbonBuilds.L["This key does not exist anywhere"] == "This key does not exist anywhere",
+        "an untranslated/unknown key falls back to itself rather than erroring or returning nil")
+
+    check(EbonBuilds.Locale.IsSupported("deDE"), "deDE is a supported locale")
+    check(not EbonBuilds.Locale.IsSupported("koKR"), "a locale with no translation file is not reported as supported")
+
+    local ok = EbonBuilds.Locale.SetLocale("deDE")
+    check(ok, "SetLocale succeeds for a supported locale")
+    check(EbonBuilds.L["Save build"] == "Build speichern", "L[] returns the German string once deDE is active")
+    check(EbonBuilds.L["This key does not exist anywhere"] == "This key does not exist anywhere",
+        "an untranslated key still falls back to English even in a non-English locale")
+    check(not EbonBuilds.Locale.SetLocale("xxYY"), "SetLocale rejects an unsupported code")
+    check(EbonBuilds.L["Save build"] == "Build speichern", "a rejected SetLocale call does not change the active locale")
+
+    equal(EbonBuilds.Locale.ResolveAlias("de"), "deDE", "short alias 'de' resolves to deDE")
+    equal(EbonBuilds.Locale.ResolveAlias("DE"), "deDE", "alias resolution is case-insensitive")
+    equal(EbonBuilds.Locale.ResolveAlias("german"), "deDE", "word alias 'german' resolves to deDE")
+    equal(EbonBuilds.Locale.ResolveAlias("deDE"), "deDE", "the full locale code resolves to itself")
+    check(EbonBuilds.Locale.ResolveAlias("not-a-real-language") == nil,
+        "an unrecognized alias resolves to nil rather than guessing")
+
+    local supported = EbonBuilds.Locale.GetSupportedLocales()
+    check(#supported == 7, "seven locales are registered (English plus six translations)")
+
+    EbonBuilds.Locale.SetLocale("enUS")
+
+    -- Cross-locale consistency: every locale file should translate exactly
+    -- the same set of English keys BuildTabs.lua and MainWindow.lua
+    -- actually look up, sourced from BuildTabs.lua/MainWindow.lua itself
+    -- rather than hand-duplicated here, so this stays correct as strings
+    -- are added or renamed at the call sites.
+    local function ReadFile(path)
+        local f = io.open(path, "r")
+        local content = f:read("*a")
+        f:close()
+        return content
+    end
+
+    local usedKeys = {}
+    for _, path in ipairs({ "modules/ui/BuildTabs.lua", "modules/ui/MainWindow.lua" }) do
+        local src = ReadFile(path)
+        -- Matches EbonBuilds.L["key"], where key may contain escaped
+        -- quotes (\") -- a naive (.-) stops at the first `"`, which cuts
+        -- "Unknown language \"%s\"..." off after just "Unknown language ".
+        for key in src:gmatch('EbonBuilds%.L%["(.-[^\\])"%]') do
+            usedKeys[key:gsub('\\"', '"')] = true
+        end
+    end
+    local usedCount = 0
+    for _ in pairs(usedKeys) do usedCount = usedCount + 1 end
+    check(usedCount > 15, "found a plausible number of EbonBuilds.L[...] call sites to check (got " .. usedCount .. ")")
+
+    -- Checked against each locale file's own source (does it register this
+    -- exact key at all), not against what L[key] evaluates to -- a locale
+    -- can legitimately translate a word to itself (German "Export" stays
+    -- "Export"), which would look identical to "untranslated" if compared
+    -- by output value instead.
+    for _, code in ipairs({ "deDE", "esES", "frFR", "plPL", "ptBR", "ruRU" }) do
+        local localeSrc = ReadFile("modules/i18n/locales/" .. code .. ".lua")
+        local missing = {}
+        for key in pairs(usedKeys) do
+            local escapedKey = key:gsub('"', '\\"')
+            if not localeSrc:find(escapedKey, 1, true) then
+                missing[#missing + 1] = key
+            end
+        end
+        check(#missing == 0, code .. " is missing a translation for: " .. table.concat(missing, " | "))
+    end
 end
 
 if failures > 0 then
