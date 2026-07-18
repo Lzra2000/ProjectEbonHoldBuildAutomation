@@ -15,8 +15,17 @@ local R = "|r"
 
 local PAGES = {
 {
-    title = "What's New in 3.02",
+    title = "What's New in 3.03",
     lines = {
+        GOLD .. "3.03: fixed -- windows missing elements after 3.02" .. R,
+        "- The settings popup (and any window with the new themed",
+        "  checkbox) could stop building midway: sliders present,",
+        "  checkboxes and Save/Cancel missing",
+        "- Cause: the checkbox used a script type (PreClick) whose",
+        "  validity on plain buttons in 3.3.5 wasn't worth betting on",
+        "- Rebuilt on plain OnClick only -- same click behavior,",
+        "  covered by the same contract test",
+        "",
         GOLD .. "3.02: the redesign now covers every window" .. R,
         "- The unified visual language from the big redesign now",
         "  extends to all standalone windows: Tuning Advisor, Debug",
@@ -24,15 +33,6 @@ local PAGES = {
         "  EWL export, and the settings popup",
         "- New themed close button (flat X, red hover) and checkbox",
         "  (gold fill) replace the parchment WotLK widgets everywhere",
-        "- No behavior changes -- same clicks, same logic, purely",
-        "  the visual layer",
-        "",
-        GOLD .. "3.01: Manual Training announces itself now" .. R,
-        "- New once-per-session toast when Training: ON suppresses",
-        "  automation -- total silence made it look like the addon",
-        "  was broken (real report: 'automation picks nothing')",
-        "- Shows once per login, then stays quiet -- deliberately not",
-        "  on every choice screen",
     },
 },
 {

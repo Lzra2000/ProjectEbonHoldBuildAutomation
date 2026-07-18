@@ -253,6 +253,13 @@ This is deliberately approximate, not a controlled measurement: echoes stack tog
 
 ## Changelog
 
+### 3.03 (2026-07-18) -- fix: settings popup (and other windows) missing elements after 3.02
+
+- **Fixed: windows using the new themed checkbox could abort construction midway, leaving everything after the first checkbox missing** -- reported on the global settings popup as "opens, but elements are missing" (sliders present; checkboxes, Save, and Cancel gone), which matches construction stopping exactly at the first `AddCheckbox` call.
+- Root cause: 3.02's checkbox toggled its state via a `PreClick` script handler. Whether `PreClick` is a valid script type for plain (non-secure) Buttons under 3.3.5 turned out to be exactly the kind of API detail not worth betting a window's construction on -- if invalid, `SetScript("PreClick", ...)` raises immediately and everything after it in the window-building function never runs.
+- Rebuilt the state-toggle mechanism to use only the universally-valid `OnClick` type: the checkbox installs its own toggle as the OnClick handler and overrides `SetScript` so a call site assigning "OnClick" gets chained *after* the internal toggle. The click contract is unchanged and still covered by the 3.02 contract test (call-site handlers read the NEW state, matching `UICheckButtonTemplate`); the test passes against the new implementation.
+- Also verified the theme constants the new primitives reference are all declared above their use in Theme.lua -- ruled out as an alternative cause before settling on the script-type explanation.
+
 ### 3.02 (2026-07-18) -- the redesign's visual language now covers every window
 
 - **The unified theme from the 2.99 redesign now extends to every remaining window.** The redesign covered the main workspace (Stats, Logbook, build editor) but the standalone windows still used WotLK's native widgets: the round parchment close button on nine windows (Tuning Advisor, Debug Log, Echo Picker, FAQ, Showcase, main window, settings popup, Error Log, Click Trace, EWL export) and the parchment checkbox in five places (four Tuning Advisor toggles, the settings popup helper).

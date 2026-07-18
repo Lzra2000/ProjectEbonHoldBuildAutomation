@@ -1019,17 +1019,34 @@ function T.CreateCheckbox(parent, labelText)
     btn:SetScript("OnLeave", function(self)
         self:SetBackdropBorderColor(unpack(T.BORDER_DIM))
     end)
-    -- Toggle in PreClick, which fires before any OnClick handler: call
-    -- sites port over from UICheckButtonTemplate, where OnClick already
-    -- sees the NEW state -- toggling in a hooked OnClick instead would
-    -- run after their handler and silently invert every checkbox.
-    btn:SetScript("PreClick", function(self)
+    -- Contract: a call site's OnClick handler must read the NEW state,
+    -- exactly like UICheckButtonTemplate. Implemented by overriding
+    -- SetScript for "OnClick" so external handlers get chained AFTER the
+    -- internal toggle -- deliberately NOT via a "PreClick" script, whose
+    -- validity on plain (non-secure) Buttons under 3.3.5 is exactly the
+    -- kind of API detail a wrong guess about would abort window
+    -- construction midway and silently leave half a window unbuilt.
+    local function InternalToggle(self)
         self:SetChecked(not self._checked)
-    end)
-    btn:SetScript("PostClick", function(self)
         if EbonBuilds.ClickTrace then
             EbonBuilds.ClickTrace.Log("click", (labelText or "checkbox") .. (self._checked and " [on]" or " [off]"))
         end
-    end)
+    end
+    btn:SetScript("OnClick", InternalToggle)
+    local rawSetScript = btn.SetScript
+    btn.SetScript = function(self, scriptType, handler)
+        if scriptType == "OnClick" then
+            if handler then
+                rawSetScript(self, "OnClick", function(...)
+                    InternalToggle(...)
+                    handler(...)
+                end)
+            else
+                rawSetScript(self, "OnClick", InternalToggle)
+            end
+        else
+            rawSetScript(self, scriptType, handler)
+        end
+    end
     return btn
 end
