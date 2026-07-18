@@ -15,24 +15,24 @@ local R = "|r"
 
 local PAGES = {
 {
-    title = "What's New in 3.01",
+    title = "What's New in 3.02",
     lines = {
+        GOLD .. "3.02: the redesign now covers every window" .. R,
+        "- The unified visual language from the big redesign now",
+        "  extends to all standalone windows: Tuning Advisor, Debug",
+        "  Log, Echo Picker, FAQ, Showcase, Error Log, Click Trace,",
+        "  EWL export, and the settings popup",
+        "- New themed close button (flat X, red hover) and checkbox",
+        "  (gold fill) replace the parchment WotLK widgets everywhere",
+        "- No behavior changes -- same clicks, same logic, purely",
+        "  the visual layer",
+        "",
         GOLD .. "3.01: Manual Training announces itself now" .. R,
         "- New once-per-session toast when Training: ON suppresses",
         "  automation -- total silence made it look like the addon",
         "  was broken (real report: 'automation picks nothing')",
         "- Shows once per login, then stays quiet -- deliberately not",
         "  on every choice screen",
-        "",
-        GOLD .. "3.0: Family Bonus tuning merged in from 2.59" .. R,
-        "- Ported over the one capability the parallel 2.59 branch had that",
-        "  this build didn't: Family Bonus suggestions",
-        "- Rewritten (not copy-pasted) to use this build's real per-quality",
-        "  weights and final-score comparison, matching how Quality Bonus",
-        "  suggestions already work here",
-        "- Only uses echoes with exactly one matching family (or none) --",
-        "  multi-family echoes are excluded, not guessed at",
-        "- Shown in Export (AI) right after Quality Bonus suggestions",
     },
 },
 {
@@ -454,9 +454,7 @@ local function BuildWindow()
     drag:SetScript("OnDragStart", function() f:StartMoving() end)
     drag:SetScript("OnDragStop", function() f:StopMovingOrSizing() end)
 
-    local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
-    close:SetPoint("TOPRIGHT", f, "TOPRIGHT", -4, -4)
-    close:SetScript("OnClick", function() f:Hide() end)
+    local close = EbonBuilds.Theme.CreateCloseButton(f)
 
     -- Page title with a thin gold rule underneath
     titleText = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")

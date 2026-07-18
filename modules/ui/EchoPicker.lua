@@ -268,8 +268,7 @@ local function BuildFrame()
     subtitle:SetText("Search, then click an Echo. Press Enter to choose the first result.")
     subtitle:SetTextColor(unpack(EbonBuilds.Theme.TEXT_MUTED))
 
-    local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
-    close:SetPoint("TOPRIGHT", f, "TOPRIGHT", -5, -5)
+    local close = EbonBuilds.Theme.CreateCloseButton(f)
     EbonBuilds.Theme.AttachTooltip(close, "Close", "Close without changing the selected Echo.")
 
     searchBox = CreateSearchBox(f)

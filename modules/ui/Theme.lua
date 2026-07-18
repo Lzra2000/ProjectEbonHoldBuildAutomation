@@ -945,3 +945,91 @@ end
 function T.ApplySidebar(frame)
     ApplySurface(frame, { 0.045, 0.045, 0.062, 0.995 }, T.BORDER_DIM)
 end
+
+-- Themed close button: an "X" in the window's own visual language instead
+-- of the round WotLK UIPanelCloseButton, which reads as a foreign element
+-- on the flat dark surfaces every window now uses. Same size and corner
+-- position conventions as the native one so muscle memory keeps working.
+function T.CreateCloseButton(parent)
+    local btn = CreateFrame("Button", nil, parent)
+    btn:SetSize(22, 22)
+    btn:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -6, -6)
+    btn:SetBackdrop(WINDOW_BACKDROP)
+    ApplyButtonVisual(btn, BTN_BG, T.BORDER_DIM)
+    local label = btn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    label:SetPoint("CENTER", btn, "CENTER", 0, 0)
+    label:SetText("x")
+    label:SetTextColor(0.85, 0.85, 0.88)
+    btn._label = label
+    btn:SetScript("OnEnter", function(self)
+        ApplyButtonVisual(self, BTN_BG_HOVER, T.DANGER)
+        self._label:SetTextColor(1.00, 0.35, 0.35)
+    end)
+    btn:SetScript("OnLeave", function(self)
+        ApplyButtonVisual(self, BTN_BG, T.BORDER_DIM)
+        self._label:SetTextColor(0.85, 0.85, 0.88)
+    end)
+    btn:SetScript("OnClick", function(self)
+        if EbonBuilds.ClickTrace then EbonBuilds.ClickTrace.Log("click", "close") end
+        parent:Hide()
+    end)
+    return btn
+end
+
+-- Themed checkbox: a flat square that fills with the gold accent when
+-- checked, replacing UICheckButtonTemplate's parchment check. Exposes the
+-- same GetChecked/SetChecked contract call sites already rely on, so a
+-- swap-in requires no logic changes. The label is part of the control and
+-- extends the click target, matching how the redesign's filter chips treat
+-- their text.
+function T.CreateCheckbox(parent, labelText)
+    local btn = CreateFrame("Button", nil, parent)
+    btn:SetSize(18, 18)
+    btn:SetBackdrop(WINDOW_BACKDROP)
+    ApplyButtonVisual(btn, T.INPUT_BG, T.BORDER_DIM)
+
+    local fill = btn:CreateTexture(nil, "ARTWORK")
+    fill:SetTexture(FLAT)
+    fill:SetPoint("TOPLEFT", btn, "TOPLEFT", 4, -4)
+    fill:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", -4, 4)
+    fill:SetVertexColor(unpack(T.ACCENT_GOLD))
+    fill:Hide()
+    btn._fill = fill
+    btn._checked = false
+
+    local label = btn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    label:SetPoint("LEFT", btn, "RIGHT", 6, 0)
+    label:SetText(labelText or "")
+    btn._labelFS = label
+
+    function btn:GetChecked()
+        return self._checked and 1 or nil
+    end
+    function btn:SetChecked(state)
+        self._checked = state and true or false
+        if self._checked then self._fill:Show() else self._fill:Hide() end
+    end
+
+    -- Extend the click target over the label, like a real form control.
+    btn:SetHitRectInsets(0, -(label:GetStringWidth() + 10), 0, 0)
+
+    btn:SetScript("OnEnter", function(self)
+        self:SetBackdropBorderColor(unpack(T.BORDER))
+    end)
+    btn:SetScript("OnLeave", function(self)
+        self:SetBackdropBorderColor(unpack(T.BORDER_DIM))
+    end)
+    -- Toggle in PreClick, which fires before any OnClick handler: call
+    -- sites port over from UICheckButtonTemplate, where OnClick already
+    -- sees the NEW state -- toggling in a hooked OnClick instead would
+    -- run after their handler and silently invert every checkbox.
+    btn:SetScript("PreClick", function(self)
+        self:SetChecked(not self._checked)
+    end)
+    btn:SetScript("PostClick", function(self)
+        if EbonBuilds.ClickTrace then
+            EbonBuilds.ClickTrace.Log("click", (labelText or "checkbox") .. (self._checked and " [on]" or " [off]"))
+        end
+    end)
+    return btn
+end

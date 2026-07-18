@@ -705,6 +705,61 @@ do
     EbonBuilds.EchoTableRows.BuildBestByName = originalCatalog
 end
 
+-- Theme.CreateCheckbox must match UICheckButtonTemplate's click contract:
+-- an OnClick handler set by a call site reads the NEW state, because the
+-- toggle happens in PreClick (which fires first). Getting this wrong would
+-- silently invert every converted checkbox in the addon.
+do
+    local function NewWidgetStub()
+        local scripts = {}
+        local stub
+        stub = setmetatable({
+            SetScript = function(self, name, fn) scripts[name] = fn end,
+            GetScript = function(self, name) return scripts[name] end,
+            HookScript = function(self, name, fn)
+                local prev = scripts[name]
+                scripts[name] = function(...)
+                    if prev then prev(...) end
+                    fn(...)
+                end
+            end,
+            Click = function(self)
+                if scripts.PreClick then scripts.PreClick(self) end
+                if scripts.OnClick then scripts.OnClick(self) end
+                if scripts.PostClick then scripts.PostClick(self) end
+            end,
+            CreateTexture = function() return NewWidgetStub() end,
+            CreateFontString = function() return NewWidgetStub() end,
+        }, { __index = function() return function() return 0 end end })
+        return stub
+    end
+
+    local originalCreateFrame = CreateFrame
+    CreateFrame = function() return NewWidgetStub() end
+    if not EbonBuilds.Theme then
+        dofile("modules/ui/Theme.lua")
+    end
+
+    local cb = EbonBuilds.Theme.CreateCheckbox(NewWidgetStub(), "contract test")
+    local observedOnClick = "never ran"
+    cb:SetScript("OnClick", function(self)
+        observedOnClick = self:GetChecked() and "checked" or "unchecked"
+    end)
+
+    check(cb:GetChecked() == nil, "themed checkbox starts unchecked (nil, matching native GetChecked)")
+    cb:Click()
+    equal(observedOnClick, "checked", "call-site OnClick observes the NEW state after first click")
+    check(cb:GetChecked() == 1, "checked state reads as 1, matching native GetChecked truthiness")
+    cb:Click()
+    equal(observedOnClick, "unchecked", "call-site OnClick observes the NEW state after second click")
+    cb:SetChecked(true)
+    check(cb:GetChecked() == 1, "SetChecked(true) works without a click")
+    cb:SetChecked(false)
+    check(cb:GetChecked() == nil, "SetChecked(false) works without a click")
+
+    CreateFrame = originalCreateFrame
+end
+
 if failures > 0 then
     io.stderr:write(string.format("%d test(s) failed.\n", failures))
     os.exit(1)

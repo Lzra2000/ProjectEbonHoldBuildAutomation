@@ -637,9 +637,7 @@ local function CreateExportDialog()
     title:SetTextColor(unpack(Theme.TEXT_PRIMARY))
     frame._title = title
 
-    local closeX = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
-    closeX:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -3, -3)
-    closeX:SetScript("OnClick", function() frame:Hide() end)
+    local closeX = EbonBuilds.Theme.CreateCloseButton(frame)
 
     local summary = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     summary:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)

@@ -83,9 +83,7 @@ local function BuildWindow()
     drag:SetScript("OnDragStart", function() f:StartMoving() end)
     drag:SetScript("OnDragStop", function() f:StopMovingOrSizing() end)
 
-    local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
-    close:SetPoint("TOPRIGHT", f, "TOPRIGHT", -4, -4)
-    close:SetScript("OnClick", function() f:Hide() end)
+    local close = EbonBuilds.Theme.CreateCloseButton(f)
 
     local subtitle = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     subtitle:SetPoint("TOPLEFT", f, "TOPLEFT", 16, -38)

@@ -84,10 +84,8 @@ local function CreateTitleBar(frame)
 end
 
 local function CreateCloseButton(frame)
-    local closeBtn = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
-    closeBtn:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -5, -5)
+    local closeBtn = EbonBuilds.Theme.CreateCloseButton(frame)
     closeBtn:SetFrameLevel(100)
-    closeBtn:SetScript("OnClick", function() frame:Hide() end)
     return closeBtn
 end
 
@@ -121,9 +119,7 @@ local function BuildSettingsPopup()
     drag:SetScript("OnDragStop",  function() popup:StopMovingOrSizing() end)
 
     -- Close button for popup
-    local closeBtn = CreateFrame("Button", nil, popup, "UIPanelCloseButton")
-    closeBtn:SetPoint("TOPRIGHT", popup, "TOPRIGHT", -5, -5)
-    closeBtn:SetScript("OnClick", function() popup:Hide() end)
+    local closeBtn = EbonBuilds.Theme.CreateCloseButton(popup)
 
     -- Scrollable body: as this dialog gains more settings over time, a
     -- fixed-size popup with unclipped content would eventually overflow
@@ -217,17 +213,11 @@ local function BuildSettingsPopup()
         return slider, slider
     end
 
-    -- Helper: native checkbox with a label and explanation, same
+    -- Helper: themed checkbox with a label and explanation, same
     -- previous-element-relative anchoring as AddSlider.
     local function AddCheckbox(labelText, flavorText, yAnchor, yOffset)
-        local cb = CreateFrame("CheckButton", nil, scrollChild, "UICheckButtonTemplate")
-        cb:SetWidth(24)
-        cb:SetHeight(24)
+        local cb = EbonBuilds.Theme.CreateCheckbox(scrollChild, labelText)
         cb:SetPoint("TOPLEFT", yAnchor, "BOTTOMLEFT", -2, yOffset)
-
-        local label = scrollChild:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        label:SetPoint("LEFT", cb, "RIGHT", 2, 0)
-        label:SetText(labelText)
 
         local flavor = scrollChild:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
         flavor:SetPoint("TOPLEFT", cb, "BOTTOMLEFT", 26, -2)

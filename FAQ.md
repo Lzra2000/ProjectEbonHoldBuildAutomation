@@ -253,6 +253,13 @@ This is deliberately approximate, not a controlled measurement: echoes stack tog
 
 ## Changelog
 
+### 3.02 (2026-07-18) -- the redesign's visual language now covers every window
+
+- **The unified theme from the 2.99 redesign now extends to every remaining window.** The redesign covered the main workspace (Stats, Logbook, build editor) but the standalone windows still used WotLK's native widgets: the round parchment close button on nine windows (Tuning Advisor, Debug Log, Echo Picker, FAQ, Showcase, main window, settings popup, Error Log, Click Trace, EWL export) and the parchment checkbox in five places (four Tuning Advisor toggles, the settings popup helper).
+- **Two new Theme primitives, built in the redesign's own conventions**: `Theme.CreateCloseButton` (flat dark X, danger-red hover, same corner position as the native one so muscle memory keeps working) and `Theme.CreateCheckbox` (flat square, gold fill when checked, integrated label that extends the click target).
+- **The checkbox reproduces `UICheckButtonTemplate`'s exact click contract**: an OnClick handler set by a call site reads the NEW state, because the toggle fires in PreClick. Getting this ordering wrong would have silently inverted every converted checkbox in the addon -- so it's covered by a dedicated contract test (with a click-simulating widget stub) rather than left to reasoning. The test's execution was proven with a deliberate canary failure before being trusted.
+- No behavior changes anywhere: same anchors, same handlers, same GetChecked/SetChecked semantics -- purely the visual layer.
+
 ### 3.01 (2026-07-18) -- Manual Training now announces itself instead of looking broken
 
 - **New: a once-per-session toast when Manual Training suppresses automation** ("Automation paused: Manual Training is ON for this build"). Previously this state was totally silent by design -- the code even had a comment explaining why (a toast on every choice screen would nag people deliberately training) -- but total silence made "Training: ON" indistinguishable from a broken addon: a real report came in as "automation doesn't pick anything anymore," and the cause turned out to be the Training toggle having been left on. Once per login is the middle ground: you find out the first time it matters, then it stays quiet.
