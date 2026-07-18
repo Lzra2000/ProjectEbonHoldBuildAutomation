@@ -253,6 +253,11 @@ This is deliberately approximate, not a controlled measurement: echoes stack tog
 
 ## Changelog
 
+### 3.07 (2026-07-18) -- Publish actual GitHub Releases, not just tags
+
+- Added `scripts/publish-github-release.sh`, which creates a real GitHub Release (the page under `/releases`, with notes) for an already-pushed tag. Pushing a git tag alone only creates a ref — it does not appear as a Release. The script pulls its title and notes directly from the matching `### <version>` section of this file.
+- Wired into `scripts/release.sh`'s final output and documented in the README.
+
 ### 3.06 (2026-07-18) -- Developer tooling: packaging and local checks
 
 - Added `scripts/build-dist.sh`, which packages `EbonBuilds.toc`, `FAQ.md`, `core/`, and `modules/` into `dist/EbonBuilds.zip`, ready to drop into `Interface/AddOns/`. No addon behavior change; internal tooling only.
