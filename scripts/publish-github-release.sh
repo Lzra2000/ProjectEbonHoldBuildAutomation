@@ -34,6 +34,11 @@ if ! git rev-parse "$TAG" >/dev/null 2>&1; then
     exit 1
 fi
 
+if ! git cat-file -e "$TAG:dist/EbonBuilds.zip" 2>/dev/null; then
+    echo "dist/EbonBuilds.zip is not present in the $TAG commit -- run scripts/build-dist.sh and include it in the release commit before publishing (scripts/release.sh does this automatically)." >&2
+    exit 1
+fi
+
 # Pull the notes: from "### $VERSION" up to (not including) the next "### ".
 NOTES="$(awk -v ver="^### $VERSION " '
     $0 ~ ver { found=1; print; next }
@@ -47,7 +52,13 @@ if [ -z "$NOTES" ]; then
 fi
 
 TITLE="$(printf '%s\n' "$NOTES" | head -1 | sed 's/^### //')"
-BODY="$(printf '%s\n' "$NOTES" | tail -n +2)"
+CHANGES="$(printf '%s\n' "$NOTES" | tail -n +2)"
+
+# Pinned to the tag (not "main"), so the link always serves the zip that
+# actually matches this release, even after later commits move main on.
+DOWNLOAD_URL="https://github.com/$REPO/raw/$TAG/dist/EbonBuilds.zip"
+BODY="**Install:** [Download EbonBuilds.zip]($DOWNLOAD_URL)$(printf '\n')Extract it and drop the \`EbonBuilds\` folder into \`Interface/AddOns/\`.
+$(printf '%s' "$CHANGES")"
 
 PAYLOAD_FILE="$(mktemp)"
 trap 'rm -f "$PAYLOAD_FILE"' EXIT

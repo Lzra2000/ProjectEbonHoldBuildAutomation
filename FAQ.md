@@ -253,6 +253,11 @@ This is deliberately approximate, not a controlled measurement: echoes stack tog
 
 ## Changelog
 
+### 3.08 (2026-07-18) -- GitHub Releases always include a working download link
+
+- `scripts/publish-github-release.sh` now prepends a pinned `Download EbonBuilds.zip` link to every release it publishes, pointing at `raw/<tag>/dist/EbonBuilds.zip` rather than `raw/main/...` -- so the link always serves the zip that actually matches that release, even after main moves on with later commits.
+- Added a guard that refuses to publish if `dist/EbonBuilds.zip` isn't present in the tagged commit, so a release can never go out with a broken download link.
+
 ### 3.07 (2026-07-18) -- Publish actual GitHub Releases, not just tags
 
 - Added `scripts/publish-github-release.sh`, which creates a real GitHub Release (the page under `/releases`, with notes) for an already-pushed tag. Pushing a git tag alone only creates a ref — it does not appear as a Release. The script pulls its title and notes directly from the matching `### <version>` section of this file.
