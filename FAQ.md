@@ -1,6 +1,6 @@
 # EbonBuilds — FAQ & Changelog
 
-*This file is updated with every release. Latest version: 2.6 — also available in-game via* `/ebb faq`
+*This file is updated with every release. Latest version: 3.05 — also available in-game via* `/ebb faq`
 
 ---
 
@@ -252,6 +252,23 @@ Next to the regular Export button (build edit screen, any tab) is a new **Export
 This is deliberately approximate, not a controlled measurement: echoes stack together and fight difficulty/duration/execution vary a lot run to run, so it can't isolate any single echo's true causal effect. Treat it as a rough supplementary signal to combine with the scoring model and Tuning Advisor data, not a replacement for either. If Details! isn't installed, the checkbox tells you and won't enable.
 
 ## Changelog
+
+### 3.05 (2026-07-18) -- Conditional Echo policies
+
+- **New: per-Echo automation policies.** Each Echo can now be set to **Normal**, **Banish on Sight**, **Banish After Pick**, **Ignore After Pick**, or **Never Pick**, giving hard automation enforcement beyond plain weight tuning. Policies apply on top of scoring rather than replacing it, so a weighted Echo can still be force-excluded or force-picked without touching its underlying value.
+- Added policy filters and bulk assignment in the Echo table, so a policy can be applied to many rows at once instead of one at a time.
+- Policy-driven decisions now record their reason in the Logbook and are included in AI export, so a Banish or Never Pick outcome is traceable after the fact instead of looking like an unexplained skip.
+- Improved the Echo table layout for the new controls: long Echo names now wrap into a compact two-line column instead of clipping, the name sort control fills the full header width, quality labels display correctly, and the Max column now shows the final total score rather than the raw weight.
+
+### 3.04 (2026-07-18) -- Logbook tracking, inspector layout, and shared scrolling fixes
+
+- **Fixed: shared content-tree wheel routing was missing in the Build Overview,** which broke mouse-wheel scrolling in the redesigned workspace panels introduced in 2.99. Boundary-safe scrolling is now consistent across all standard content panels and nested controls.
+- Logbook now tracks accurate Echo pick progress and rarity per run.
+- The Logbook run browser is fixed-height and virtualized, keeping the list responsive for long histories instead of growing unbounded.
+- Decision Inspector offer cards now render below the evidence text instead of overlapping it, and resource/charge changes are shown more readably.
+- Fixed clipped Logbook search and filter controls, and fixed the collapsed Autopilot view hiding the advanced-controls toggle.
+- Fixed legacy session data handling so older logs keep loading correctly under the new tracking.
+- Regression tests were added for the above; full suite (52 files, 38+ UI contracts at the time) re-verified passing.
 
 ### 3.03 (2026-07-18) -- fix: settings popup (and other windows) missing elements after 3.02
 
