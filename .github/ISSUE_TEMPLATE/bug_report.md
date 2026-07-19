@@ -9,13 +9,13 @@ labels: bug
 
 <!-- What did you do, what did you expect, what happened instead? -->
 
-**`/ebb errors` output**
+**Error log output**
 
 <!--
-Type /ebb errors in-game and paste what it shows. If it's empty but
-something still clearly went wrong, say so -- that's useful too, and
-might point at a handler that isn't wrapped in EbonBuilds.ErrorLog.Protect
-yet.
+Settings (gear icon in the main window) -> Windows & Tools -> Error log,
+and paste what it shows. If it's empty but something still clearly went
+wrong, say so -- that's useful too, and might point at a handler that
+isn't wrapped in EbonBuilds.ErrorLog.Protect yet.
 -->
 
 ```
@@ -24,8 +24,8 @@ yet.
 
 **Version**
 
-<!-- The addon version (check the .toc, or /ebb showcase) and, if relevant, whether you're on ProjectEbonhold or ProjectEbonhold Enhanced. -->
+<!-- The addon version (check the .toc, or Settings -> Windows & Tools -> Commands guide) and, if relevant, whether you're on ProjectEbonhold or ProjectEbonhold Enhanced. -->
 
-**`/ebb clicktrace` output** (only if a button/click seemed unresponsive)
+**Click Trace log** (only if a button/click seemed unresponsive)
 
-<!-- /ebb clicktrace, then reproduce, then paste what (if anything) got logged. -->
+<!-- Settings -> Windows & Tools -> Click Trace log, then reproduce, then paste what (if anything) got logged. -->

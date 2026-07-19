@@ -35,9 +35,4 @@ EbonBuilds.Locale.Register("ptBR", {
     [" · Autopilot uses last saved settings"] = " · Autopilot usa as últimas configurações salvas",
 
     -- /ebb locale command
-    ["Language set to %s."] = "Idioma definido para %s.",
-    ["Unknown language \"%s\". Available: %s"] = "Idioma desconhecido \"%s\". Disponíveis: %s",
-    ["Current language: %s. Use /ebb locale <code> to change it."] =
-        "Idioma atual: %s. Use /ebb locale <código> para alterá-lo.",
-    ["/reload to apply it everywhere."] = "Use /reload para aplicar em todos os lugares.",
 })

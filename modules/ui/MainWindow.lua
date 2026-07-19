@@ -93,9 +93,35 @@ end
 -- Global settings popup
 ------------------------------------------------------------------------
 
+StaticPopupDialogs["EBONBUILDS_CLEAR_TRAINING"] = {
+    text = "",
+    button1 = "Clear",
+    button2 = "Cancel",
+    OnAccept = function()
+        local build = EbonBuilds.Build.GetActive()
+        if not build then return end
+        EbonBuilds.ManualTraining.Clear(build.id)
+        if EbonBuilds.Toast and EbonBuilds.Toast.Show then
+            EbonBuilds.Toast.Show("Cleared Manual Training data for \"" .. (build.title or "?") .. "\"")
+        end
+    end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+    preferredIndex = 3,
+}
+
+local SETTINGS_CATEGORIES = {
+    { key = "general",    label = "General" },
+    { key = "automation", label = "Automation" },
+    { key = "language",   label = "Language" },
+    { key = "tools",      label = "Windows & Tools" },
+    { key = "build",      label = "Build" },
+}
+
 local function BuildSettingsPopup()
     local popup = CreateFrame("Frame", "EbonBuildsGlobalSettingsPopup", UIParent)
-    popup:SetSize(420, 500)
+    popup:SetSize(420, 400)
     popup:SetPoint("CENTER", UIParent, "CENTER")
     popup:SetFrameStrata("DIALOG")
     popup:SetToplevel(true)
@@ -121,50 +147,62 @@ local function BuildSettingsPopup()
     -- Close button for popup
     local closeBtn = EbonBuilds.Theme.CreateCloseButton(popup)
 
-    -- Scrollable body: as this dialog gains more settings over time, a
-    -- fixed-size popup with unclipped content would eventually overflow
-    -- exactly like the old FAQ window did (see 2.14) -- a scrollframe
-    -- means that can never happen here regardless of how much gets added.
-    local scrollFrame = CreateFrame("ScrollFrame", "EbonBuildsGlobalSettingsSF", popup)
-    scrollFrame:SetPoint("TOPLEFT", popup, "TOPLEFT", 16, -44)
-    scrollFrame:SetPoint("BOTTOMRIGHT", popup, "BOTTOMRIGHT", -24, 50)
+    ------------------------------------------------------------------------
+    -- Category tabs. Each category is its own fixed panel, shown one at a
+    -- time -- replaces the previous single long scrolling list, which grew
+    -- harder to scan every time a setting was added.
+    ------------------------------------------------------------------------
 
-    local scrollChild = CreateFrame("Frame", nil, scrollFrame)
-    scrollChild:SetWidth(370)
-    -- Start near the current content size. OnShow recalculates this from the
-    -- final control positions so the dialog does not present a large empty
-    -- scroll range when all settings already fit in the viewport.
-    scrollChild:SetHeight(320)
-    scrollFrame:SetScrollChild(scrollChild)
+    local tabButtons = {}
+    local panels = {}
+    local activeCategory = 1
 
-    local settingsScrollBar = EbonBuilds.Theme.CreateScrollBar(popup)
-    settingsScrollBar:SetPoint("TOPRIGHT", scrollFrame, "TOPRIGHT", 17, -2)
-    settingsScrollBar:SetPoint("BOTTOMRIGHT", scrollFrame, "BOTTOMRIGHT", 17, 2)
-    settingsScrollBar:SetValueStep(28)
-    settingsScrollBar:SetScript("OnValueChanged", function(_, value)
-        scrollFrame:SetVerticalScroll(value)
-    end)
-
-    local function RefreshSettingsScrollRange()
-        local maxScroll = math.max(0, (scrollChild:GetHeight() or 0) - (scrollFrame:GetHeight() or 0))
-        settingsScrollBar:SetMinMaxValues(0, maxScroll)
-        if settingsScrollBar:GetValue() > maxScroll then settingsScrollBar:SetValue(maxScroll) end
+    local function ShowCategory(index)
+        activeCategory = index
+        for i, panel in ipairs(panels) do
+            panel:SetShown(i == index)
+        end
+        for i, btn in ipairs(tabButtons) do
+            EbonBuilds.Theme.SetTabSelected(btn, i == index)
+        end
     end
-    scrollFrame:SetScript("OnSizeChanged", RefreshSettingsScrollRange)
 
-    RefreshSettingsScrollRange()
+    local tabAnchor
+    for i, def in ipairs(SETTINGS_CATEGORIES) do
+        local btn = EbonBuilds.Theme.CreateTab(popup, def.label)
+        btn:SetWidth(def.key == "tools" and 118 or def.key == "automation" and 92 or 76)
+        if not tabAnchor then
+            btn:SetPoint("TOPLEFT", popup, "TOPLEFT", 10, -36)
+        else
+            btn:SetPoint("LEFT", tabAnchor, "RIGHT", 3, 0)
+        end
+        btn:SetScript("OnClick", function() ShowCategory(i) end)
+        tabButtons[i] = btn
+        tabAnchor = btn
+    end
+
+    local contentArea = CreateFrame("Frame", nil, popup)
+    contentArea:SetPoint("TOPLEFT", popup, "TOPLEFT", 16, -68)
+    contentArea:SetPoint("BOTTOMRIGHT", popup, "BOTTOMRIGHT", -16, 50)
+    EbonBuilds.Theme.ApplyPanel(contentArea)
+
+    local function NewPanel()
+        local panel = CreateFrame("Frame", nil, contentArea)
+        panel:SetPoint("TOPLEFT", contentArea, "TOPLEFT", 10, -10)
+        panel:SetPoint("BOTTOMRIGHT", contentArea, "BOTTOMRIGHT", -10, 10)
+        panel:Hide()
+        panels[#panels + 1] = panel
+        return panel
+    end
 
     -- Helper: label -> optional flavor text -> slider with track and value
     -- display. Anchored relative to the PREVIOUS element's actual rendered
     -- bottom edge (not a fixed pixel offset), so wrapped flavor text can
     -- never make two blocks overlap.
-    local function AddSlider(labelText, flavorText, yAnchor, yOffset, minV, maxV, value)
-        local label = scrollChild:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        if yAnchor == scrollChild then
-            -- The first control belongs at the visible top of the scroll child.
-            -- Anchoring it to scrollChild's BOTTOMLEFT placed the entire settings
-            -- form below the viewport, leaving a blank black dialog.
-            label:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 0, yOffset)
+    local function AddSlider(parent, labelText, flavorText, yAnchor, yOffset, minV, maxV, value)
+        local label = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        if yAnchor == parent then
+            label:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, yOffset)
         else
             label:SetPoint("TOPLEFT", yAnchor, "BOTTOMLEFT", 0, yOffset)
         end
@@ -172,7 +210,7 @@ local function BuildSettingsPopup()
         local anchorForSlider = label
         local flavor
         if flavorText then
-            flavor = scrollChild:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+            flavor = parent:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
             flavor:SetPoint("TOPLEFT", label, "BOTTOMLEFT", 0, -2)
             flavor:SetWidth(360)
             flavor:SetJustifyH("LEFT")
@@ -180,7 +218,7 @@ local function BuildSettingsPopup()
             anchorForSlider = flavor
         end
 
-        local slider = CreateFrame("Slider", nil, scrollChild)
+        local slider = CreateFrame("Slider", nil, parent)
         slider:SetOrientation("HORIZONTAL")
         slider:SetWidth(190)
         slider:SetHeight(20)
@@ -198,7 +236,7 @@ local function BuildSettingsPopup()
         track:SetPoint("LEFT", slider)
         track:SetPoint("RIGHT", slider)
 
-        local valText = scrollChild:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        local valText = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         valText:SetPoint("LEFT", slider, "RIGHT", 6, 0)
 
         local function RefreshLabel()
@@ -215,11 +253,15 @@ local function BuildSettingsPopup()
 
     -- Helper: themed checkbox with a label and explanation, same
     -- previous-element-relative anchoring as AddSlider.
-    local function AddCheckbox(labelText, flavorText, yAnchor, yOffset)
-        local cb = EbonBuilds.Theme.CreateCheckbox(scrollChild, labelText)
-        cb:SetPoint("TOPLEFT", yAnchor, "BOTTOMLEFT", -2, yOffset)
+    local function AddCheckbox(parent, labelText, flavorText, yAnchor, yOffset)
+        local cb = EbonBuilds.Theme.CreateCheckbox(parent, labelText)
+        if yAnchor == parent then
+            cb:SetPoint("TOPLEFT", parent, "TOPLEFT", -2, yOffset)
+        else
+            cb:SetPoint("TOPLEFT", yAnchor, "BOTTOMLEFT", -2, yOffset)
+        end
 
-        local flavor = scrollChild:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+        local flavor = parent:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
         flavor:SetPoint("TOPLEFT", cb, "BOTTOMLEFT", 26, -2)
         flavor:SetWidth(340)
         flavor:SetJustifyH("LEFT")
@@ -228,45 +270,173 @@ local function BuildSettingsPopup()
         return cb, flavor
     end
 
-    local delaySlider, delayBottom = AddSlider(
+    local function AddToolButton(parent, labelText, yAnchor, yOffset, onClick)
+        local btn = EbonBuilds.Theme.CreateButton(parent)
+        btn:SetSize(180, 22)
+        if yAnchor == parent then
+            btn:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, yOffset)
+        else
+            btn:SetPoint("TOPLEFT", yAnchor, "BOTTOMLEFT", 0, yOffset)
+        end
+        btn:SetText(labelText)
+        btn:SetScript("OnClick", onClick)
+        return btn
+    end
+
+    ------------------------------------------------------------------------
+    -- General
+    ------------------------------------------------------------------------
+    local generalPanel = NewPanel()
+    local delaySlider, delayBottom = AddSlider(generalPanel,
         "Action delay:",
         "Very low values may cause the addon to malfunction.",
-        scrollChild, 0, 0.1, 3.0, 2)
-
-    local toastSlider, toastBottom = AddSlider(
+        generalPanel, 0, 0.1, 3.0, 2)
+    local toastSlider = AddSlider(generalPanel,
         "Toast duration:",
         "How long pick/reroll/freeze/banish notifications stay on screen.",
         delayBottom, -14, 0.5, 8.0, 3)
 
-    -- Section header for the on/off feature toggles below
-    local togglesHeader = scrollChild:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    togglesHeader:SetPoint("TOPLEFT", toastBottom, "BOTTOMLEFT", 0, -18)
-    togglesHeader:SetText("Feature toggles")
-    togglesHeader:SetTextColor(unpack(EbonBuilds.Theme.ACCENT_GOLD))
-
-    local autoSellCB, autoSellBottom = AddCheckbox(
+    ------------------------------------------------------------------------
+    -- Automation
+    ------------------------------------------------------------------------
+    local automationPanel = NewPanel()
+    local autoSellCB, autoSellBottom = AddCheckbox(automationPanel,
         "Auto-sell junk at vendors",
-        "Sells 0-copper bag items automatically while a vendor is open. Items with an unlearned affix stay protected even if worthless. Same as /ebb autosell.",
-        togglesHeader, -8)
-
-    local bagDotsCB, bagDotsBottom = AddCheckbox(
+        "Sells 0-copper bag items automatically while a vendor is open. Items with an unlearned affix stay protected even if worthless.",
+        automationPanel, 0)
+    local bagDotsCB, bagDotsBottom = AddCheckbox(automationPanel,
         "Bag affix dots",
-        "Colored dot on bag items missing an affix: red for a new line, purple for a rank you're missing on one you already have. Same as /ebb bagdots.",
+        "Colored dot on bag items missing an affix: red for a new line, purple for a rank you're missing on one you already have.",
         autoSellBottom, -10)
+    local debugCB, debugBottom = AddCheckbox(automationPanel,
+        "Detailed automation logging",
+        "Records every automation decision with its reasoning, viewable under Windows & Tools -> Debug log.",
+        bagDotsBottom, -10)
+    local clickTraceCB = AddCheckbox(automationPanel,
+        "Log every button click",
+        "For \"I clicked and nothing happened\" troubleshooting -- viewable under Windows & Tools -> Click Trace log.",
+        debugBottom, -10)
 
-    local function RefreshSettingsContentHeight()
-        local childTop = scrollChild:GetTop()
-        local contentBottom = bagDotsBottom:GetBottom()
-        local viewportHeight = scrollFrame:GetHeight() or 0
-        if childTop and contentBottom then
-            scrollChild:SetHeight(math.max(viewportHeight, childTop - contentBottom + 14))
-        else
-            scrollChild:SetHeight(math.max(viewportHeight, 320))
+    ------------------------------------------------------------------------
+    -- Language
+    ------------------------------------------------------------------------
+    local languagePanel = NewPanel()
+    local languageNote = languagePanel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    languageNote:SetPoint("TOPLEFT", languagePanel, "TOPLEFT", 0, 0)
+    languageNote:SetWidth(360)
+    languageNote:SetJustifyH("LEFT")
+    languageNote:SetText("Takes effect after /reload.")
+
+    local languageButtons = {}
+    do
+        local locales = EbonBuilds.Locale.GetSupportedLocales()
+        local BTN_W, BTN_GAP = 62, 4
+        local perRow = math.floor((370 - 4) / (BTN_W + BTN_GAP))
+        for i, entry in ipairs(locales) do
+            local btn = EbonBuilds.Theme.CreateButton(languagePanel)
+            btn:SetSize(BTN_W, 20)
+            local col = (i - 1) % perRow
+            local row = math.floor((i - 1) / perRow)
+            if col == 0 then
+                btn:SetPoint("TOPLEFT", languageNote, "BOTTOMLEFT", 0, -8 - (row * 24))
+            else
+                btn:SetPoint("LEFT", languageButtons[i - 1], "RIGHT", BTN_GAP, 0)
+            end
+            btn:SetText(entry.code)
+            btn._localeCode = entry.code
+            btn:SetScript("OnClick", function()
+                EbonBuilds.Locale.SetLocale(entry.code)
+                for _, b in ipairs(languageButtons) do
+                    local fs = b.GetFontString and b:GetFontString()
+                    if fs then
+                        if b._localeCode == entry.code then
+                            fs:SetTextColor(unpack(EbonBuilds.Theme.ACCENT_GOLD))
+                        else
+                            fs:SetTextColor(1, 1, 1, 1)
+                        end
+                    end
+                end
+                if EbonBuilds.Toast and EbonBuilds.Toast.Show then
+                    EbonBuilds.Toast.Show("Language set to " .. entry.code .. " -- /reload to apply it")
+                end
+            end)
+            languageButtons[i] = btn
         end
-        RefreshSettingsScrollRange()
     end
 
-    -- Buttons (outside the scrollframe, always visible)
+    ------------------------------------------------------------------------
+    -- Windows & Tools -- every /ebb subcommand that just opens a window
+    -- now lives here instead, so there's one place to find them instead
+    -- of needing to know the slash command by name.
+    ------------------------------------------------------------------------
+    local toolsPanel = NewPanel()
+    local showcaseBtn = AddToolButton(toolsPanel, "Commands guide", toolsPanel, 0, function()
+        if EbonBuilds.ShowcaseView then EbonBuilds.ShowcaseView.Show() end
+    end)
+    local atlasBtn = AddToolButton(toolsPanel, "Tome Atlas", showcaseBtn, -6, function()
+        popup:Hide()
+        if not frame:IsShown() then frame:Show() end
+        EbonBuilds.ViewRouter.Show("tomeAtlas")
+    end)
+    local affixBtn = AddToolButton(toolsPanel, "Affixes reference", atlasBtn, -6, function()
+        popup:Hide()
+        if not frame:IsShown() then frame:Show() end
+        EbonBuilds.ViewRouter.Show("affixes")
+    end)
+    local tuningBtn = AddToolButton(toolsPanel, "Tuning Advisor", affixBtn, -6, function()
+        if EbonBuilds.Calibration then EbonBuilds.Calibration.ShowWindow() end
+    end)
+    local debugLogBtn = AddToolButton(toolsPanel, "Debug log", tuningBtn, -6, function()
+        if EbonBuilds.DebugLog then EbonBuilds.DebugLog.ShowWindow() end
+    end)
+    local clickTraceLogBtn = AddToolButton(toolsPanel, "Click Trace log", debugLogBtn, -6, function()
+        if EbonBuilds.ClickTrace then EbonBuilds.ClickTrace.ShowWindow() end
+    end)
+    AddToolButton(toolsPanel, "Error log", clickTraceLogBtn, -6, function()
+        if EbonBuilds.ErrorLog then EbonBuilds.ErrorLog.ShowWindow() end
+    end)
+
+    ------------------------------------------------------------------------
+    -- Build -- actions that need an active build. Greyed out with an
+    -- explanatory note when there isn't one, rather than hidden, so it's
+    -- clear the option exists.
+    ------------------------------------------------------------------------
+    local buildPanel = NewPanel()
+    local buildNote = buildPanel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    buildNote:SetPoint("TOPLEFT", buildPanel, "TOPLEFT", 0, 0)
+    buildNote:SetWidth(360)
+    buildNote:SetJustifyH("LEFT")
+    buildNote:SetText("No active build.")
+
+    local ewlBtn = AddToolButton(buildPanel, "Export Wishlist (EWL)", buildNote, -8, function()
+        local build = EbonBuilds.Build.GetActive()
+        if build and EbonBuilds.EWL then EbonBuilds.EWL.ShowExportDialog(build) end
+    end)
+    local clearTrainingBtn = AddToolButton(buildPanel, "Clear Manual Training data", ewlBtn, -6, function()
+        local build = EbonBuilds.Build.GetActive()
+        if not build then return end
+        StaticPopupDialogs["EBONBUILDS_CLEAR_TRAINING"].text =
+            "Clear Manual Training data for \"" .. (build.title or "?") .. "\"?\n\nThis cannot be undone."
+        StaticPopup_Show("EBONBUILDS_CLEAR_TRAINING")
+    end)
+
+    local function RefreshBuildPanelState()
+        local build = EbonBuilds.Build and EbonBuilds.Build.GetActive and EbonBuilds.Build.GetActive()
+        if build then
+            buildNote:SetText("Applies to \"" .. (build.title or "Untitled") .. "\".")
+            ewlBtn:Enable()
+            clearTrainingBtn:Enable()
+        else
+            buildNote:SetText("No active build.")
+            ewlBtn:Disable()
+            clearTrainingBtn:Disable()
+        end
+    end
+
+    ------------------------------------------------------------------------
+    -- Save / Cancel -- apply across every category at once, not per-tab,
+    -- so switching tabs never silently discards a change made on another.
+    ------------------------------------------------------------------------
     local saveBtn = EbonBuilds.Theme.CreateButton(popup)
     saveBtn:SetSize(80, 22)
     saveBtn:SetPoint("BOTTOM", popup, "BOTTOM", 43, 18)
@@ -275,7 +445,7 @@ local function BuildSettingsPopup()
         local gs = EbonBuildsDB.globalSettings
         gs.evalDelay = delaySlider:GetValue()
         gs.toastDuration = toastSlider:GetValue()
-        local autoSellOn, bagDotsOn
+        local autoSellOn, bagDotsOn, debugOn, clickTraceOn
         if EbonBuilds.AutoSell then
             autoSellOn = autoSellCB:GetChecked() and true or false
             EbonBuilds.AutoSell.SetEnabled(autoSellOn)
@@ -283,6 +453,14 @@ local function BuildSettingsPopup()
         if EbonBuilds.BagAffixDots then
             bagDotsOn = bagDotsCB:GetChecked() and true or false
             EbonBuilds.BagAffixDots.SetEnabled(bagDotsOn)
+        end
+        if EbonBuilds.DebugLog then
+            debugOn = debugCB:GetChecked() and true or false
+            EbonBuilds.DebugLog.SetEnabled(debugOn)
+        end
+        if EbonBuilds.ClickTrace then
+            clickTraceOn = clickTraceCB:GetChecked() and true or false
+            EbonBuilds.ClickTrace.SetEnabled(clickTraceOn)
         end
         popup:Hide()
         -- Confirms the settings actually took effect -- previously Save
@@ -293,6 +471,8 @@ local function BuildSettingsPopup()
             local parts = {}
             if autoSellOn ~= nil then parts[#parts + 1] = "Auto-sell " .. (autoSellOn and "ON" or "OFF") end
             if bagDotsOn ~= nil then parts[#parts + 1] = "Bag dots " .. (bagDotsOn and "ON" or "OFF") end
+            if debugOn ~= nil then parts[#parts + 1] = "Debug log " .. (debugOn and "ON" or "OFF") end
+            if clickTraceOn ~= nil then parts[#parts + 1] = "Click Trace " .. (clickTraceOn and "ON" or "OFF") end
             local msg = "Settings saved"
             if #parts > 0 then msg = msg .. " (" .. table.concat(parts, ", ") .. ")" end
             EbonBuilds.Toast.Show(msg)
@@ -305,19 +485,27 @@ local function BuildSettingsPopup()
     cancelBtn:SetText("Cancel")
     cancelBtn:SetScript("OnClick", function() popup:Hide() end)
 
-    EbonBuilds.Theme.BindScrollWheel(scrollFrame, settingsScrollBar, 32, scrollChild)
-
     popup:SetScript("OnShow", function()
         local gs = EbonBuildsDB.globalSettings
         delaySlider:SetValue(gs.evalDelay or 2)
         toastSlider:SetValue(gs.toastDuration or 3)
         autoSellCB:SetChecked(EbonBuilds.AutoSell and EbonBuilds.AutoSell.IsEnabled())
         bagDotsCB:SetChecked(EbonBuilds.BagAffixDots and EbonBuilds.BagAffixDots.IsEnabled())
-        RefreshSettingsContentHeight()
-        settingsScrollBar:SetValue(0)
+        debugCB:SetChecked(EbonBuilds.DebugLog and EbonBuilds.DebugLog.IsEnabled())
+        clickTraceCB:SetChecked(EbonBuilds.ClickTrace and EbonBuilds.ClickTrace.IsEnabled())
+        local activeLocale = EbonBuilds.Locale.GetActiveLocale()
+        for _, b in ipairs(languageButtons) do
+            local fs = b.GetFontString and b:GetFontString()
+            if fs then
+                fs:SetTextColor(unpack(b._localeCode == activeLocale and EbonBuilds.Theme.ACCENT_GOLD or { 1, 1, 1, 1 }))
+            end
+        end
+        RefreshBuildPanelState()
+        ShowCategory(1)
     end)
 
     return popup
+
 end
 
 local function CreateHeaderIconButton(frame, anchor, texture, tooltipTitle, tooltipBody)
@@ -535,84 +723,8 @@ end
 
 SLASH_EbonBuilds1 = "/ebb"
 SLASH_EbonBuilds2 = "/ebonbuilds"
-SlashCmdList["EbonBuilds"] = function(rawMsg)
-    local msg, arg = (rawMsg or ""):lower():match("^%s*(%S*)%s*(.-)%s*$")
-    msg = msg or ""
-    arg = arg or ""
-    if msg == "debug" then
-        EbonBuilds.DebugLog.Toggle()
-    elseif msg == "debuglog" or msg == "log" then
-        EbonBuilds.DebugLog.ShowWindow()
-    elseif msg == "faq" or msg == "help" or msg == "whatsnew" then
-        EbonBuilds.FAQ.Show()
-    elseif msg == "showcase" or msg == "commands" or msg == "welcome" then
-        EbonBuilds.ShowcaseView.Show()
-    elseif msg == "atlas" or msg == "tomes" then
-        EbonBuilds.MainWindow.Toggle()
-        EbonBuilds.ViewRouter.Show("tomeAtlas")
-    elseif msg == "affix" or msg == "affixes" then
-        EbonBuilds.MainWindow.Toggle()
-        EbonBuilds.ViewRouter.Show("affixes")
-    elseif msg == "clicktrace" then
-        EbonBuilds.ClickTrace.SetEnabled(not EbonBuilds.ClickTrace.IsEnabled())
-        EbonBuilds.ClickTrace.ShowWindow()
-    elseif msg == "errors" or msg == "errorlog" then
-        EbonBuilds.ErrorLog.ShowWindow()
-    elseif msg == "tuning" or msg == "advisor" then
-        EbonBuilds.Calibration.ShowWindow()
-    elseif msg == "ewl" or msg == "wishlist" then
-        local build = EbonBuilds.Build.GetActive()
-        if not build then
-            DEFAULT_CHAT_FRAME:AddMessage("|cff44ff44EbonBuilds:|r No active build.")
-        elseif EbonBuilds.EWL then
-            EbonBuilds.EWL.ShowExportDialog(build)
-        end
-    elseif msg == "cleartraining" then
-        local build = EbonBuilds.Build.GetActive()
-        if not build then
-            DEFAULT_CHAT_FRAME:AddMessage("|cff44ff44EbonBuilds:|r No active build.")
-        else
-            EbonBuilds.ManualTraining.Clear(build.id)
-            DEFAULT_CHAT_FRAME:AddMessage("|cff44ff44EbonBuilds:|r Cleared manual training data for \"" .. (build.title or "?") .. "\".")
-        end
-    elseif msg == "autosell" then
-        local on = not EbonBuilds.AutoSell.IsEnabled()
-        EbonBuilds.AutoSell.SetEnabled(on)
-        DEFAULT_CHAT_FRAME:AddMessage("|cff44ff44EbonBuilds:|r Auto-sell junk at vendors is now " ..
-            (on and "|cff44ff44ON|r" or "|cffff4444OFF|r") .. ".")
-    elseif msg == "bagdots" then
-        local on = not EbonBuilds.BagAffixDots.IsEnabled()
-        EbonBuilds.BagAffixDots.SetEnabled(on)
-        DEFAULT_CHAT_FRAME:AddMessage("|cff44ff44EbonBuilds:|r Bag affix dots are now " ..
-            (on and "|cff44ff44ON|r" or "|cffff4444OFF|r") .. ".")
-    elseif msg == "locale" or msg == "language" then
-        if arg == "" then
-            local names = {}
-            for _, entry in ipairs(EbonBuilds.Locale.GetSupportedLocales()) do
-                names[#names + 1] = entry.code
-            end
-            DEFAULT_CHAT_FRAME:AddMessage("|cff44ff44EbonBuilds:|r " .. string.format(
-                EbonBuilds.L["Current language: %s. Use /ebb locale <code> to change it."],
-                EbonBuilds.Locale.GetActiveLocale()))
-            DEFAULT_CHAT_FRAME:AddMessage("|cff44ff44EbonBuilds:|r " .. table.concat(names, ", "))
-        else
-            local resolved = EbonBuilds.Locale.ResolveAlias(arg)
-            if resolved and EbonBuilds.Locale.SetLocale(resolved) then
-                DEFAULT_CHAT_FRAME:AddMessage("|cff44ff44EbonBuilds:|r " ..
-                    string.format(EbonBuilds.L["Language set to %s."], resolved))
-                DEFAULT_CHAT_FRAME:AddMessage("|cff44ff44EbonBuilds:|r " .. EbonBuilds.L["/reload to apply it everywhere."])
-            else
-                local names = {}
-                for _, entry in ipairs(EbonBuilds.Locale.GetSupportedLocales()) do
-                    names[#names + 1] = entry.code
-                end
-                DEFAULT_CHAT_FRAME:AddMessage("|cff44ff44EbonBuilds:|r " .. string.format(
-                    EbonBuilds.L["Unknown language \"%s\". Available: %s"], arg, table.concat(names, ", ")))
-            end
-        end
-    else
-        EbonBuilds.MainWindow.Toggle()
-    end
+SlashCmdList["EbonBuilds"] = function()
+    EbonBuilds.MainWindow.Toggle()
 end
 
 function EbonBuilds.MainWindow.Toggle()

@@ -35,9 +35,4 @@ EbonBuilds.Locale.Register("ruRU", {
     [" · Autopilot uses last saved settings"] = " · Autopilot использует последние сохранённые настройки",
 
     -- /ebb locale command
-    ["Language set to %s."] = "Язык установлен: %s.",
-    ["Unknown language \"%s\". Available: %s"] = "Неизвестный язык \"%s\". Доступны: %s",
-    ["Current language: %s. Use /ebb locale <code> to change it."] =
-        "Текущий язык: %s. Используйте /ebb locale <код> для изменения.",
-    ["/reload to apply it everywhere."] = "Введите /reload, чтобы применить везде.",
 })

@@ -425,7 +425,6 @@ do
         { "modules/ui/TomeAtlasView.lua", "Theme.BindScrollWheel(pickerScroll, pickerBar, 20, pickerChild)" },
         { "modules/ui/ShowcaseView.lua", "Theme.BindScrollWheel(scroll, bar, 20, child)" },
         { "modules/ui/FAQView.lua", "Theme.BindScrollWheel(scrollFrame, scrollBar, 32, scrollChild)" },
-        { "modules/ui/MainWindow.lua", "Theme.BindScrollWheel(scrollFrame, settingsScrollBar, 32, scrollChild)" },
         { "modules/ui/AffixView.lua", "Theme.BindSliderWheel(f, scrollBar, 1, scrollChild)" },
         { "modules/ui/BuildList.lua", "Theme.BindSliderWheel(scrollFrame, scrollBar, 42, scrollChild)" },
         { "modules/ui/EchoTable.lua", "Theme.BindSliderWheel(sf, bar, ROW_HEIGHT, scrollChild)" },
@@ -501,21 +500,22 @@ do
 end
 print("Verified readable Decision Inspector resource changes and remaining charges.")
 
--- The first global-settings control must be anchored at the visible top of
--- the scroll child. Anchoring to BOTTOMLEFT makes the modal appear blank.
+-- The first control in each Settings category panel must be anchored at
+-- the panel's visible top. Anchoring to BOTTOMLEFT (the old scrollChild
+-- pattern's mistake) makes the panel appear blank.
 do
     local file = assert(io.open("modules/ui/MainWindow.lua", "r"))
     local source = file:read("*a")
     file:close()
-    if not source:find('if yAnchor == scrollChild then', 1, true)
-        or not source:find('label:SetPoint("TOPLEFT", scrollChild, "TOPLEFT"', 1, true) then
-        io.stderr:write("SETTINGS POPUP FAIL: first setting is not anchored to the visible top of the scroll child\n")
+    if not source:find('if yAnchor == parent then', 1, true)
+        or not source:find('label:SetPoint("TOPLEFT", parent, "TOPLEFT"', 1, true) then
+        io.stderr:write("SETTINGS POPUP FAIL: first setting is not anchored to the visible top of its category panel\n")
         os.exit(1)
     end
 end
 print("Verified global Settings controls begin inside the visible viewport.")
 
--- EWL export is available from the build overview and slash command.
+-- EWL export is available from the build overview and the Settings popup.
 do
     local overviewFile = assert(io.open("modules/ui/BuildOverview.lua", "r"))
     local overviewSource = overviewFile:read("*a")
@@ -527,12 +527,107 @@ do
         io.stderr:write("EWL UI FAIL: build overview export action is missing\n")
         os.exit(1)
     end
-    if not mainSource:find('msg == "ewl"', 1, true) then
-        io.stderr:write("EWL COMMAND FAIL: /ebb ewl command is missing\n")
+    if not mainSource:find("EWL.ShowExportDialog", 1, true) then
+        io.stderr:write("EWL SETTINGS FAIL: Settings popup export action is missing\n")
         os.exit(1)
     end
 end
-print("Verified EWL generation controls and command integration.")
+print("Verified EWL generation controls and Settings integration.")
+
+-- Every /ebb subcommand removed when slash commands were consolidated into
+-- the Settings popup must have a real replacement control there, and the
+-- dispatcher itself must no longer branch on any of the old subcommand
+-- strings (a regression guard against silently reintroducing one without
+-- also removing it from Settings, ending up with the same feature in two
+-- places again).
+do
+    local file = assert(io.open("modules/ui/MainWindow.lua", "r"))
+    local source = file:read("*a")
+    file:close()
+
+    local mustContain = {
+        "EbonBuilds.DebugLog.SetEnabled",  "EbonBuilds.DebugLog.ShowWindow",
+        "EbonBuilds.ClickTrace.SetEnabled", "EbonBuilds.ClickTrace.ShowWindow",
+        "EbonBuilds.ErrorLog.ShowWindow",
+        "EbonBuilds.Calibration.ShowWindow",
+        "EbonBuilds.ShowcaseView.Show",
+        'EbonBuilds.ViewRouter.Show("tomeAtlas")',
+        'EbonBuilds.ViewRouter.Show("affixes")',
+        "EbonBuilds.EWL.ShowExportDialog",
+        "EbonBuilds.ManualTraining.Clear",
+        "EbonBuilds.Locale.SetLocale",
+    }
+    for _, needle in ipairs(mustContain) do
+        if not source:find(needle, 1, true) then
+            io.stderr:write("SETTINGS MIGRATION FAIL: Settings popup is missing a control for " .. needle .. "\n")
+            os.exit(1)
+        end
+    end
+
+    -- Isolate just the SlashCmdList function body so a match elsewhere in
+    -- the file (e.g. inside the Settings popup itself) can't hide a
+    -- leftover branch in the dispatcher.
+    local dispatcherStart = source:find('SlashCmdList%["EbonBuilds"%]')
+    local dispatcher = dispatcherStart and source:sub(dispatcherStart)
+    if not dispatcher then
+        io.stderr:write("SETTINGS MIGRATION FAIL: could not find the SlashCmdList dispatcher at all\n")
+        os.exit(1)
+    end
+    local removedSubcommands = {
+        "debug", "debuglog", "faq", "showcase", "atlas", "affix", "clicktrace",
+        "errors", "tuning", "ewl", "cleartraining", "autosell", "bagdots", "locale",
+    }
+    for _, word in ipairs(removedSubcommands) do
+        if dispatcher:find('msg == "' .. word .. '"', 1, true) then
+            io.stderr:write("SETTINGS MIGRATION FAIL: /ebb " .. word .. " is still branched in the dispatcher\n")
+            os.exit(1)
+        end
+    end
+end
+print("Verified every removed /ebb subcommand has a Settings popup replacement, and none remain in the dispatcher.")
+
+-- Settings popup category tabs: five categories switch panel visibility
+-- and tab selection together, and Save reads every checkbox's state
+-- directly (not gated behind "only if that category is currently shown"),
+-- so switching tabs can never silently discard a change made on another
+-- one before Save is clicked.
+do
+    local file = assert(io.open("modules/ui/MainWindow.lua", "r"))
+    local source = file:read("*a")
+    file:close()
+
+    local categoryCount = 0
+    for _ in source:gmatch('{ key = "%a+",%s*label = "[^"]+" }') do
+        categoryCount = categoryCount + 1
+    end
+    if categoryCount ~= 5 then
+        io.stderr:write("SETTINGS CATEGORY FAIL: expected 5 categories, found " .. categoryCount .. "\n")
+        os.exit(1)
+    end
+
+    if not source:find("panel:SetShown(i == index)", 1, true)
+        or not source:find("EbonBuilds.Theme.SetTabSelected(btn, i == index)", 1, true) then
+        io.stderr:write("SETTINGS CATEGORY FAIL: ShowCategory does not toggle both panel visibility and tab selection\n")
+        os.exit(1)
+    end
+
+    -- Save must read autoSellCB/bagDotsCB/debugCB/clickTraceCB directly,
+    -- not through any category-visibility check -- a hidden panel's
+    -- checkbox still holds its real GetChecked() state in WoW's widget
+    -- system even while SetShown(false), so gating Save on the active tab
+    -- would be both wrong and unnecessary.
+    local saveStart = source:find('saveBtn:SetScript%("OnClick"')
+    local saveBody = saveStart and source:sub(saveStart, saveStart + 1200)
+    if not saveBody
+        or not saveBody:find("autoSellCB:GetChecked()", 1, true)
+        or not saveBody:find("bagDotsCB:GetChecked()", 1, true)
+        or not saveBody:find("debugCB:GetChecked()", 1, true)
+        or not saveBody:find("clickTraceCB:GetChecked()", 1, true) then
+        io.stderr:write("SETTINGS CATEGORY FAIL: Save does not read all four toggle checkboxes\n")
+        os.exit(1)
+    end
+end
+print("Verified the Settings popup's category tabs switch panels and tab selection together, and Save reads every category's state regardless of which tab is active.")
 
 -- Missing-tab default view and weighted-priority regression contracts.
 do

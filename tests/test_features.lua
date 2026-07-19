@@ -1139,7 +1139,7 @@ do
     end
     local usedCount = 0
     for _ in pairs(usedKeys) do usedCount = usedCount + 1 end
-    check(usedCount > 15, "found a plausible number of EbonBuilds.L[...] call sites to check (got " .. usedCount .. ")")
+    check(usedCount > 10, "found a plausible number of EbonBuilds.L[...] call sites to check (got " .. usedCount .. ")")
 
     -- Checked against each locale file's own source (does it register this
     -- exact key at all), not against what L[key] evaluates to -- a locale

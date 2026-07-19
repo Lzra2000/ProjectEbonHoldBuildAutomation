@@ -30,7 +30,7 @@ The PR template has a short checklist -- FAQ.md entry for user-facing changes, t
   ```
 - **Namespace, not globals.** Everything hangs off `EbonBuilds.<Module>`. Internal helpers are `local function` at file scope, not global.
 - **Test hooks.** If something needs to be tested but isn't naturally reachable (a closure inside a button's `OnClick`, module-local state), expose it as `EbonBuilds.Module._DoTheThing = DoTheThing` -- see `EbonBuilds.Session`'s test helpers or `EbonBuilds.BuildTabs._TriggerExportAI` for the pattern. Prefix with `_` so it reads as "test/integration only," not part of the real API.
-- **Errors that should be visible.** Wrap a handler in `EbonBuilds.ErrorLog.Protect("Source.Name", fn)` if it's reachable from user interaction and isn't trivially safe -- an unprotected error goes straight to WoW's own (usually disabled) Lua error display and never reaches `/ebb errors`. Most of the codebase predates this and isn't wrapped; wrapping more of it as you touch nearby code is welcome.
+- **Errors that should be visible.** Wrap a handler in `EbonBuilds.ErrorLog.Protect("Source.Name", fn)` if it's reachable from user interaction and isn't trivially safe -- an unprotected error goes straight to WoW's own (usually disabled) Lua error display and never reaches the Error log (Settings -- Windows & tools). Most of the codebase predates this and isn't wrapped; wrapping more of it as you touch nearby code is welcome.
 - **Changelog.** User-facing changes get a `### <version>` entry at the top of `FAQ.md`'s Changelog section. Look at recent entries for the tone: specific about what changed and why, no marketing language.
 - **Releases.** Version bumps go through `sh scripts/release.sh <version>` (bumps `EbonBuilds.toc` + `FAQ.md`, runs `scripts/check.sh`, rebuilds `dist/EbonBuilds.zip`, commits, tags) followed by `sh scripts/publish-github-release.sh <version>` (an actual GitHub Release, not just a tag -- see the script for why that's a separate step). Not something a regular PR needs to touch.
 
@@ -52,4 +52,4 @@ Game-specific terms (Echo, Build, Banish/Reroll/Freeze/Select, Autopilot) stay i
 
 ## Reporting bugs
 
-See the README's "Reporting bugs" section -- short version: attach `/ebb errors` output, and `/ebb clicktrace` output if a click seemed to do nothing.
+See the README's "Reporting bugs" section -- short version: attach the Error log output (Settings -- gear icon -- Windows & tools), and the Click Trace log if a click seemed to do nothing.

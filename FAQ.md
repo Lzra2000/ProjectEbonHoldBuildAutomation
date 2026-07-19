@@ -253,6 +253,14 @@ This is deliberately approximate, not a controlled measurement: echoes stack tog
 
 ## Changelog
 
+### 3.15 (2026-07-19) -- Settings popup: categories instead of one long scrolling list
+
+The Settings popup (gear icon, added in 3.14 to hold everything the removed slash commands used to do) is now five tabs -- General, Automation, Language, Windows & Tools, Build -- instead of one continuously growing scrolling list. Same widget pattern as the build editor's own tabs (`Theme.CreateTab` / `SetTabSelected`).
+
+- No more scrollframe in this popup at all -- each category's content fits without it, which is also most of why this was worth doing: a scrolling list gets harder to scan every time something's added to it, tabs don't.
+- Save still applies every category's changes at once regardless of which tab is currently showing -- switching tabs never discards a change made on another one before clicking Save.
+- Updated the two existing structural tests that hard-coded the old scrollframe's exact anchoring/binding calls, and added a new one for the category mechanism itself (both panel visibility and tab highlighting toggle together, and Save reads all four toggle checkboxes' real state regardless of which panel is visible).
+
 ### 3.14 (2026-07-19) -- Contributor tooling: CI consolidation, templates, locale scaffolding
 
 - CI (`.github/workflows/lua-syntax.yml`) now runs `scripts/dev-setup.sh` + `scripts/check.sh` + `scripts/build-dist.sh` directly, instead of duplicating the syntax/test/TOC-check logic inline. That duplication meant a fix to `scripts/check.sh` (like the shellcheck fix in 3.06) never actually reached CI -- now there's one script both contributors and CI run, so they can't drift apart again.

@@ -35,9 +35,4 @@ EbonBuilds.Locale.Register("deDE", {
     [" · Autopilot uses last saved settings"] = " · Autopilot nutzt zuletzt gespeicherte Einstellungen",
 
     -- /ebb locale command
-    ["Language set to %s."] = "Sprache auf %s gesetzt.",
-    ["Unknown language \"%s\". Available: %s"] = "Unbekannte Sprache \"%s\". Verfügbar: %s",
-    ["Current language: %s. Use /ebb locale <code> to change it."] =
-        "Aktuelle Sprache: %s. Mit /ebb locale <code> ändern.",
-    ["/reload to apply it everywhere."] = "/reload eingeben, um es überall zu übernehmen.",
 })

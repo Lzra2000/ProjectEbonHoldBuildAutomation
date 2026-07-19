@@ -41,25 +41,7 @@ Then restart the game or `/reload`.
 
 ## Commands
 
-Every command starts with `/ebb`. A full in-game reference is also available via `/ebb showcase`.
-
-| Command | Description |
-|---|---|
-| `/ebb` | Open or close the main window |
-| `/ebb faq` (or `/ebb help`) | Full in-game guide |
-| `/ebb showcase` (or `/ebb commands`) | This command list, in-game |
-| `/ebb tuning` (or `/ebb advisor`) | Tuning Advisor: thresholds, auto-tune, DPS/appearance sharing |
-| `/ebb cleartraining` | Wipe the active build's Manual Training data |
-| `/ebb atlas` (or `/ebb tomes`) | Tome Atlas |
-| `/ebb affix` | Affixes reference |
-| `/ebb autosell` | Toggle auto-selling 0-copper junk at vendors |
-| `/ebb bagdots` | Toggle colored dots on bag items missing an affix |
-| `/ebb debug` | Toggle detailed automation decision logging |
-| `/ebb debuglog` (or `/ebb log`) | View the captured debug log |
-| `/ebb errors` | View caught errors, for bug reports |
-| `/ebb clicktrace` | Log every UI button click, for "nothing happened" reports |
-| `/ebb locale` (or `/ebb language`) | Show the current UI language and list available ones |
-| `/ebb locale <code>` | Switch the UI language (e.g. `/ebb locale de`); requires `/reload` |
+Just `/ebb` (or `/ebonbuilds`) -- opens or closes the main window. Everything that used to be a separate slash command now lives in the gear icon (Settings) in the window's header, so it's all in one place instead of needing to remember a subcommand: language, auto-sell, bag affix dots, debug logging, Click Trace, the Debug/Error/Click Trace logs, Tuning Advisor, Tome Atlas, Affixes reference, the commands guide, and the active build's EWL export and Manual Training reset.
 
 ## Localization
 
@@ -71,7 +53,7 @@ Only the build editor is translated so far; the rest of the addon's UI still fal
 
 ## Reporting bugs
 
-Attach `/ebb errors` output or an `/ebb debug` log to your report — it's the single fastest way to get something fixed instead of guessed at.
+Attach the Error log or Debug log output (Settings -- gear icon in the main window -- Windows & tools) to your report -- it's the single fastest way to get something fixed instead of guessed at.
 
 ## Development
 
