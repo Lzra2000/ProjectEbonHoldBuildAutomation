@@ -1,10 +1,25 @@
-# EbonBuilds
+<p align="center">
+  <img src="assets/banner.svg" alt="EbonBuilds — Echo automation for ProjectEbonhold" width="100%">
+</p>
 
-**[English](README.md)** | [Deutsch](README.de.md) | [Русский](README.ru.md) | [Português (Brasil)](README.pt-BR.md) | [Español](README.es.md) | [Français](README.fr.md) | [Polski](README.pl.md)
+<p align="center">
+  <a href="https://github.com/Lzra2000/-ProjectEbonHoldBuildAutomation/actions/workflows/lua-syntax.yml"><img src="https://github.com/Lzra2000/-ProjectEbonHoldBuildAutomation/actions/workflows/lua-syntax.yml/badge.svg" alt="Checks"></a>
+  <a href="https://github.com/Lzra2000/-ProjectEbonHoldBuildAutomation/releases/latest"><img src="https://img.shields.io/github/v/release/Lzra2000/-ProjectEbonHoldBuildAutomation?label=release&color=2a6e5a" alt="Latest release"></a>
+  <img src="https://img.shields.io/badge/WoW-3.3.5a%20(12340)-4a7ab5" alt="WoW 3.3.5a">
+  <img src="https://img.shields.io/badge/Lua-5.1-8a5fc9" alt="Lua 5.1">
+</p>
+
+<p align="center">
+  <b>English</b> | <a href="README.de.md">Deutsch</a> | <a href="README.ru.md">Русский</a> | <a href="README.pt-BR.md">Português (Brasil)</a> | <a href="README.es.md">Español</a> | <a href="README.fr.md">Français</a> | <a href="README.pl.md">Polski</a>
+</p>
 
 A World of Warcraft (3.3.5a) addon for **ProjectEbonhold** that automates echo picks (Banish / Reroll / Freeze / Select) based on a build you define, and tunes itself over time from real gameplay data.
 
 Requires **ProjectEbonhold** or **ProjectEbonhold Enhanced**. Some features additionally use **[Details!](https://www.curseforge.com/wow/addons/details)** damage meter if installed.
+
+<p align="center">
+  <img src="assets/how-it-works.svg" alt="How it works: define a build, automation acts on every choice screen, data is tracked, the Tuning Advisor suggests adjustments, and the loop repeats" width="100%">
+</p>
 
 ## What it does
 

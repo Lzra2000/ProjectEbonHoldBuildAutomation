@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 260" width="1200" height="260" role="img" aria-label="How EbonBuilds works: define a build, automation acts, data is tracked, the advisor tunes, and the loop repeats">
+  <defs>
+    <linearGradient id="bg2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0d0d13"/>
+      <stop offset="1" stop-color="#0a0a0e"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#191922"/>
+      <stop offset="1" stop-color="#121219"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#5cc4a4"/>
+    </marker>
+    <marker id="arrowGold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#c9a15a"/>
+    </marker>
+  </defs>
+
+  <rect width="1200" height="260" fill="url(#bg2)"/>
+  <rect x="1" y="1" width="1198" height="258" fill="none" stroke="#26262f" stroke-width="2"/>
+
+  <g font-family="Georgia, 'Times New Roman', serif">
+
+    <!-- Step 1: Define -->
+    <g transform="translate(60 62)">
+      <rect width="220" height="112" rx="10" fill="url(#panel)" stroke="#3a3a46" stroke-width="1.5"/>
+      <rect y="0" width="220" height="30" rx="10" fill="#1f1f2a"/>
+      <rect y="20" width="220" height="10" fill="#1f1f2a"/>
+      <text x="110" y="21" font-size="16" fill="#e8cf94" text-anchor="middle" letter-spacing="1">DEFINE A BUILD</text>
+      <text x="16" y="56" font-size="13" fill="#9a9aa8">Weights per echo and rank</text>
+      <text x="16" y="76" font-size="13" fill="#9a9aa8">Quality and family bonuses</text>
+      <text x="16" y="96" font-size="13" fill="#9a9aa8">Policies, bans, locked slots</text>
+    </g>
+
+    <path d="M 286 118 L 336 118" stroke="#5cc4a4" stroke-width="2" marker-end="url(#arrow)"/>
+
+    <!-- Step 2: Automation -->
+    <g transform="translate(342 62)">
+      <rect width="220" height="112" rx="10" fill="url(#panel)" stroke="#3a3a46" stroke-width="1.5"/>
+      <rect y="0" width="220" height="30" rx="10" fill="#1f1f2a"/>
+      <rect y="20" width="220" height="10" fill="#1f1f2a"/>
+      <text x="110" y="21" font-size="16" fill="#e8cf94" text-anchor="middle" letter-spacing="1">AUTOMATION ACTS</text>
+      <text x="16" y="56" font-size="13" fill="#9a9aa8">Every choice screen is scored</text>
+      <text x="16" y="76" font-size="13" fill="#9a9aa8">Banish, reroll, freeze, select</text>
+      <text x="16" y="96" font-size="13" fill="#9a9aa8">Charges paced across the run</text>
+    </g>
+
+    <path d="M 568 118 L 618 118" stroke="#5cc4a4" stroke-width="2" marker-end="url(#arrow)"/>
+
+    <!-- Step 3: Track -->
+    <g transform="translate(624 62)">
+      <rect width="220" height="112" rx="10" fill="url(#panel)" stroke="#3a3a46" stroke-width="1.5"/>
+      <rect y="0" width="220" height="30" rx="10" fill="#1f1f2a"/>
+      <rect y="20" width="220" height="10" fill="#1f1f2a"/>
+      <text x="110" y="21" font-size="16" fill="#e8cf94" text-anchor="middle" letter-spacing="1">DATA IS TRACKED</text>
+      <text x="16" y="56" font-size="13" fill="#9a9aa8">DPS per echo, via Details!</text>
+      <text x="16" y="76" font-size="13" fill="#9a9aa8">Offer rates and outcomes</text>
+      <text x="16" y="96" font-size="13" fill="#9a9aa8">Every decision in the Logbook</text>
+    </g>
+
+    <path d="M 850 118 L 900 118" stroke="#5cc4a4" stroke-width="2" marker-end="url(#arrow)"/>
+
+    <!-- Step 4: Tune -->
+    <g transform="translate(906 62)">
+      <rect width="220" height="112" rx="10" fill="url(#panel)" stroke="#3a3a46" stroke-width="1.5"/>
+      <rect y="0" width="220" height="30" rx="10" fill="#1f1f2a"/>
+      <rect y="20" width="220" height="10" fill="#1f1f2a"/>
+      <text x="110" y="21" font-size="16" fill="#e8cf94" text-anchor="middle" letter-spacing="1">THE ADVISOR TUNES</text>
+      <text x="16" y="56" font-size="13" fill="#9a9aa8">Thresholds vs. real offers</text>
+      <text x="16" y="76" font-size="13" fill="#9a9aa8">Weight and bonus suggestions</text>
+      <text x="16" y="96" font-size="13" fill="#9a9aa8">Optional gradual auto-tune</text>
+    </g>
+
+    <!-- feedback loop back to step 1 -->
+    <path d="M 1016 180 L 1016 218 L 170 218 L 170 180"
+          fill="none" stroke="#c9a15a" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arrowGold)"/>
+    <text x="593" y="240" font-size="13" fill="#c9a15a" text-anchor="middle" letter-spacing="1">suggestions feed back into the build, and the loop repeats</text>
+
+    <text x="600" y="36" font-size="14" fill="#6e6e7c" text-anchor="middle" letter-spacing="2">HOW IT WORKS</text>
+  </g>
+</svg>

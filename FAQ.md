@@ -253,6 +253,15 @@ This is deliberately approximate, not a controlled measurement: echoes stack tog
 
 ## Changelog
 
+### 3.16 (2026-07-19) -- Repo page: banner, diagram, badges
+
+Repo-only release, nothing changes in-game.
+
+- New `assets/banner.svg`: an original title banner (obsidian tones, a rune circle around an anvil, three fanned echo cards) drawn from scratch for this project -- no game assets are used or reproduced.
+- New `assets/how-it-works.svg`: a four-step diagram of the core loop (define a build, automation acts, data is tracked, the advisor tunes) with the feedback path back to the build.
+- README.md now opens with the banner, status badges (CI, latest release, WoW 3.3.5a, Lua 5.1), and the diagram. Text content is unchanged.
+- `assets/` is not part of `dist/EbonBuilds.zip` -- the packaging script copies an explicit file list, so the addon download stays the same size.
+
 ### 3.15 (2026-07-19) -- Settings popup: categories instead of one long scrolling list
 
 The Settings popup (gear icon, added in 3.14 to hold everything the removed slash commands used to do) is now five tabs -- General, Automation, Language, Windows & Tools, Build -- instead of one continuously growing scrolling list. Same widget pattern as the build editor's own tabs (`Theme.CreateTab` / `SetTabSelected`).

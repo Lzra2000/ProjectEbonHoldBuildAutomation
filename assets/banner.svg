@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 300" width="1200" height="300" role="img" aria-label="EbonBuilds">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0b0b10"/>
+      <stop offset="0.55" stop-color="#101018"/>
+      <stop offset="1" stop-color="#0a0a0e"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#7ee0c2" stop-opacity="0.35"/>
+      <stop offset="0.6" stop-color="#3a8f7a" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="cardEpic" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a1f3d"/>
+      <stop offset="1" stop-color="#171224"/>
+    </linearGradient>
+    <linearGradient id="cardRare" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#16273d"/>
+      <stop offset="1" stop-color="#0e1826"/>
+    </linearGradient>
+    <linearGradient id="cardUncommon" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#16301f"/>
+      <stop offset="1" stop-color="#0d1c13"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#c9a15a"/>
+      <stop offset="0.5" stop-color="#e8cf94"/>
+      <stop offset="1" stop-color="#c9a15a"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="300" fill="url(#bg)"/>
+  <rect x="1.5" y="1.5" width="1197" height="297" fill="none" stroke="#26262f" stroke-width="3"/>
+  <rect x="6" y="6" width="1188" height="288" fill="none" stroke="#3a3a46" stroke-width="1"/>
+
+  <!-- ambient glow behind the rune circle -->
+  <circle cx="255" cy="150" r="140" fill="url(#glow)"/>
+
+  <!-- rune circle -->
+  <g stroke="#5cc4a4" fill="none">
+    <circle cx="255" cy="150" r="95" stroke-width="2" stroke-opacity="0.85"/>
+    <circle cx="255" cy="150" r="82" stroke-width="1" stroke-opacity="0.4"/>
+    <circle cx="255" cy="150" r="108" stroke-width="1" stroke-opacity="0.3"/>
+    <!-- tick marks around the outer ring -->
+    <g stroke-width="2" stroke-opacity="0.6">
+      <line x1="255" y1="42"  x2="255" y2="55"/>
+      <line x1="255" y1="245" x2="255" y2="258"/>
+      <line x1="147" y1="150" x2="160" y2="150"/>
+      <line x1="350" y1="150" x2="363" y2="150"/>
+      <line x1="179" y1="74"  x2="188" y2="83"/>
+      <line x1="322" y1="217" x2="331" y2="226"/>
+      <line x1="331" y1="74"  x2="322" y2="83"/>
+      <line x1="188" y1="217" x2="179" y2="226"/>
+    </g>
+  </g>
+
+  <!-- anvil silhouette inside the circle: the Enchanted Anvil, forging builds -->
+  <g fill="#1c1c26" stroke="#5cc4a4" stroke-width="2">
+    <path d="M 205 165 L 305 165 L 296 183 L 214 183 Z"/>
+    <path d="M 231 183 L 279 183 L 283 205 L 227 205 Z"/>
+    <path d="M 218 205 L 292 205 L 292 214 L 218 214 Z"/>
+    <path d="M 205 165 L 205 150 Q 205 141 214 141 L 258 141 L 258 165 Z"/>
+    <path d="M 258 149 L 300 149 Q 312 149 312 158 L 312 165 L 258 165 Z"/>
+  </g>
+  <!-- spark above the anvil -->
+  <g fill="#7ee0c2">
+    <circle cx="255" cy="118" r="3.5"/>
+    <circle cx="243" cy="127" r="1.8" fill-opacity="0.7"/>
+    <circle cx="268" cy="124" r="1.5" fill-opacity="0.6"/>
+  </g>
+
+  <!-- three echo cards fanned on the right: the choice screen -->
+  <g transform="translate(880 150)">
+    <g transform="rotate(-10) translate(-150 -78)">
+      <rect width="104" height="156" rx="8" fill="url(#cardUncommon)" stroke="#3f7a55" stroke-width="2"/>
+      <rect x="8" y="8" width="88" height="140" rx="5" fill="none" stroke="#3f7a55" stroke-width="1" stroke-opacity="0.5"/>
+      <circle cx="52" cy="54" r="24" fill="none" stroke="#57a874" stroke-width="2"/>
+      <path d="M 52 36 L 52 72 M 38 47 L 66 61 M 66 47 L 38 61" stroke="#57a874" stroke-width="2" fill="none"/>
+      <rect x="20" y="98" width="64" height="5" rx="2.5" fill="#3f7a55" fill-opacity="0.8"/>
+      <rect x="20" y="112" width="48" height="5" rx="2.5" fill="#3f7a55" fill-opacity="0.5"/>
+      <rect x="20" y="126" width="56" height="5" rx="2.5" fill="#3f7a55" fill-opacity="0.5"/>
+    </g>
+    <g transform="translate(-52 -88)">
+      <rect width="104" height="164" rx="8" fill="url(#cardEpic)" stroke="#8a5fc9" stroke-width="2.5"/>
+      <rect x="8" y="8" width="88" height="148" rx="5" fill="none" stroke="#8a5fc9" stroke-width="1" stroke-opacity="0.5"/>
+      <circle cx="52" cy="56" r="26" fill="none" stroke="#a97fe8" stroke-width="2.5"/>
+      <path d="M 52 34 L 62 50 L 79 52 L 66 65 L 70 82 L 52 73 L 34 82 L 38 65 L 25 52 L 42 50 Z" fill="none" stroke="#a97fe8" stroke-width="2"/>
+      <rect x="20" y="104" width="64" height="5" rx="2.5" fill="#8a5fc9" fill-opacity="0.9"/>
+      <rect x="20" y="118" width="52" height="5" rx="2.5" fill="#8a5fc9" fill-opacity="0.55"/>
+      <rect x="20" y="132" width="58" height="5" rx="2.5" fill="#8a5fc9" fill-opacity="0.55"/>
+    </g>
+    <g transform="rotate(10) translate(52 -78)">
+      <rect width="104" height="156" rx="8" fill="url(#cardRare)" stroke="#4a7ab5" stroke-width="2"/>
+      <rect x="8" y="8" width="88" height="140" rx="5" fill="none" stroke="#4a7ab5" stroke-width="1" stroke-opacity="0.5"/>
+      <circle cx="52" cy="54" r="24" fill="none" stroke="#6ea3d9" stroke-width="2"/>
+      <path d="M 52 32 Q 68 46 66 60 Q 64 74 52 76 Q 40 74 38 60 Q 36 46 52 32 Z" fill="none" stroke="#6ea3d9" stroke-width="2"/>
+      <rect x="20" y="98" width="64" height="5" rx="2.5" fill="#4a7ab5" fill-opacity="0.8"/>
+      <rect x="20" y="112" width="44" height="5" rx="2.5" fill="#4a7ab5" fill-opacity="0.5"/>
+      <rect x="20" y="126" width="54" height="5" rx="2.5" fill="#4a7ab5" fill-opacity="0.5"/>
+    </g>
+  </g>
+
+  <!-- title block -->
+  <g font-family="Georgia, 'Times New Roman', serif">
+    <text x="430" y="150" font-size="64" fill="url(#gold)" letter-spacing="2">EbonBuilds</text>
+    <line x1="432" y1="170" x2="740" y2="170" stroke="#c9a15a" stroke-width="1.5" stroke-opacity="0.6"/>
+    <text x="432" y="198" font-size="19" fill="#9a9aa8" letter-spacing="1">Echo automation for ProjectEbonhold</text>
+    <text x="432" y="226" font-size="15" fill="#6e6e7c" letter-spacing="0.5">Define a build once. Every choice screen is scored, decided, and logged.</text>
+  </g>
+
+  <!-- corner accents -->
+  <g stroke="#c9a15a" stroke-width="2" fill="none" stroke-opacity="0.55">
+    <path d="M 18 34 L 18 18 L 34 18"/>
+    <path d="M 1166 18 L 1182 18 L 1182 34"/>
+    <path d="M 1182 266 L 1182 282 L 1166 282"/>
+    <path d="M 34 282 L 18 282 L 18 266"/>
+  </g>
+</svg>
