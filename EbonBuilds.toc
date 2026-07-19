@@ -15,6 +15,7 @@ modules/i18n/locales/ptBR.lua
 modules/i18n/locales/ruRU.lua
 modules/build/Build.lua
 modules/build/EchoPolicy.lua
+modules/build/CharacterSnapshot.lua
 modules/talents/Talents.lua
 modules/data/Quality.lua
 core/TomeAtlas.lua
@@ -52,6 +53,7 @@ modules/ui/TomeAtlasView.lua
 modules/ui/AffixView.lua
 modules/ui/BonusView.lua
 modules/ui/SettingsView.lua
+modules/ui/CharacterView.lua
 modules/ui/BuildTabs.lua
 modules/ui/StatsView.lua
 modules/ui/BuildOverview.lua

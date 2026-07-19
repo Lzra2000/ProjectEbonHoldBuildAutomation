@@ -18,6 +18,7 @@ local function PopulateTabDefs()
     TAB_DEFS[2] = { label = L["Priorities"],  hint = L["Set rank-specific Echo values and protect must-keep Echoes."] }
     TAB_DEFS[3] = { label = L["Modifiers"],   hint = L["Adjust rank, family, and unique-Echo strategy."] }
     TAB_DEFS[4] = { label = L["Autopilot"],   hint = L["Choose an automation intent and tune its decisions."] }
+    TAB_DEFS[5] = { label = L["Character"],   hint = L["Live gear, full talent trees, and glyphs; adopt them into the build."] }
 end
 
 local function RefreshSaveState()
@@ -60,6 +61,7 @@ local function UnmountAll()
     EbonBuilds.WeightsView.Unmount()
     EbonBuilds.BonusView.Unmount()
     EbonBuilds.SettingsView.Unmount()
+    EbonBuilds.CharacterView.Unmount()
 end
 
 local function RefreshTabs()
@@ -104,6 +106,8 @@ local function ShowTab(index)
         EbonBuilds.BonusView.Mount(contentArea)
     elseif index == 4 then
         EbonBuilds.SettingsView.Mount(contentArea)
+    elseif index == 5 then
+        EbonBuilds.CharacterView.Mount(contentArea, state.context)
     end
     RefreshTabs()
     if EbonBuilds.MainWindow and EbonBuilds.MainWindow.SetPageContext then

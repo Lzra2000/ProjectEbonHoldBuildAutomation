@@ -1286,6 +1286,72 @@ do
     GetItemInfo, GetItemStats, GetInventoryItemLink = origGetItemInfo, origGetItemStats, origGetInvLink
 end
 
+-- Character snapshot: full-tree capture, glyph layout, adopt-onto-build,
+-- and the export/import roundtrip carrying the snapshot with the build.
+do
+    dofile("modules/build/CharacterSnapshot.lua")
+
+    local function getNumTabs() return 2 end
+    local function getTabInfo(tab) return "Tree" .. tab, nil, tab == 1 and 31 or 5 end
+    local talents = {
+        [1] = { { "Alpha", nil, 1, 2, 3, 5 }, { "Beta", nil, 1, 1, 0, 3 }, { "Gamma", nil, 2, 1, 2, 2 } },
+        [2] = { { "Delta", nil, 1, 1, 1, 1 } },
+    }
+    local function getNumTalents(tab) return #talents[tab] end
+    local function getTalentInfo(tab, i) return unpack(talents[tab][i]) end
+
+    local trees = EbonBuilds.CharacterSnapshot.CaptureTalents(getNumTabs, getTabInfo, getTalentInfo, getNumTalents)
+    check(#trees[1].talents == 3, "every talent is captured, including rank 0")
+    check(trees[1].talents[1].name == "Beta", "talents are ordered by tier then column, not API index")
+    check(trees[1].talents[2].rank == 3 and trees[1].talents[2].maxRank == 5, "ranks captured faithfully")
+    check(trees[1].points == 31 and trees[2].points == 5, "per-tree point totals captured")
+
+    local function getSockets() return 6 end
+    local function getSocketInfo(s)
+        if s == 1 then return true, nil, 42 end
+        if s == 2 then return true, nil, nil end
+        return false, nil, nil
+    end
+    local glyphs = EbonBuilds.CharacterSnapshot.CaptureGlyphs(getSockets, getSocketInfo, function() return "Glyph of Testing" end)
+    check(glyphs[1].kind == "major" and glyphs[1].name == "Glyph of Testing", "socket 1 is major and resolves its glyph name")
+    check(glyphs[2].kind == "minor" and glyphs[2].enabled and not glyphs[2].spellId, "an enabled empty socket is empty, not locked")
+    check(glyphs[3].enabled == false, "a disabled socket is captured as locked")
+
+    local equipped = { [1] = "helm" }
+    local function getInv(slotId) return equipped[slotId] end
+    local function getInfo(link) return "Nice Helm", link, 4 end
+    local build = { title = "Snap", class = "MAGE", spec = 1, echoWeights = {}, settings = EbonBuilds.Build.NewBuildSettings() }
+    local snap = EbonBuilds.CharacterSnapshot.ApplyToBuild(build, {
+        getInvLink = getInv, getInfo = getInfo,
+        getNumTabs = getNumTabs, getTabInfo = getTabInfo,
+        getTalentInfo = getTalentInfo, getNumTalents = getNumTalents,
+        getNumSockets = getSockets, getSocketInfo = getSocketInfo,
+        getSpellInfo = function() return "Glyph of Testing" end,
+    })
+    check(build.characterSnapshot == snap and snap.gear[1].name == "Nice Helm" and snap.gear[1].quality == 4,
+        "ApplyToBuild stores the capture on the build with gear name and quality")
+    local summary = EbonBuilds.CharacterSnapshot.Summarize(snap)
+    check(summary and summary:find("31/5/0", 1, true) ~= nil and summary:find("1 glyphs", 1, true) ~= nil,
+        "summary reads points/glyphs/items: " .. tostring(summary))
+
+    -- Roundtrip: the snapshot must survive export -> decode, so shared
+    -- Public Builds carry the author's full setup, not just weights.
+    local created = EbonBuilds.Build.Create(build)
+    created.characterSnapshot = snap
+    local exported = EbonBuilds.ExportImport.ExportBuild(created)
+    local decoded = EbonBuilds.ExportImport.DecodeBuild(exported)
+    check(decoded and decoded.characterSnapshot and decoded.characterSnapshot.talents[1].talents[1].name == "Beta",
+        "characterSnapshot survives the export/decode roundtrip intact")
+
+    -- BuildTabs structure: tab 5 exists and mounts CharacterView.
+    local f = assert(io.open("modules/ui/BuildTabs.lua", "r"))
+    local src = f:read("*a")
+    f:close()
+    check(src:find('TAB_DEFS%[5%]') ~= nil and src:find("CharacterView.Mount", 1, true) ~= nil
+        and src:find("CharacterView.Unmount", 1, true) ~= nil,
+        "BuildTabs defines tab 5 and mounts/unmounts CharacterView")
+end
+
 if failures > 0 then
     io.stderr:write(string.format("%d test(s) failed.\n", failures))
     os.exit(1)

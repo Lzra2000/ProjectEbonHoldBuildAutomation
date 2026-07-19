@@ -35,4 +35,6 @@ EbonBuilds.Locale.Register("ptBR", {
     [" · Autopilot uses last saved settings"] = " · Autopilot usa as últimas configurações salvas",
 
     -- /ebb locale command
+    ["Character"] = "Personagem",
+    ["Live gear, full talent trees, and glyphs; adopt them into the build."] = "Equipamento atual, árvores de talentos completas e glifos; adote-os no build.",
 })

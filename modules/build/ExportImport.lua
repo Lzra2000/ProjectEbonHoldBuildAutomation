@@ -280,6 +280,10 @@ local function BuildExportData(build)
 		author = build.author,
 		lastModified = build.lastModified,
 		copiedFrom = build.copiedFrom or nil,
+		-- Optional: the gear/talents/glyphs snapshot adopted on the
+		-- Character tab travels with the build, so a shared Public Build
+		-- can carry its author's full setup, not just weights.
+		characterSnapshot = build.characterSnapshot or nil,
 	}
 end
 
@@ -319,6 +323,7 @@ function EbonBuilds.ExportImport.DecodeBuild(b64String)
 		author      = data.author,
 		lastModified = data.lastModified,
 		copiedFrom  = data.copiedFrom or nil,
+		characterSnapshot = data.characterSnapshot or nil,
 	})
 	EbonBuilds.Build.EnsureSettings(build)
 	return build

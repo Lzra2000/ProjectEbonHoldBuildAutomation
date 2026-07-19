@@ -522,6 +522,7 @@ function EbonBuilds.Build.NewObject(data)
         isPublic         = data.isPublic or false,
         validated         = data.validated or false,
         copiedFrom        = data.copiedFrom or nil,
+        characterSnapshot = data.characterSnapshot and CloneTable(data.characterSnapshot) or nil,
         stats            = {
             echoesSeen    = 0,
             runsCompleted = 0,

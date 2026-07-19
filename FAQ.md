@@ -253,6 +253,15 @@ This is deliberately approximate, not a controlled measurement: echoes stack tog
 
 ## Changelog
 
+### 3.22 (2026-07-19) -- Character tab: live gear, full talent trees, glyphs, and snapshot adoption
+
+New fifth tab in the build editor, "Character", closing out the last two prepared APIs from 3.20's orphan review (`GearScore.ScoreEquipped`'s scoring path and the talent capture machinery).
+
+- **Live view**: every equipment slot with item name, quality color, and its GearScore for the build's spec; all three talent trees rendered in full -- every talent of every tree, skilled ranks highlighted, unskilled dimmed, ordered by tree position; all six glyph sockets (major/minor per the 3.3.5a socket layout, distinguishing empty from locked). Refreshes automatically on equipment, talent, and glyph events while the tab is open.
+- **Adopt snapshot**: one button writes the current gear, complete talent trees, and glyphs onto the build being edited. It follows the editor's normal draft flow -- persisted by Save, discarded by Cancel, exactly like every other edit -- and the tab shows what snapshot (if any) the build currently stores, with its capture time and a points/glyphs/items summary.
+- **Snapshots travel with builds**: exported build strings and Public Builds now carry the snapshot, so a shared build can include its author's full setup rather than just weights. The roundtrip test for this immediately caught that both `DecodeBuild` and `Build.NewObject` field-filter imports -- the snapshot had to be threaded through both, and would otherwise have silently vanished on every import.
+- New `modules/build/CharacterSnapshot.lua` (capture logic, every getter injectable for tests) and `modules/ui/CharacterView.lua`; tab label and hint translated in all six languages. Tests cover full-tree capture including rank-0 talents, tier/column ordering, the glyph socket layout, adoption onto a build, the summary line, the export/import roundtrip, and the tab wiring.
+
 ### 3.21 (2026-07-19) -- Gear upgrade hints on item tooltips
 
 The GearScore API that 3.20's orphan review deliberately kept ("a coherent gear-upgrade API waiting to be wired up") is now wired up.
