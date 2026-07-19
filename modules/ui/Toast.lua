@@ -13,7 +13,8 @@ local function GetToastDuration()
 end
 local QUALITY_HEX = EbonBuilds.Quality.HEX
 
-local queue      = {}
+local MAX_PENDING_TOASTS = 20
+local queue      = EbonBuilds.RingBuffer.New(MAX_PENDING_TOASTS)
 local frame
 local elapsed    = 0
 local hovered    = false
@@ -66,12 +67,12 @@ end
 
 local function ShowNext()
     ClearLines()
-    if #queue == 0 then
+    if EbonBuilds.RingBuffer.Count(queue) == 0 then
         frame:Hide()
         return
     end
 
-    local entry = table.remove(queue, 1)
+    local entry = EbonBuilds.RingBuffer.PopOldest(queue)
     if entry.action then
         local actionColors = {
             Banish = "|cffff4444", Reroll = "|cff44aaff",
@@ -162,12 +163,12 @@ function EbonBuilds.Toast.ShowAutomationResult(scored, action, targetIndex)
             score   = s.score,
         }
     end
-    table.insert(queue, entry)
+    EbonBuilds.RingBuffer.Append(queue, entry)
     if frame and not frame:IsShown() then ShowNext() end
 end
 
 function EbonBuilds.Toast.Show(message)
-    table.insert(queue, { text = message })
+    EbonBuilds.RingBuffer.Append(queue, { text = message })
     if frame and not frame:IsShown() then ShowNext() end
 end
 
@@ -273,5 +274,5 @@ end
 
 function EbonBuilds.Toast.Init()
     frame = BuildFrame()
-    if #queue > 0 then ShowNext() end
+    if EbonBuilds.RingBuffer.Count(queue) > 0 then ShowNext() end
 end

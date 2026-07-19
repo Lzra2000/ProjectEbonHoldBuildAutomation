@@ -6,6 +6,10 @@
 ## SavedVariablesPerCharacter: EbonBuildsCharDB
 
 core/Init.lua
+core/EventHub.lua
+core/Scheduler.lua
+core/RingBuffer.lua
+core/Database.lua
 modules/i18n/Locale.lua
 modules/i18n/locales/deDE.lua
 modules/i18n/locales/esES.lua
@@ -15,6 +19,8 @@ modules/i18n/locales/ptBR.lua
 modules/i18n/locales/ruRU.lua
 modules/build/Build.lua
 modules/build/EchoPolicy.lua
+modules/data/TalentCatalogData.lua
+modules/data/TalentCatalog.lua
 modules/build/CharacterSnapshot.lua
 modules/talents/Talents.lua
 modules/data/Quality.lua
@@ -40,9 +46,12 @@ modules/ui/Filters.lua
 modules/ui/EchoTableRows.lua
 modules/ui/EchoTable.lua
 modules/session/Session.lua
+modules/analytics/Aggregates.lua
 modules/build/Scoring.lua
 modules/build/ExportImport.lua
 modules/build/EWL.lua
+modules/app/Readiness.lua
+modules/app/Review.lua
 modules/sync/Sync.lua
 modules/sync/ChatLink.lua
 modules/ui/WeightsView.lua

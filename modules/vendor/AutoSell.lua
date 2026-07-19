@@ -20,7 +20,11 @@ local enabled = false
 
 function EbonBuilds.AutoSell.SetEnabled(on)
     enabled = on and true or false
-    EbonBuildsCharDB.autoSellJunkEnabled = enabled
+    if EbonBuilds.Database and EbonBuilds.Database.SetCharacterPreference then
+        EbonBuilds.Database.SetCharacterPreference("autoSellJunkEnabled", enabled)
+    else
+        EbonBuildsCharDB.autoSellJunkEnabled = enabled
+    end
 end
 
 function EbonBuilds.AutoSell.IsEnabled()
@@ -80,7 +84,7 @@ function EbonBuilds.AutoSell.ShouldSell(link, getItemInfo)
     return true
 end
 
-local sellQueue = {}
+local sellQueue = EbonBuilds.RingBuffer.New(400)
 local sellTicker
 local SELL_INTERVAL = 0.3 -- seconds between individual sells; gentle pacing,
                            -- avoids firing a burst of rapid consecutive
@@ -93,16 +97,16 @@ local function EnsureSellTicker()
     local elapsed = 0
     local consecutiveFailures = 0
     local rawTick = function(self, dt)
-        if #sellQueue == 0 or not MerchantFrame or not MerchantFrame:IsShown() then
+        if EbonBuilds.RingBuffer.Count(sellQueue) == 0 or not MerchantFrame or not MerchantFrame:IsShown() then
             self:SetScript("OnUpdate", nil)
             sellTicker = nil
-            wipe(sellQueue)
+            EbonBuilds.RingBuffer.Clear(sellQueue)
             return true
         end
         elapsed = elapsed + dt
         if elapsed < SELL_INTERVAL then return true end
         elapsed = 0
-        local next_ = table.remove(sellQueue, 1)
+        local next_ = EbonBuilds.RingBuffer.PopOldest(sellQueue)
         if next_ then
             -- Re-verify at sell time: bag contents can shift while the
             -- queue drains (picked up loot, another sell already emptied
@@ -128,7 +132,7 @@ local function EnsureSellTicker()
             if consecutiveFailures >= 3 then
                 self:SetScript("OnUpdate", nil)
                 sellTicker = nil
-                wipe(sellQueue)
+                EbonBuilds.RingBuffer.Clear(sellQueue)
             end
         else
             consecutiveFailures = 0
@@ -138,24 +142,26 @@ end
 
 local function SellBags()
     if not enabled then return end
-    wipe(sellQueue)
+    EbonBuilds.RingBuffer.Clear(sellQueue)
     for bag = 0, 4 do
         local slots = GetContainerNumSlots and GetContainerNumSlots(bag) or 0
         for slot = 1, slots do
             local link = GetContainerItemLink(bag, slot)
             if link and EbonBuilds.AutoSell.ShouldSell(link) then
-                sellQueue[#sellQueue + 1] = { bag = bag, slot = slot }
+                EbonBuilds.RingBuffer.Append(sellQueue, { bag = bag, slot = slot })
             end
         end
     end
-    if #sellQueue > 0 then
+    if EbonBuilds.RingBuffer.Count(sellQueue) > 0 then
         EnsureSellTicker()
     end
 end
 
 function EbonBuilds.AutoSell.Init()
-    if EbonBuildsCharDB.autoSellJunkEnabled ~= nil then
-        enabled = EbonBuildsCharDB.autoSellJunkEnabled
+    if EbonBuilds.Database and EbonBuilds.Database.GetCharacterPreference then
+        enabled = EbonBuilds.Database.GetCharacterPreference("autoSellJunkEnabled")
+    elseif EbonBuildsCharDB.autoSellJunkEnabled ~= nil then
+        enabled = EbonBuildsCharDB.autoSellJunkEnabled == true
     end
     local f = CreateFrame("Frame")
     f:RegisterEvent("MERCHANT_SHOW")
@@ -164,7 +170,7 @@ function EbonBuilds.AutoSell.Init()
         if event == "MERCHANT_SHOW" then
             SellBags()
         else -- MERCHANT_CLOSED: stop immediately, don't wait for the next poll
-            wipe(sellQueue)
+            EbonBuilds.RingBuffer.Clear(sellQueue)
             if sellTicker then sellTicker:SetScript("OnUpdate", nil); sellTicker = nil end
         end
     end))

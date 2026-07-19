@@ -17,7 +17,8 @@ local changeCallbacks = {}
 local searchEditBox, searchPlaceholder, qualityDropdown, familyDropdown, policyDropdown, bulkPolicyDropdown
 local allClassesToggle, learnedToggle, resultLabel, resultHitFrame
 local chipFrame, chipPool = nil, {}
-local debounceFrame, debouncePending = nil, false
+local filterBar, searchContainer, resetButton
+local debouncePending = false
 
 local UpdateChips
 
@@ -28,22 +29,11 @@ end
 
 local function ScheduleNotify()
     debouncePending = true
-    if not debounceFrame then
-        debounceFrame = CreateFrame("Frame")
-        debounceFrame:Hide()
-        debounceFrame._elapsed = 0
-        debounceFrame:SetScript("OnUpdate", function(self, elapsed)
-            if not debouncePending then self:Hide(); return end
-            self._elapsed = self._elapsed + elapsed
-            if self._elapsed < 0.12 then return end
-            self._elapsed = 0
-            debouncePending = false
-            self:Hide()
-            Notify()
-        end)
-    end
-    debounceFrame._elapsed = 0
-    debounceFrame:Show()
+    EbonBuilds.Scheduler.After("filters.notify", 0.12, function()
+        if not debouncePending then return end
+        debouncePending = false
+        Notify()
+    end, EbonBuilds.Scheduler.INTERACTIVE, true)
 end
 
 function EbonBuilds.Filters.OnChange(fn)
@@ -453,9 +443,73 @@ UpdateChips = function()
     end
 end
 
+local function LayoutMetrics(width)
+    width = math.max(520, tonumber(width) or 0)
+    local compact = width < 680
+    return {
+        width = width,
+        compact = compact,
+        gap = compact and 8 or 10,
+        search = compact and 168 or 182,
+        quality = compact and 134 or 150,
+        family = compact and 134 or 150,
+        allClasses = compact and 98 or 108,
+        learned = compact and 112 or 124,
+        policy = compact and 118 or 138,
+        bulk = compact and 106 or 120,
+        result = compact and 142 or 150,
+    }
+end
+
+local function LayoutControls()
+    local bar = filterBar
+    if not bar or not searchContainer or not qualityDropdown or not familyDropdown then return end
+    local metrics = LayoutMetrics(bar:GetWidth())
+    local width, gap = metrics.width, metrics.gap
+
+    searchContainer:SetWidth(metrics.search)
+    qualityDropdown:SetWidth(metrics.quality)
+    familyDropdown:SetWidth(metrics.family)
+
+    searchContainer:ClearAllPoints()
+    searchContainer:SetPoint("TOPLEFT", bar, "TOPLEFT", 0, 0)
+    qualityDropdown:ClearAllPoints()
+    qualityDropdown:SetPoint("LEFT", searchContainer, "RIGHT", gap, 0)
+    familyDropdown:ClearAllPoints()
+    familyDropdown:SetPoint("LEFT", qualityDropdown, "RIGHT", gap, 0)
+    if resetButton then
+        resetButton:ClearAllPoints()
+        resetButton:SetPoint("TOPRIGHT", bar, "TOPRIGHT", 0, 0)
+    end
+
+    allClassesToggle:SetWidth(metrics.allClasses)
+    learnedToggle:SetWidth(metrics.learned)
+    policyDropdown:SetWidth(metrics.policy)
+    bulkPolicyDropdown:SetWidth(metrics.bulk)
+
+    allClassesToggle:ClearAllPoints()
+    allClassesToggle:SetPoint("TOPLEFT", bar, "TOPLEFT", 0, -30)
+    learnedToggle:ClearAllPoints()
+    learnedToggle:SetPoint("LEFT", allClassesToggle, "RIGHT", gap, 0)
+    policyDropdown:ClearAllPoints()
+    policyDropdown:SetPoint("LEFT", learnedToggle, "RIGHT", gap, 0)
+    bulkPolicyDropdown:ClearAllPoints()
+    bulkPolicyDropdown:SetPoint("LEFT", policyDropdown, "RIGHT", gap, 0)
+
+    local resultWidth = metrics.result
+    resultLabel:ClearAllPoints()
+    resultLabel:SetPoint("TOPRIGHT", bar, "TOPRIGHT", 0, -33)
+    resultLabel:SetWidth(resultWidth)
+    resultHitFrame:ClearAllPoints()
+    resultHitFrame:SetPoint("TOPRIGHT", bar, "TOPRIGHT", 0, -28)
+    resultHitFrame:SetSize(resultWidth + 4, 24)
+
+    if UpdateChips then UpdateChips() end
+end
+
 function EbonBuilds.Filters.Reset()
     debouncePending = false
-    if debounceFrame then debounceFrame:Hide() end
+    EbonBuilds.Scheduler.Cancel("filters.notify")
     state.text, state.quality, state.policy, state.families = "", nil, nil, {}
     state.showAllClasses, state.learnedOnly, state.learnedReady = false, false, true
     if searchEditBox then searchEditBox:SetText(""); searchEditBox:ClearFocus() end
@@ -498,8 +552,9 @@ function EbonBuilds.Filters.Init(parent)
     bar:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, -48)
     bar:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -10, -48)
     bar:SetHeight(80)
+    filterBar = bar
 
-    local searchContainer = CreateSearchBox(bar)
+    searchContainer = CreateSearchBox(bar)
     local quality = CreateQualityDropdown(bar, searchContainer)
     CreateFamilyDropdown(bar, quality)
     CreateAllClassesToggle(bar)
@@ -509,6 +564,7 @@ function EbonBuilds.Filters.Init(parent)
     UpdateToggleVisuals()
 
     local resetBtn = EbonBuilds.Theme.CreateButton(bar)
+    resetButton = resetBtn
     resetBtn:SetSize(58, 22)
     resetBtn:SetPoint("TOPRIGHT", bar, "TOPRIGHT", 0, 0)
     resetBtn:SetText("Reset")
@@ -553,7 +609,16 @@ function EbonBuilds.Filters.Init(parent)
     empty:SetText("No active filters")
     empty:SetTextColor(0.48, 0.50, 0.55, 1)
     chipFrame._empty = empty
+    bar:SetScript("OnSizeChanged", LayoutControls)
+    LayoutControls()
     UpdateChips()
 
     return bar
 end
+
+
+function EbonBuilds.Filters.RefreshLayout()
+    LayoutControls()
+end
+
+EbonBuilds.Filters._LayoutMetricsForTest = LayoutMetrics

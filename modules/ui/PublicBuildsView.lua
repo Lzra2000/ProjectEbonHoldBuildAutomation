@@ -186,12 +186,7 @@ local function CreateCard(parent)
     card:RegisterForClicks("LeftButtonUp")
 
     -- Class-colored border via backdrop
-    card:SetBackdrop({
-        bgFile   = "Interface\\Buttons\\WHITE8X8",
-        edgeFile = "Interface\\Buttons\\WHITE8X8",
-        edgeSize = 1,
-        insets   = { left = 1, right = 1, top = 1, bottom = 1 },
-    })
+    EbonBuilds.Theme.ApplyBackdropDefinition(card)
     card:SetBackdropColor(unpack(EbonBuilds.Theme.CARD_BG))
     card:SetBackdropBorderColor(unpack(EbonBuilds.Theme.BORDER_DIM))
 
@@ -305,16 +300,15 @@ local function ImportBuild(build)
         spec     = build.spec or 1,
         comments = build.comments or "",
         lockedEchoes = build.lockedEchoes or { nil, nil, nil, nil, nil, nil },
+        echoWeights = build.echoWeights and EbonBuilds.Weights.CloneWeights(build.echoWeights) or {},
         settings = settings,
         isPublic = false,
+        startPaused = true,
+        characterSnapshot = build.characterSnapshot and EbonBuilds.Build.CloneTable(build.characterSnapshot) or nil,
     }
     local newBuild = EbonBuilds.Build.Create(data)
     newBuild.importedFrom = build.id
     newBuild._importedAt = build.lastModified
-    if build.echoWeights and next(build.echoWeights) then
-        newBuild.echoWeights = EbonBuilds.Weights.CloneWeights(build.echoWeights)
-    end
-    newBuild._checksum = EbonBuilds.Build.Checksum(newBuild)
     EbonBuilds.Build.EnsureSettings(newBuild)
     -- Deliberately NOT removing build.id from EbonBuildsDB.remoteBuilds
     -- here. The browse list already hides this entry independently

@@ -456,9 +456,62 @@ EbonBuilds.BuildOverview._ComputeMissingEchoes = ComputeMissingEchoes
 ------------------------------------------------------------------------
 -- Overview tab content
 
+local function OverviewActionGridMetrics(outerWidth, count)
+    outerWidth = math.max(1, tonumber(outerWidth) or 0)
+    count = math.max(1, tonumber(count) or 1)
+    local available = math.max(320, outerWidth - 20)
+    local columns = available >= 660 and 5 or 3
+    local gap = 6
+    local buttonWidth = math.floor((available - (columns - 1) * gap) / columns)
+    local rows = math.ceil(count / columns)
+    return {
+        available = available,
+        columns = columns,
+        gap = gap,
+        buttonWidth = math.max(96, buttonWidth),
+        rows = rows,
+        height = rows * 22 + math.max(0, rows - 1) * gap,
+    }
+end
+
+EbonBuilds.BuildOverview._ActionGridMetricsForTests = OverviewActionGridMetrics
+
+local function LayoutOverviewActions(outer)
+    local area = outer and outer._actionArea
+    local buttons = outer and outer._actionButtons
+    if not area or not buttons or #buttons == 0 then return end
+    local metrics = OverviewActionGridMetrics(outer:GetWidth(), #buttons)
+    area:SetWidth(metrics.available)
+    area:SetHeight(metrics.height)
+    for index, button in ipairs(buttons) do
+        local row = math.floor((index - 1) / metrics.columns)
+        local column = (index - 1) % metrics.columns
+        button:ClearAllPoints()
+        button:SetSize(metrics.buttonWidth, 22)
+        button:SetPoint("TOPLEFT", area, "TOPLEFT",
+            column * (metrics.buttonWidth + metrics.gap),
+            -row * (22 + metrics.gap))
+    end
+end
+
 local function BuildOverviewTab(parent)
     local outer = CreateFrame("Frame", nil, parent)
     outer:SetAllPoints(parent)
+
+    -- Editing is the primary action for this page, so it lives separately in
+    -- the header instead of competing with runtime and sharing utilities.
+    local editBtn = EbonBuilds.Theme.CreateButton(outer, "gold")
+    editBtn:SetSize(128, 26)
+    editBtn:SetPoint("TOPRIGHT", outer, "TOPRIGHT", -10, -10)
+    editBtn:SetText("Edit Build")
+    EbonBuilds.Theme.AttachTooltip(editBtn, "Edit Build",
+        "Opens the complete build editor. Use the Character action below for direct access to saved gear, talents, glyphs, and affixes.")
+    editBtn:SetScript("OnClick", function()
+        if state.build then
+            EbonBuilds.ViewRouter.Show("buildTabs", { mode = "edit", build = state.build })
+        end
+    end)
+    outer._editBtn = editBtn
 
     -- Class icon + Build name header
     local classIcon = outer:CreateTexture(nil, "ARTWORK")
@@ -469,7 +522,7 @@ local function BuildOverviewTab(parent)
 
     local nameLabel = outer:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     nameLabel:SetPoint("TOPLEFT", classIcon, "TOPRIGHT", 8, -6)
-    nameLabel:SetPoint("RIGHT",   outer,     "RIGHT",     -10, 0)
+    nameLabel:SetPoint("RIGHT", editBtn, "LEFT", -10, 0)
     nameLabel:SetJustifyH("LEFT")
     nameLabel:SetJustifyV("TOP")
     -- Fixed height (enough for 2 wrapped lines) so a long community build
@@ -488,7 +541,7 @@ local function BuildOverviewTab(parent)
     metaLabel:SetHeight(26)
     outer._metaLabel = metaLabel
 
-    -- Public / Validated status (button frame for tooltip support)
+    -- Public, readiness, and evidence status (button frame for tooltip support)
     local statusFrame = CreateFrame("Button", nil, outer)
     statusFrame:SetPoint("TOPLEFT",     metaLabel, "BOTTOMLEFT", 0, -12)
     statusFrame:SetPoint("RIGHT",       outer,     "RIGHT",      -10, 0)
@@ -498,12 +551,21 @@ local function BuildOverviewTab(parent)
     statusLabel:SetJustifyH("LEFT")
     statusFrame:SetScript("OnEnter", function(self)
         local build = state.build
-        if not build or not build.isPublic then return end
+        if not build then return end
+        local readiness = EbonBuilds.Readiness.Get(build)
         GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
         GameTooltip:ClearLines()
-        GameTooltip:AddLine("Public Build", 1, 0.82, 0, 1)
-        GameTooltip:AddLine("Public builds require validation to appear in the browser.", 0.8, 0.8, 0.8, 1)
-        GameTooltip:AddLine("Level a character from 1 to 80 using this build to validate it.", 0.6, 0.6, 0.6, 1)
+        GameTooltip:AddLine("Build readiness", 1, 0.82, 0, 1)
+        GameTooltip:AddLine("State: " .. tostring(readiness.state), 0.85, 0.85, 0.9, 1)
+        GameTooltip:AddLine(string.format("Current strategy evidence: %d completed run(s), %d recorded decisions.",
+            readiness.completedRuns or 0, readiness.decisionCount or 0), 0.75, 0.75, 0.8, 1)
+        if readiness.reviewPending then
+            GameTooltip:AddLine("A completed or interrupted run is ready to review.", 1, 0.72, 0.2, 1)
+        end
+        if build.isPublic then
+            GameTooltip:AddLine(build.validated and "This strategy revision has a completed local run."
+                or "No completed local run has been recorded for this strategy revision.", 0.65, 0.65, 0.7, 1)
+        end
         GameTooltip:Show()
     end)
     statusFrame:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -537,13 +599,19 @@ local function BuildOverviewTab(parent)
     end
     outer._lockedButtons = lockedButtons
 
-    -- Automation toggle + Edit button
+    local actionArea = CreateFrame("Frame", nil, outer)
+    actionArea:SetPoint("TOPLEFT", lockedButtons[1], "BOTTOMLEFT", -40, -18)
+    actionArea:SetSize(320, 50)
+    outer._actionArea = actionArea
+
+    -- Runtime controls and build actions are created here, then placed by the
+    -- shared responsive action grid once every control exists.
     local autoToggle = EbonBuilds.Theme.CreateButton(outer)
     autoToggle:SetWidth(140)
     autoToggle:SetHeight(22)
     autoToggle:SetPoint("TOPLEFT", lockedButtons[1], "BOTTOMLEFT", 0, -22)
     local function RefreshAutoToggle(self, build)
-        local on = build and build.automationEnabled
+        local on = build and EbonBuilds.Build.IsAutomationEnabled(build)
         self:SetText(on and "Autopilot: ON" or "Autopilot: OFF")
         -- Color-code live state so the one control that changes game
         -- behavior stands out from the row of plain navigation buttons.
@@ -557,7 +625,7 @@ local function BuildOverviewTab(parent)
     autoToggle:SetScript("OnClick", function(self)
         local build = state.build
         if not build then return end
-        build.automationEnabled = not build.automationEnabled
+        EbonBuilds.Build.SetAutomationEnabled(build, not EbonBuilds.Build.IsAutomationEnabled(build))
         RefreshAutoToggle(self, build)
         if EbonBuilds.MainWindow and EbonBuilds.MainWindow.RefreshContext then EbonBuilds.MainWindow.RefreshContext() end
     end)
@@ -599,18 +667,17 @@ local function BuildOverviewTab(parent)
     outer._trainToggle = trainToggle
     outer._refreshTrainToggle = RefreshTrainToggle
 
-    local editBtn = EbonBuilds.Theme.CreateButton(outer)
-    editBtn:SetWidth(120)
-    editBtn:SetHeight(22)
-    -- Slightly wider gap than between the action buttons themselves: reads
-    -- as "status control | action group" instead of one undifferentiated row.
-    editBtn:SetPoint("LEFT", autoToggle, "RIGHT", 16, 0)
-    editBtn:SetText("Edit Build")
-    editBtn:SetScript("OnClick", function()
+    local characterBtn = EbonBuilds.Theme.CreateButton(outer)
+    characterBtn:SetSize(120, 22)
+    characterBtn:SetText("Character")
+    EbonBuilds.Theme.AttachTooltip(characterBtn, "Open Character",
+        "Opens this build's saved talents, glyphs, gear, and affixes directly in the Character editor.")
+    characterBtn:SetScript("OnClick", function()
         if state.build then
-            EbonBuilds.ViewRouter.Show("buildTabs", { mode = "edit", build = state.build })
+            EbonBuilds.ViewRouter.Show("buildTabs", { mode = "edit", build = state.build, tab = 5 })
         end
     end)
+    outer._characterBtn = characterBtn
 
     local linkBtn = EbonBuilds.Theme.CreateButton(outer)
     linkBtn:SetWidth(80)
@@ -651,8 +718,7 @@ local function BuildOverviewTab(parent)
     -- Apply this build's locked echoes to the server's native Active Echo
     -- Loadout (ProjectEbonhold.PerkService.SetActiveEchoLoadout) -- the
     -- server highlights matching picks in its own echo-selection screen
-    -- while a loadout is active. Second row: the first row (auto/edit/
-    -- link/duplicate) is already close to the panel width.
+    -- while a loadout is active.
     local applyBtn = EbonBuilds.Theme.CreateButton(outer)
     applyBtn:SetWidth(150)
     applyBtn:SetHeight(20)
@@ -713,9 +779,42 @@ local function BuildOverviewTab(parent)
     end)
     outer._ewlBtn = ewlBtn
 
+    local reviewBtn = EbonBuilds.Theme.CreateButton(outer)
+    reviewBtn:SetWidth(132)
+    reviewBtn:SetHeight(20)
+    reviewBtn:SetPoint("LEFT", ewlBtn, "RIGHT", 8, 0)
+    reviewBtn:SetText("Review Last Run")
+    EbonBuilds.Theme.AttachTooltip(reviewBtn, "Review last run",
+        "Opens the decision logbook for the latest run and marks its summary as reviewed. Mixed-strategy runs remain clearly labeled.")
+    reviewBtn:SetScript("OnClick", function()
+        local build = state.build
+        local summary = build and EbonBuilds.Review.Build(build)
+        if not summary then
+            EbonBuilds.Toast.Show("No finished run is available for this build yet")
+            return
+        end
+        EbonBuilds.Review.MarkReviewed(build)
+        EbonBuilds.BuildOverview.OpenLogbook()
+        local label = summary.completed and "completed" or "interrupted"
+        if summary.mixedStrategy then label = label .. ", mixed strategy" end
+        EbonBuilds.Toast.Show(string.format("Reviewing %s run: level %d, %d decisions", label,
+            summary.maxLevel or 1, summary.decisions or 0))
+    end)
+    outer._reviewBtn = reviewBtn
+
+    -- One deterministic action grid replaces the previous chain of mixed
+    -- left/top anchors. Wide views use five equal columns over two rows;
+    -- narrower views use three columns over three rows without squeezing
+    -- labels or changing their semantic order.
+    outer._actionButtons = {
+        autoToggle, trainToggle, characterBtn, applyBtn,
+        linkBtn, dupBtn, ewlBtn, reviewBtn,
+    }
+    LayoutOverviewActions(outer)
+
     -- Description header
     local descHeader = outer:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    descHeader:SetPoint("TOPLEFT", applyBtn, "BOTTOMLEFT", 0, -14)
+    descHeader:SetPoint("TOPLEFT", actionArea, "BOTTOMLEFT", 0, -14)
     descHeader:SetText("Description:")
     outer._descHeader = descHeader
 
@@ -788,6 +887,8 @@ local function BuildOverviewTab(parent)
         StaticPopup_Show("EBONBUILDS_DELETE_BUILD")
     end)
     outer._deleteBtn = deleteBtn
+
+    outer:SetScript("OnSizeChanged", function(self) LayoutOverviewActions(self) end)
 
     return outer, descSmf, descMeasure, descScroll, descChild, descBar
 end
@@ -921,22 +1022,29 @@ local function RefreshOverview()
 
     local specs = EbonBuilds.SpecData and EbonBuilds.SpecData[build.class]
     local specName = specs and specs[build.spec or 1] and specs[build.spec or 1].name or ""
-    overviewOuter._metaLabel:SetText(string.format("by %s | %s | %s",
+    overviewOuter._metaLabel:SetText(string.format("by %s | %s | r%d / strategy r%d | %s",
         build.author or "Unknown",
         specName,
+        tonumber(build.revision) or tonumber(build.version) or 1,
+        tonumber(build.strategyRevision) or 1,
         build.lastModified or ""))
 
-    -- Public / Validated status
+    -- Public / readiness / local evidence status. "Run-tested" is deliberately
+    -- precise; it is not a global correctness or quality certification.
+    local readiness = EbonBuilds.Readiness.Get(build)
     local publicText = build.isPublic and "|cff19ff19Public|r" or "|cff888888Private|r"
-    local validatedText
-    if build.validated then
-        validatedText = " |cff19ff19(Validated)|r"
-    elseif build.isPublic then
-        validatedText = " |cffff4444(Not Validated)|r"
-    else
-        validatedText = ""
+    local stateColor = readiness.state == "INCOMPLETE" and "|cffff5555"
+        or readiness.state == "READY" and "|cffffff66"
+        or "|cff19ff19"
+    local evidence = tostring(readiness.evidenceTier or "INSUFFICIENT"):gsub("_", " ")
+    local runTested = build.validated and " · |cff19ff19Locally run-tested|r" or ""
+    local review = readiness.reviewPending and " · |cffffb84dReview ready|r" or ""
+    overviewOuter._statusLabel:SetText(string.format("%s · %s%s|r · Evidence: %s%s%s",
+        publicText, stateColor, readiness.state, evidence, runTested, review))
+    if overviewOuter._reviewBtn then
+        if EbonBuilds.Review.Latest(build) then overviewOuter._reviewBtn:Enable()
+        else overviewOuter._reviewBtn:Disable() end
     end
-    overviewOuter._statusLabel:SetText(publicText .. validatedText)
 
     overviewOuter._refreshAutoToggle(overviewOuter._autoToggle, build)
     overviewOuter._refreshTrainToggle(overviewOuter._trainToggle, build)
@@ -1406,4 +1514,7 @@ function EbonBuilds.BuildOverview.Init()
     viewFrame = BuildViewFrame()
     viewFrame:Hide()
     EbonBuilds.ViewRouter.Register("buildOverview", view)
+    EbonBuilds.EventHub.On("RUN_ENDED", function() if viewFrame and viewFrame:IsShown() then RefreshOverview() end end)
+    EbonBuilds.EventHub.On("EVIDENCE_REVISION_CHANGED", function() if viewFrame and viewFrame:IsShown() then RefreshOverview() end end)
+    EbonBuilds.EventHub.On("BUILD_RUNTIME_CHANGED", function() if viewFrame and viewFrame:IsShown() then RefreshOverview() end end)
 end

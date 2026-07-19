@@ -16,26 +16,19 @@ local function OnAddonLoaded(addonName)
         return
     end
 
-    EbonBuildsDB = EbonBuildsDB or {
-        builds        = {},
-        minimapAngle  = 220,
-        globalSettings = {
-            evalDelay     = 2,
-            toastDuration = 3,
-        },
-    }
+    EbonBuilds.Database.Init()
     EbonBuildsDB.minimapAngle = EbonBuildsDB.minimapAngle or 220
     EbonBuildsDB.globalSettings = EbonBuildsDB.globalSettings or {}
     EbonBuildsDB.globalSettings.evalDelay     = EbonBuildsDB.globalSettings.evalDelay     or 2
     EbonBuildsDB.globalSettings.toastDuration = EbonBuildsDB.globalSettings.toastDuration or 3
-
-    EbonBuildsCharDB = EbonBuildsCharDB or {
-        activeBuildId = nil,
-    }
+    EbonBuildsDB.globalSettings.uiScale       = EbonBuildsDB.globalSettings.uiScale       or 1
 
     EbonBuilds.Locale.Init()
+    EbonBuilds.DebugLog.Init()
+    EbonBuilds.ClickTrace.Init()
 
     EbonBuilds.Build.Migrate()
+    EbonBuilds.Aggregates.Init()
     EbonBuilds.Session.Init()
     EbonBuilds.SessionHistory.Init()
     EbonBuilds.Weights.Init()

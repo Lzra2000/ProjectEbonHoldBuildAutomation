@@ -27,15 +27,59 @@ T.DANGER       = { 1.00, 0.26, 0.26, 1.00 }
 T.TEXT_PRIMARY = { 0.96, 0.96, 0.98, 1.00 }
 T.TEXT_MUTED   = { 0.66, 0.68, 0.74, 1.00 }
 
-local WINDOW_BACKDROP = {
+local NORMAL_BACKDROP = {
     bgFile   = FLAT,
     edgeFile = FLAT,
     edgeSize = 1,
     insets   = { left = 1, right = 1, top = 1, bottom = 1 },
 }
 
+-- A one-unit edge becomes only 0.9 physical pixels at the lowest supported
+-- addon scale. The 3.3.5 renderer rounds those fractional edges inconsistently,
+-- which makes the right/bottom portions appear cut off. Use a two-unit edge at
+-- low scale so every side survives rasterization as at least one full pixel.
+local LOW_SCALE_BACKDROP = {
+    bgFile   = FLAT,
+    edgeFile = FLAT,
+    edgeSize = 2,
+    insets   = { left = 1, right = 1, top = 1, bottom = 1 },
+}
+
+local appliedScale
+local backdropFrames = setmetatable({}, { __mode = "k" })
+
+local function CurrentScale()
+    return tonumber(appliedScale)
+        or tonumber(EbonBuildsDB and EbonBuildsDB.globalSettings and EbonBuildsDB.globalSettings.uiScale)
+        or 1
+end
+
+local function CurrentBackdrop()
+    return CurrentScale() < 0.95 and LOW_SCALE_BACKDROP or NORMAL_BACKDROP
+end
+
+local function InstallBackdrop(frame)
+    frame:SetBackdrop(CurrentBackdrop())
+    backdropFrames[frame] = true
+end
+
+function T.ApplyBackdropDefinition(frame)
+    if frame then InstallBackdrop(frame) end
+end
+
+function T.SetAppliedScale(scale)
+    appliedScale = tonumber(scale) or 1
+    for frame in pairs(backdropFrames) do
+        local background = frame.GetBackdropColor and { frame:GetBackdropColor() } or nil
+        local border = frame.GetBackdropBorderColor and { frame:GetBackdropBorderColor() } or nil
+        frame:SetBackdrop(CurrentBackdrop())
+        if background and background[1] then frame:SetBackdropColor(unpack(background)) end
+        if border and border[1] then frame:SetBackdropBorderColor(unpack(border)) end
+    end
+end
+
 local function ApplySurface(frame, background, border)
-    frame:SetBackdrop(WINDOW_BACKDROP)
+    InstallBackdrop(frame)
     frame:SetBackdropColor(unpack(background))
     frame:SetBackdropBorderColor(unpack(border))
 end
@@ -202,7 +246,7 @@ function T.SkinButton(btn)
     btn:SetPushedTexture("")
     btn:SetHighlightTexture("")
     if btn.SetDisabledTexture then btn:SetDisabledTexture("") end
-    btn:SetBackdrop(WINDOW_BACKDROP)
+    InstallBackdrop(btn)
     ApplyButtonVisual(btn, BTN_BG, btn._accentBorder or T.BORDER_DIM)
 
     btn:HookScript("OnEnter", function(self)
@@ -293,7 +337,7 @@ end
 -- Compact text badge used for non-color-only status communication.
 function T.CreateStatusPill(parent, text, kind)
     local frame = CreateFrame("Frame", nil, parent)
-    frame:SetBackdrop(WINDOW_BACKDROP)
+    InstallBackdrop(frame)
     frame:SetHeight(16)
     local label = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     label:SetPoint("LEFT", frame, "LEFT", 5, 0)
@@ -375,7 +419,7 @@ function T.CreateDropdown(parent, width, defaultText, opts)
         if btn then return btn end
         btn = CreateFrame("Button", nil, menu)
         btn:SetHeight(22)
-        btn:SetBackdrop(WINDOW_BACKDROP)
+        InstallBackdrop(btn)
         btn:SetBackdropColor(0.08, 0.08, 0.11, 0.98)
         btn:SetBackdropBorderColor(0.16, 0.16, 0.20, 1)
 
@@ -982,7 +1026,7 @@ function T.CreateCloseButton(parent)
     local btn = CreateFrame("Button", nil, parent)
     btn:SetSize(22, 22)
     btn:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -6, -6)
-    btn:SetBackdrop(WINDOW_BACKDROP)
+    InstallBackdrop(btn)
     ApplyButtonVisual(btn, BTN_BG, T.BORDER_DIM)
     local label = btn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     label:SetPoint("CENTER", btn, "CENTER", 0, 0)
@@ -1013,7 +1057,7 @@ end
 function T.CreateCheckbox(parent, labelText)
     local btn = CreateFrame("Button", nil, parent)
     btn:SetSize(18, 18)
-    btn:SetBackdrop(WINDOW_BACKDROP)
+    InstallBackdrop(btn)
     ApplyButtonVisual(btn, T.INPUT_BG, T.BORDER_DIM)
 
     local fill = btn:CreateTexture(nil, "ARTWORK")

@@ -69,6 +69,24 @@ local function EnsureSettings(build)
             end
         end
     end
+    local limits = {
+        autoBanishPct = { 0, 500 }, autoRerollPct = { 0, 500 }, rerollGuardPct = { 0, 500 },
+        rerollEVPct = { 0, 500 }, banishEVPct = { 0, 500 }, freezeEVPct = { 0, 500 },
+        autoFreezePct = { 0, 500 }, freezePenaltyPct = { 0, 100 }, noveltyValue = { -999999, 999999 },
+    }
+    for field, range in pairs(limits) do
+        local value = tonumber(build.settings[field]) or d[field]
+        build.settings[field] = math.max(range[1], math.min(range[2], value))
+    end
+    if build.settings.rerollMode ~= "ev" then build.settings.rerollMode = "sum" end
+    local function ClampBonusTable(values)
+        for key, value in pairs(values or {}) do
+            value = tonumber(value) or 0
+            values[key] = math.max(-999999, math.min(999999, value))
+        end
+    end
+    ClampBonusTable(build.settings.qualityBonus)
+    ClampBonusTable(build.settings.familyBonus)
 end
 
 EbonBuilds.Build.EnsureSettings = EnsureSettings
@@ -87,6 +105,52 @@ function EbonBuilds.Build.CloneSettings(settings)
 end
 
 EbonBuilds.Build.CloneTable = CloneTable
+
+local function StableSerialize(value)
+    local kind = type(value)
+    if kind == "nil" then return "n" end
+    if kind == "boolean" then return value and "t" or "f" end
+    if kind == "number" then return "#" .. tostring(value) end
+    if kind == "string" then return "$" .. value end
+    if kind ~= "table" then return "?" .. kind end
+    local keys = {}
+    for key in pairs(value) do keys[#keys + 1] = key end
+    table.sort(keys, function(a, b)
+        local ta, tb = type(a), type(b)
+        if ta ~= tb then return ta < tb end
+        return tostring(a) < tostring(b)
+    end)
+    local out = { "{" }
+    for _, key in ipairs(keys) do
+        out[#out + 1] = StableSerialize(key)
+        out[#out + 1] = StableSerialize(value[key])
+    end
+    out[#out + 1] = "}"
+    return table.concat(out)
+end
+
+local function Digest(value)
+    local text = type(value) == "string" and value or StableSerialize(value)
+    local hash = 5381
+    for index = 1, #text do hash = (hash * 33 + text:byte(index)) % 4294967296 end
+    local digits, out = "0123456789abcdef", {}
+    for index = 8, 1, -1 do
+        local nibble = hash % 16
+        out[index] = digits:sub(nibble + 1, nibble + 1)
+        hash = math.floor(hash / 16)
+    end
+    return table.concat(out)
+end
+
+function EbonBuilds.Build.StrategyChecksum(build)
+    return Digest({
+        class = build and build.class,
+        spec = build and build.spec,
+        lockedEchoes = build and build.lockedEchoes or {},
+        echoWeights = build and build.echoWeights or {},
+        settings = build and build.settings or {},
+    })
+end
 
 local function NormalizeProtection(build)
     EnsureSettings(build)
@@ -144,37 +208,14 @@ end
 EbonBuilds.Build.NormalizeProtection = NormalizeProtection
 
 function EbonBuilds.Build.Checksum(build)
-    local parts = {
-        build.title or "",
-        build.class or "",
-        tostring(build.spec or 1),
-        build.comments or "",
-    }
-    local le = build.lockedEchoes or {}
-    for i = 1, EbonBuilds.Build.LOCKED_SLOTS do
-        parts[#parts + 1] = tostring(le[i] or "nil")
-    end
-    if build.echoWeights then
-        local names = {}
-        for name, entry in pairs(build.echoWeights) do
-            if EbonBuilds.Weights and EbonBuilds.Weights.HasNonZero(entry) then
-                names[#names + 1] = name
-            end
-        end
-        table.sort(names)
-        for _, name in ipairs(names) do
-            for _, quality in ipairs(EbonBuilds.Quality.ORDER or {}) do
-                local value = EbonBuilds.Weights.GetFromWeights(build.echoWeights, name, quality)
-                if value ~= 0 then
-                    parts[#parts + 1] = name .. ":" .. tostring(quality) .. "=" .. tostring(value)
-                end
-            end
-        end
-    end
-    parts[#parts + 1] = tostring(build.automationEnabled and 1 or 0)
-    local s = CloneTable(build.settings or DefaultSettings())
-    parts[#parts + 1] = EbonBuilds.ExportImport and EbonBuilds.ExportImport.JSONEncode and EbonBuilds.ExportImport.JSONEncode(s) or ""
-    return table.concat(parts, "|")
+    if not build then return Digest("") end
+    return Digest({
+        title = build.title,
+        comments = build.comments,
+        strategyHash = EbonBuilds.Build.StrategyChecksum(build),
+        isPublic = build.isPublic == true,
+        characterSnapshot = build.characterSnapshot,
+    })
 end
 
 local function NewQualityStats()
@@ -200,13 +241,63 @@ local function EnsureStats(build)
     build.stats.qualityPicks = build.stats.qualityPicks or NewQualityStats()
     build.stats.mostPicked   = build.stats.mostPicked   or {}
     build.stats.mostBanned   = build.stats.mostBanned   or {}
-    if build.automationEnabled == nil then build.automationEnabled = true end
-    if build.manualTrainingEnabled == nil then build.manualTrainingEnabled = false end
     if not build.author then build.author = "Unknown" end
     if not build.lastModified then build.lastModified = date("%Y-%m-%d %H:%M:%S") end
     if build.isPublic == nil then build.isPublic = false end
     if build.validated == nil then build.validated = false end
     if build.copiedFrom == nil then build.copiedFrom = nil end
+end
+
+local function RuntimeFor(build, defaultAutomation)
+    if not build or not build.id then return nil end
+    EbonBuildsCharDB.buildRuntime = EbonBuildsCharDB.buildRuntime or {}
+    local runtime = EbonBuildsCharDB.buildRuntime[build.id]
+    if not runtime then
+        runtime = {
+            automationEnabled = defaultAutomation == true,
+            manualTrainingEnabled = false,
+        }
+        EbonBuildsCharDB.buildRuntime[build.id] = runtime
+    end
+    if build.automationEnabled ~= nil then
+        runtime.automationEnabled = build.automationEnabled == true
+        build.automationEnabled = nil
+    end
+    if build.manualTrainingEnabled ~= nil then
+        runtime.manualTrainingEnabled = build.manualTrainingEnabled == true
+        build.manualTrainingEnabled = nil
+    end
+    return runtime
+end
+
+function EbonBuilds.Build.EnsureRuntime(build, defaultAutomation)
+    return RuntimeFor(build, defaultAutomation)
+end
+
+function EbonBuilds.Build.IsAutomationEnabled(build)
+    local runtime = RuntimeFor(build, false)
+    return runtime and runtime.automationEnabled == true or false
+end
+
+function EbonBuilds.Build.SetAutomationEnabled(build, enabled)
+    local runtime = RuntimeFor(build, false)
+    if not runtime then return false end
+    runtime.automationEnabled = enabled == true
+    if EbonBuilds.EventHub then EbonBuilds.EventHub.Bump("BUILD_RUNTIME_CHANGED", build.id) end
+    return runtime.automationEnabled
+end
+
+function EbonBuilds.Build.IsTrainingEnabled(build)
+    local runtime = RuntimeFor(build, false)
+    return runtime and runtime.manualTrainingEnabled == true or false
+end
+
+function EbonBuilds.Build.SetTrainingEnabled(build, enabled)
+    local runtime = RuntimeFor(build, false)
+    if not runtime then return false end
+    runtime.manualTrainingEnabled = enabled == true
+    if EbonBuilds.EventHub then EbonBuilds.EventHub.Bump("BUILD_RUNTIME_CHANGED", build.id) end
+    return runtime.manualTrainingEnabled
 end
 
 local activeChangeCallbacks = {}
@@ -257,6 +348,12 @@ end
 EbonBuilds.Build.PlayerClassToken   = PlayerClassToken
 EbonBuilds.Build.PlayerTopTalentTab = PlayerTopTalentTab
 
+local function NormalizePlayerName(name)
+    name = tostring(name or ""):lower()
+    return name:match("^([^-]+)") or name
+end
+EbonBuilds.Build._NormalizePlayerName = NormalizePlayerName
+
 ------------------------------------------------------------------------
 -- Migration
 ------------------------------------------------------------------------
@@ -292,6 +389,14 @@ function EbonBuilds.Build.Migrate()
     for _, b in pairs(EbonBuildsDB.builds) do
         EbonBuilds.Build.NormalizeData(b)
         EnsureStats(b)
+        b.revision = tonumber(b.revision) or tonumber(b.version) or 1
+        b.version = b.revision
+        b.strategyRevision = tonumber(b.strategyRevision) or 1
+        b.strategyHash = EbonBuilds.Build.StrategyChecksum(b)
+        b._checksum = EbonBuilds.Build.Checksum(b)
+        local ownedHere = not b.importedFrom
+            and NormalizePlayerName(b.author) == NormalizePlayerName(UnitName("player"))
+        RuntimeFor(b, ownedHere)
     end
 
     EbonBuilds.Build.MigrateIds()
@@ -316,6 +421,10 @@ function EbonBuilds.Build.MigrateIds()
         build.id = newId
         EbonBuildsDB.builds[newId] = build
         EbonBuildsDB.builds[oldId] = nil
+        if EbonBuildsCharDB.buildRuntime and EbonBuildsCharDB.buildRuntime[oldId] then
+            EbonBuildsCharDB.buildRuntime[newId] = EbonBuildsCharDB.buildRuntime[oldId]
+            EbonBuildsCharDB.buildRuntime[oldId] = nil
+        end
     end
 
     if EbonBuildsCharDB.activeBuildId and map[EbonBuildsCharDB.activeBuildId] then
@@ -378,7 +487,7 @@ function EbonBuilds.Build.ListPublic()
     end
     for _, b in pairs(byTitle) do deduped[#deduped + 1] = b end
 
-    -- Validated builds (proven to reach level 80) first, then by recency.
+    -- Author-reported locally run-tested builds first, then by recency.
     table.sort(deduped, function(a, b)
         local av = a.validated and 1 or 0
         local bv = b.validated and 1 or 0
@@ -400,26 +509,29 @@ end
 function EbonBuilds.Build.SetActive(id)
     if EbonBuildsCharDB.activeBuildId == id then return end
     EbonBuildsCharDB.activeBuildId = id
+    local active = EbonBuilds.Build.Get(id)
+    if active then RuntimeFor(active, false) end
     -- The automation peak is relative to the active build's weights and
     -- settings; switching builds invalidates it.
     if EbonBuilds.Automation and EbonBuilds.Automation.ResetPeakCache then
         EbonBuilds.Automation.ResetPeakCache()
     end
     Notify()
+    if EbonBuilds.EventHub then EbonBuilds.EventHub.Bump("ACTIVE_BUILD_CHANGED", id) end
 end
 
 function EbonBuilds.Build.GetActiveWeights()
-    if EbonBuildsDB._isEditingBuild then
-        EbonBuildsDB.pendingWeights = EbonBuildsDB.pendingWeights or {}
-        return EbonBuildsDB.pendingWeights
+    if EbonBuilds.Runtime.isEditingBuild then
+        EbonBuilds.Runtime.pendingWeights = EbonBuilds.Runtime.pendingWeights or {}
+        return EbonBuilds.Runtime.pendingWeights
     end
     local build = EbonBuilds.Build.GetActive()
     if build then
         build.echoWeights = build.echoWeights or {}
         return build.echoWeights
     end
-    EbonBuildsDB.pendingWeights = EbonBuildsDB.pendingWeights or {}
-    return EbonBuildsDB.pendingWeights
+    EbonBuilds.Runtime.pendingWeights = EbonBuilds.Runtime.pendingWeights or {}
+    return EbonBuilds.Runtime.pendingWeights
 end
 
 -- UnitName("player") is not guaranteed to return the same FORMAT across
@@ -430,12 +542,6 @@ end
 -- new id and DELETES the original -- a real data-loss bug. Strip the realm
 -- suffix and case before comparing, same normalization already used for
 -- sync/affix sender checks.
-local function NormalizePlayerName(name)
-    name = tostring(name or ""):lower()
-    return name:match("^([^-]+)") or name
-end
-EbonBuilds.Build._NormalizePlayerName = NormalizePlayerName
-
 local function NormalizeTitle(title)
     return tostring(title or ""):lower():gsub("^%s+", ""):gsub("%s+$", "")
 end
@@ -515,10 +621,10 @@ function EbonBuilds.Build.NewObject(data)
         echoWeights     = CloneTable(data.echoWeights or {}),
         settings        = CloneTable(data.settings or DefaultSettings()),
         version         = 1,
+        revision        = 1,
+        strategyRevision = 1,
         author          = data.author or UnitName("player") or "Unknown",
         lastModified    = data.lastModified or date("%Y-%m-%d %H:%M:%S"),
-        automationEnabled = (data.automationEnabled ~= nil) and data.automationEnabled or true,
-        manualTrainingEnabled = data.manualTrainingEnabled == true,
         isPublic         = data.isPublic or false,
         validated         = data.validated or false,
         copiedFrom        = data.copiedFrom or nil,
@@ -537,18 +643,25 @@ function EbonBuilds.Build.NewObject(data)
         },
     }
     EbonBuilds.Build.NormalizeData(build)
+    build.strategyHash = EbonBuilds.Build.StrategyChecksum(build)
     build._checksum = EbonBuilds.Build.Checksum(build)
     return build
 end
 
 function EbonBuilds.Build.Create(data)
     local build = EbonBuilds.Build.NewObject(data)
-    build.echoWeights = EbonBuilds.Weights.NormalizeWeights(EbonBuildsDB.pendingWeights or build.echoWeights)
-    EbonBuildsDB.pendingWeights = nil
+    local sourceWeights = data and data.echoWeights ~= nil and build.echoWeights
+        or EbonBuilds.Runtime.pendingWeights or build.echoWeights
+    build.echoWeights = EbonBuilds.Weights.NormalizeWeights(sourceWeights)
+    EbonBuilds.Runtime.pendingWeights = nil
     EbonBuilds.Build.NormalizeData(build)
+    build.strategyHash = EbonBuilds.Build.StrategyChecksum(build)
     build._checksum = EbonBuilds.Build.Checksum(build)
     EbonBuildsDB.builds[build.id] = build
+    RuntimeFor(build, data and data.startPaused ~= true)
     EnforceTitleUniqueness(build)
+    build._checksum = EbonBuilds.Build.Checksum(build)
+    if EbonBuilds.EventHub then EbonBuilds.EventHub.Bump("BUILD_LIBRARY_CHANGED", build.id, "created") end
     return build
 end
 
@@ -565,11 +678,15 @@ function EbonBuilds.Build.Duplicate(sourceId)
         lockedEchoes = CloneTable(source.lockedEchoes or {}),
         echoWeights  = CloneTable(source.echoWeights or {}),
         settings     = EbonBuilds.Build.CloneSettings(source.settings or DefaultSettings()),
-        manualTrainingEnabled = source.manualTrainingEnabled == true,
         isPublic     = false,
         copiedFrom   = source.id,
     })
     EbonBuildsDB.builds[copy.id] = copy
+    local sourceRuntime = RuntimeFor(source, false)
+    local copyRuntime = RuntimeFor(copy, false)
+    copyRuntime.automationEnabled = sourceRuntime and sourceRuntime.automationEnabled == true or false
+    copyRuntime.manualTrainingEnabled = sourceRuntime and sourceRuntime.manualTrainingEnabled == true or false
+    if EbonBuilds.EventHub then EbonBuilds.EventHub.Bump("BUILD_LIBRARY_CHANGED", copy.id, "created") end
     return copy
 end
 
@@ -585,9 +702,6 @@ function EbonBuilds.Build.UpdateFromPublic(localBuild, publicBuild)
     if publicBuild.settings then
         localBuild.settings = EbonBuilds.Build.CloneSettings(publicBuild.settings)
     end
-    if publicBuild.automationEnabled ~= nil then
-        localBuild.automationEnabled = publicBuild.automationEnabled
-    end
     if publicBuild.echoWeights and next(publicBuild.echoWeights) then
         localBuild.echoWeights = EbonBuilds.Weights.CloneWeights(publicBuild.echoWeights)
     end
@@ -596,16 +710,28 @@ function EbonBuilds.Build.UpdateFromPublic(localBuild, publicBuild)
     end
     localBuild._importedAt = publicBuild.lastModified
     localBuild.lastModified = date("%Y-%m-%d %H:%M:%S")
-    localBuild.version = (localBuild.version or 1) + 1
+    localBuild.revision = (tonumber(localBuild.revision) or tonumber(localBuild.version) or 1) + 1
+    localBuild.version = localBuild.revision
+    localBuild.strategyRevision = (tonumber(localBuild.strategyRevision) or 1) + 1
     EbonBuilds.Build.NormalizeData(localBuild)
+    localBuild.strategyHash = EbonBuilds.Build.StrategyChecksum(localBuild)
     localBuild._checksum = EbonBuilds.Build.Checksum(localBuild)
+    EbonBuilds.Build.SetAutomationEnabled(localBuild, false)
+    if EbonBuilds.EventHub then
+        EbonBuilds.EventHub.Bump("BUILD_LIBRARY_CHANGED", localBuild.id, "updated")
+        EbonBuilds.EventHub.Bump("BUILD_REVISION_CHANGED", localBuild.id, localBuild.revision, true)
+    end
     return localBuild
 end
 
 function EbonBuilds.Build.Save(id, data)
     local build = EbonBuildsDB.builds[id]
     if not build then return nil end
-    local oldChecksum = build._checksum
+    if data.baseRevision and tonumber(data.baseRevision) ~= (tonumber(build.revision) or 1) then
+        return nil, "CONFLICT", build
+    end
+    local oldChecksum = EbonBuilds.Build.Checksum(build)
+    local oldStrategyHash = EbonBuilds.Build.StrategyChecksum(build)
     local classChanged = data.class and data.class ~= build.class
     build.title           = data.title           or build.title
     build.class            = data.class           or build.class
@@ -614,18 +740,30 @@ function EbonBuilds.Build.Save(id, data)
     build.lockedEchoes = data.lockedEchoes or build.lockedEchoes
     if data.settings then build.settings = EbonBuilds.Build.CloneSettings(data.settings) end
     if data.echoWeights then build.echoWeights = EbonBuilds.Weights.CloneWeights(data.echoWeights) end
-    if data.automationEnabled ~= nil then build.automationEnabled = data.automationEnabled end
-    if data.manualTrainingEnabled ~= nil then build.manualTrainingEnabled = data.manualTrainingEnabled end
     if data.isPublic ~= nil then build.isPublic = data.isPublic end
+    if data.characterSnapshot ~= nil then build.characterSnapshot = CloneTable(data.characterSnapshot) end
+    if data.clearCharacterSnapshot then build.characterSnapshot = nil end
     EbonBuilds.Build.NormalizeData(build)
-    build.version         = (build.version or 1) + 1
-    build._checksum       = EbonBuilds.Build.Checksum(build)
-    if EbonBuilds.Automation and EbonBuilds.Automation.ResetPeakCache then
-        EbonBuilds.Automation.ResetPeakCache()
-    end
-    if build._checksum ~= oldChecksum then
+    EnforceTitleUniqueness(build)
+    local newStrategyHash = EbonBuilds.Build.StrategyChecksum(build)
+    local newChecksum = EbonBuilds.Build.Checksum(build)
+    local strategyChanged = newStrategyHash ~= oldStrategyHash
+    if newChecksum ~= oldChecksum then
+        build.revision = (tonumber(build.revision) or tonumber(build.version) or 1) + 1
+        build.version = build.revision
+        if strategyChanged then
+            build.strategyRevision = (tonumber(build.strategyRevision) or 1) + 1
+            build.validated = false
+            if EbonBuilds.Session and EbonBuilds.Session.MarkStrategyChanged then
+                EbonBuilds.Session.MarkStrategyChanged(build, oldStrategyHash, newStrategyHash)
+            end
+            if EbonBuilds.Automation and EbonBuilds.Automation.ResetPeakCache then
+                EbonBuilds.Automation.ResetPeakCache()
+            end
+        end
+        build.strategyHash = newStrategyHash
+        build._checksum = newChecksum
         build.lastModified = date("%Y-%m-%d %H:%M:%S")
-        build.validated = false
         local playerName = UnitName("player") or "Unknown"
         if build.author and NormalizePlayerName(build.author) ~= NormalizePlayerName(playerName) then
             build.copiedFrom = build.author
@@ -633,16 +771,30 @@ function EbonBuilds.Build.Save(id, data)
             build.validated = false
             build.importedFrom = nil
             local newId = EbonBuilds.Build.NewObjectId()
+            local runtime = EbonBuildsCharDB.buildRuntime and EbonBuildsCharDB.buildRuntime[id]
             build.id = newId
             EbonBuildsDB.builds[newId] = build
             EbonBuildsDB.builds[id] = nil
+            if runtime then
+                EbonBuildsCharDB.buildRuntime[newId] = runtime
+                EbonBuildsCharDB.buildRuntime[id] = nil
+            else
+                RuntimeFor(build, false)
+            end
             if EbonBuildsCharDB.activeBuildId == id then
                 EbonBuildsCharDB.activeBuildId = newId
                 Notify()
             end
         end
+        if EbonBuilds.EventHub then
+            EbonBuilds.EventHub.Bump("BUILD_REVISION_CHANGED", build.id, build.revision, strategyChanged)
+            EbonBuilds.EventHub.Bump("BUILD_LIBRARY_CHANGED", build.id, "updated")
+        end
+    else
+        build.strategyHash = newStrategyHash
+        build._checksum = newChecksum
     end
-    EnforceTitleUniqueness(build)
+    build._checksum = EbonBuilds.Build.Checksum(build)
     if classChanged and EbonBuildsCharDB.activeBuildId == id then
         Notify()
     end
@@ -652,14 +804,21 @@ end
 -- Last deleted build, kept in memory (not saved variables) so an accidental
 -- delete can be undone until the next delete or a /reload.
 local lastDeleted = nil
+local lastDeletedRuntime = nil
 
 function EbonBuilds.Build.Delete(id)
     if not id then return end
     lastDeleted = EbonBuildsDB.builds[id]
+    lastDeletedRuntime = EbonBuildsCharDB.buildRuntime and EbonBuildsCharDB.buildRuntime[id] or nil
     EbonBuildsDB.builds[id] = nil
+    if EbonBuildsCharDB.buildRuntime then EbonBuildsCharDB.buildRuntime[id] = nil end
     if EbonBuildsCharDB.activeBuildId == id then
         EbonBuildsCharDB.activeBuildId = nil
         Notify()
+        if EbonBuilds.EventHub then EbonBuilds.EventHub.Bump("ACTIVE_BUILD_CHANGED", nil) end
+    end
+    if lastDeleted and EbonBuilds.EventHub then
+        EbonBuilds.EventHub.Bump("BUILD_LIBRARY_CHANGED", id, "deleted")
     end
 end
 
@@ -671,8 +830,14 @@ function EbonBuilds.Build.RestoreLastDeleted()
         lastDeleted.id = EbonBuilds.Build.NewObjectId()
     end
     EbonBuildsDB.builds[lastDeleted.id] = lastDeleted
+    if lastDeletedRuntime then
+        EbonBuildsCharDB.buildRuntime[lastDeleted.id] = lastDeletedRuntime
+    else
+        RuntimeFor(lastDeleted, false)
+    end
     local restored = lastDeleted
     lastDeleted = nil
+    lastDeletedRuntime = nil
+    if EbonBuilds.EventHub then EbonBuilds.EventHub.Bump("BUILD_LIBRARY_CHANGED", restored.id, "restored") end
     return restored
 end
-

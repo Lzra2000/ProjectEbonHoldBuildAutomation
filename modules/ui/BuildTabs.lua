@@ -7,6 +7,7 @@ local viewFrame
 local contentArea
 local tabs = {}
 local saveBtn, cancelBtn, saveStatus
+local tabsParent
 local activeTab = 1
 local dirty = false
 local state = { context = nil }
@@ -25,7 +26,7 @@ local function RefreshSaveState()
     if saveStatus then
         local active = EbonBuilds.Build.GetActive and EbonBuilds.Build.GetActive()
         if dirty then
-            local warning = active and active.automationEnabled ~= false and EbonBuilds.L[" · Autopilot uses last saved settings"] or ""
+            local warning = active and EbonBuilds.Build.IsAutomationEnabled(active) and EbonBuilds.L[" · Autopilot uses last saved settings"] or ""
             saveStatus:SetText(EbonBuilds.L["Unsaved changes"] .. warning)
             saveStatus:SetTextColor(unpack(EbonBuilds.Theme.WARNING))
         else
@@ -67,6 +68,20 @@ end
 local function RefreshTabs()
     for i, btn in ipairs(tabs) do
         EbonBuilds.Theme.SetTabSelected(btn, i == activeTab)
+    end
+end
+
+local function LayoutTabs()
+    local parent = tabsParent or viewFrame
+    if not parent or #tabs == 0 then return end
+    local available = math.max(1, (parent:GetWidth() or 0) - 16 - (#tabs - 1) * 5)
+    local baseWidth = math.floor(available / #tabs)
+    local remainder = available - baseWidth * #tabs
+    for i, btn in ipairs(tabs) do
+        btn:SetWidth(math.max(82, baseWidth + (i <= remainder and 1 or 0)))
+    end
+    if saveStatus then
+        if (parent:GetWidth() or 0) < 590 then saveStatus:Hide() else saveStatus:Show() end
     end
 end
 
@@ -121,16 +136,34 @@ function EbonBuilds.BuildTabs.ShowTab(index)
     if index and TAB_DEFS[index] then ShowTab(index) end
 end
 
-function EbonBuilds.BuildTabs.OnBuildSaved()
-    state.context = { mode = "edit", build = EbonBuilds.Build.GetActive() }
+function EbonBuilds.BuildTabs.OnBuildSaved(savedBuild)
+    savedBuild = savedBuild or EbonBuilds.Build.GetActive()
+    if not savedBuild then return end
+
+    -- Mutate the existing context so a mounted view holding this table keeps
+    -- the same object, while future tab switches see the committed build (and
+    -- any new id created when saving an imported build).
+    state.context = state.context or {}
+    state.context.mode = "edit"
+    state.context.build = savedBuild
+    state.context.tab = activeTab
+
+    if EbonBuilds.BuildForm and EbonBuilds.BuildForm.AcceptSavedBuild then
+        EbonBuilds.BuildForm.AcceptSavedBuild(savedBuild)
+    end
     EbonBuilds.BuildTabs.ClearDirty()
+    RefreshTabs()
+    if EbonBuilds.MainWindow and EbonBuilds.MainWindow.SetPageContext then
+        EbonBuilds.MainWindow.SetPageContext("Edit Build · " .. TAB_DEFS[activeTab].label)
+    end
 end
 
 local function CreateTabs(parent)
+    tabsParent = parent
     local anchor
     for i, def in ipairs(TAB_DEFS) do
         local btn = EbonBuilds.Theme.CreateTab(parent, def.label)
-        btn:SetWidth(i == 2 and 120 or i == 4 and 112 or 100)
+        btn:SetWidth(100)
         if not anchor then
             btn:SetPoint("TOPLEFT", parent, "TOPLEFT", 8, -2)
         else
@@ -141,6 +174,7 @@ local function CreateTabs(parent)
         tabs[i] = btn
         anchor = btn
     end
+    LayoutTabs()
     RefreshTabs()
 end
 
@@ -222,6 +256,9 @@ local function BuildViewFrame()
     saveStatus:SetText(EbonBuilds.L["All changes saved"])
     saveStatus:SetTextColor(unpack(EbonBuilds.Theme.TEXT_MUTED))
 
+    f:SetScript("OnSizeChanged", LayoutTabs)
+    LayoutTabs()
+
     return f
 end
 
@@ -232,23 +269,34 @@ end
 local view = {}
 
 function view.Show(container, context)
+    -- When BuildTabs is shown again without a router-level hide (for example,
+    -- selecting another build while already editing), commit and hide the old
+    -- mounted tab before replacing its draft context.
+    UnmountAll()
     viewFrame:SetParent(container)
     viewFrame:ClearAllPoints()
     viewFrame:SetAllPoints(container)
     state.context = context or { mode = "create" }
     dirty = state.context.mode == "create"
 
+    -- Draft initialization must not depend on visiting tab 1 first. Direct
+    -- Character routing and normal Edit Build routing now consume the exact
+    -- same cloned class/spec/snapshot state.
+    EbonBuilds.BuildForm.Prepare(state.context)
+
     for _, tab in ipairs(tabs) do tab:Enable() end
     activeTab = 1
-    ShowTab(1)
+    local requestedTab = tonumber(state.context.tab) or 1
+    if not TAB_DEFS[requestedTab] then requestedTab = 1 end
+    ShowTab(requestedTab)
     RefreshSaveState()
     viewFrame:Show()
 end
 
 function view.Hide()
-    EbonBuildsDB._isEditingBuild = nil
-    EbonBuildsDB.pendingWeights = nil
-    EbonBuildsDB._wizardPrefill = nil
+    EbonBuilds.Runtime.isEditingBuild = nil
+    EbonBuilds.Runtime.pendingWeights = nil
+    EbonBuilds.Runtime.wizardPrefill = nil
     UnmountAll()
     dirty = false
     RefreshSaveState()
@@ -262,6 +310,10 @@ function EbonBuilds.BuildTabs.Init()
     EbonBuilds.ViewRouter.Register("buildTabs", view)
 end
 
+function EbonBuilds.BuildTabs.RefreshLayout()
+    LayoutTabs()
+end
+
 ------------------------------------------------------------------------
 -- Test/integration helpers. These are pure and do not mutate saved data,
 -- except _SetContextForTest which exists only so tests can drive the same
@@ -271,4 +323,3 @@ EbonBuilds.BuildTabs._TriggerExportAI = OnClickExportAI
 function EbonBuilds.BuildTabs._SetContextForTest(context)
     state.context = context
 end
-

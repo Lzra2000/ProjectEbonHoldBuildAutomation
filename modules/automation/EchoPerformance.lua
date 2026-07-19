@@ -102,11 +102,16 @@ local function GrantedEchoName(key, value)
 end
 
 function EbonBuilds.EchoPerformance.IsEnabled()
-    return EbonBuildsCharDB.echoPerformanceEnabled == true
+    local consent = EbonBuildsCharDB.consent
+    return consent and (tonumber(consent.performanceVersion) or 0) >= 1 and consent.performanceEnabled == true
 end
 
 function EbonBuilds.EchoPerformance.SetEnabled(on)
-    EbonBuildsCharDB.echoPerformanceEnabled = on and true or false
+    EbonBuildsCharDB.consent = EbonBuildsCharDB.consent or {}
+    EbonBuildsCharDB.consent.performanceVersion = 1
+    EbonBuildsCharDB.consent.performanceEnabled = on and true or false
+    EbonBuildsCharDB.consent.communityDpsSharing = on and true or false
+    EbonBuildsCharDB.echoPerformanceEnabled = nil
 end
 
 function EbonBuilds.EchoPerformance.IsDetailsAvailable()
@@ -205,6 +210,8 @@ end
 
 local MAX_TRUSTED_COUNT_PER_ECHO = 500        -- reject a single peer claiming more samples than this for one echo
 local MAX_TRUSTED_DPS            = 50000000   -- reject implausibly large avg DPS (sanity ceiling, not a real limit)
+local MAX_COMMUNITY_PEERS        = 50
+local MAX_ECHOES_PER_PEER        = 500
 local BROADCAST_BATCH_SIZE       = 6          -- echoes per broadcast -- keeps each channel message short
 local BROADCAST_INTERVAL         = 180        -- seconds between broadcasts
 
@@ -232,8 +239,26 @@ function EbonBuilds.EchoPerformance.MergeCommunityContribution(sender, class, na
     if avg < 0 or avg > MAX_TRUSTED_DPS then return end
 
     local store = GetCommunityStore()
-    store[sender] = store[sender] or {}
-    store[sender][name] = { sum = sum, count = count }
+    local senderKey = normalizePlayer(sender)
+    store[senderKey] = store[senderKey] or {}
+    local contributions = store[senderKey]
+    if not contributions[name] then
+        local echoCount = 0
+        for echoName, entry in pairs(contributions) do
+            if echoName ~= "_lastSeenAt" and type(entry) == "table" then echoCount = echoCount + 1 end
+        end
+        if echoCount >= MAX_ECHOES_PER_PEER then return end
+    end
+    contributions[name] = { sum = sum, count = count }
+    contributions._lastSeenAt = time()
+    local peers = {}
+    for peer, entries in pairs(store) do
+        peers[#peers + 1] = { peer = peer, seen = tonumber(entries._lastSeenAt) or 0 }
+    end
+    if #peers > MAX_COMMUNITY_PEERS then
+        table.sort(peers, function(a, b) return a.seen > b.seen end)
+        for index = MAX_COMMUNITY_PEERS + 1, #peers do store[peers[index].peer] = nil end
+    end
     BumpRevision()
 end
 
@@ -744,10 +769,9 @@ end
 -- if the player opted in.
 ------------------------------------------------------------------------
 
-local tickerFrame
 local elapsed = 0
 
-local function OnTick(self, dt)
+local function OnTick(dt)
     if not EbonBuilds.EchoPerformance.IsEnabled() then return end
     MaybeBroadcast(dt)
     if not UnitAffectingCombat("player") then return end
@@ -758,14 +782,9 @@ local function OnTick(self, dt)
 end
 
 function EbonBuilds.EchoPerformance.Init()
-    -- Default DPS/appearance tracking to ON. Checked with == nil rather
-    -- than `or true`, so a character that explicitly turned it off (false)
-    -- stays off -- only a character that has never touched the setting
-    -- gets the new default. Safe to call more than once (e.g. from tests).
-    if EbonBuildsCharDB.echoPerformanceEnabled == nil then
-        EbonBuildsCharDB.echoPerformanceEnabled = true
-    end
-    if tickerFrame then return end
-    tickerFrame = CreateFrame("Frame")
-    tickerFrame:SetScript("OnUpdate", OnTick)
+    -- Explicit consent only. Opening the advisor shows the opt-in control;
+    -- installing or upgrading never starts combat sampling by itself.
+    EbonBuildsCharDB.echoPerformanceEnabled = nil
+    EbonBuilds.Scheduler.Every("performance.sample", 1, OnTick,
+        EbonBuilds.Scheduler.BACKGROUND, true)
 end

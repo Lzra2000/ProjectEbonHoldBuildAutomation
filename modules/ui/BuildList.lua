@@ -17,6 +17,7 @@ local rowPool = {}
 local navButtons = {}
 local selectedNavigation = nil
 local searchText = ""
+local SyncWidth
 
 ------------------------------------------------------------------------
 -- Helpers
@@ -145,8 +146,8 @@ local function CreateRow(parent)
     row._subtitleLabel = subtitle
 
     local active = EbonBuilds.Theme.CreateStatusPill(row, "ACTIVE", "success")
-    active:SetSize(46, 16)
-    active:SetPoint("TOPRIGHT", row, "TOPRIGHT", -7, -7)
+    active:SetSize(44, 16)
+    active:SetPoint("TOPRIGHT", row, "TOPRIGHT", -7, -25)
     WireBuildListMouseWheel(active)
     active:Hide()
     row._activePill = active
@@ -184,6 +185,25 @@ local function CreateRow(parent)
     return row
 end
 
+local function LayoutRow(row, active)
+    if not row then return end
+    row._titleLabel:ClearAllPoints()
+    row._titleLabel:SetPoint("TOPLEFT", row._classBtn, "TOPRIGHT", 7, -2)
+    row._titleLabel:SetPoint("RIGHT", row, "RIGHT", -10, 0)
+    row._titleLabel:SetHeight(14)
+
+    row._subtitleLabel:ClearAllPoints()
+    row._subtitleLabel:SetPoint("TOPLEFT", row._titleLabel, "BOTTOMLEFT", 0, -1)
+    if active then
+        row._subtitleLabel:SetPoint("RIGHT", row._activePill, "LEFT", -7, 0)
+    else
+        row._subtitleLabel:SetPoint("RIGHT", row, "RIGHT", -10, 0)
+    end
+
+    row._activePill:ClearAllPoints()
+    row._activePill:SetPoint("TOPRIGHT", row, "TOPRIGHT", -7, -25)
+end
+
 local function PopulateRow(row, build, activeId, yOffset)
     local active = build.id == activeId
     local r, g, b = EbonBuilds.Theme.ClassRGB(build.class)
@@ -195,14 +215,7 @@ local function PopulateRow(row, build, activeId, yOffset)
     row._buildTitle = build.title or "Untitled"
     row._isActive = active
 
-    row._titleLabel:ClearAllPoints()
-    row._titleLabel:SetPoint("TOPLEFT", row._classBtn, "TOPRIGHT", 7, -2)
-    if active then
-        row._titleLabel:SetPoint("RIGHT", row._activePill, "LEFT", -8, 0)
-    else
-        row._titleLabel:SetPoint("RIGHT", row, "RIGHT", -10, 0)
-    end
-    row._titleLabel:SetHeight(14)
+    LayoutRow(row, active)
 
     row._stripe:SetWidth(active and 5 or 3)
     row._stripe:SetVertexColor(r, g, b, active and 1 or 0.72)
@@ -393,9 +406,11 @@ function EbonBuilds.BuildList.Init(parent)
     emptyState = EbonBuilds.Theme.CreateEmptyState(scrollFrame, "No builds yet", "Create or import a build to begin.")
     emptyState:SetSize(190, 92)
 
-    local function SyncWidth()
-        local width = math.max(120, scrollFrame:GetWidth())
+    SyncWidth = function()
+        if not scrollFrame or not scrollChild then return end
+        local width = math.max(120, scrollFrame:GetWidth() or 0)
         scrollChild:SetWidth(width)
+        if emptyState then emptyState:SetWidth(math.max(120, width - 12)) end
         Render()
     end
     parent:SetScript("OnSizeChanged", SyncWidth)
@@ -404,4 +419,9 @@ function EbonBuilds.BuildList.Init(parent)
     if EbonBuilds.Build and EbonBuilds.Build.OnActiveChanged then
         EbonBuilds.Build.OnActiveChanged(Render)
     end
+end
+
+
+function EbonBuilds.BuildList.RefreshLayout()
+    if SyncWidth then SyncWidth() end
 end

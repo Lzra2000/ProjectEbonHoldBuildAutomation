@@ -214,7 +214,7 @@ print("Verified SessionHistory builders stay below the Lua 5.1 upvalue limit.")
 do
     local requiredSources = {
         { "EbonBuilds.toc", "modules/build/EchoPolicy.lua" },
-        { "modules/ui/EchoTableRows.lua", "Rows.COL_POLICY     = 104" },
+        { "modules/ui/EchoTableRows.lua", "icon = 40, quality = 70, protect = 84, policy = 104, rank = 56" },
         { "modules/ui/EchoTableRows.lua", "CreatePolicyDropdown(row)" },
         { "modules/ui/EchoTable.lua", 'CreateStaticHeader(parent, "Policy")' },
         { "modules/ui/Filters.lua", "CreatePolicyDropdown(bar)" },
@@ -243,10 +243,9 @@ do
     local source = file:read("*a")
     file:close()
     local required = {
-        "Rows.COL_QUALITY    = 70",
-        "Rows.COL_PROTECT    = 84",
-        "Rows.COL_POLICY     = 104",
-        "Rows.RANK_COL_WIDTH = 56",
+        "icon = 40, quality = 70, protect = 84, policy = 104, rank = 56",
+        "icon = 38, quality = 64, protect = 76, policy = 92, rank = 52",
+        "InstallColumnMetrics(compact and COMPACT_COLUMNS or STANDARD_COLUMNS)",
         "Rows.ROW_HEIGHT     = 60",
         "row.nameLabel:SetHeight(30)",
         "row.nameLabel:SetWordWrap(true)",
@@ -295,8 +294,8 @@ do
     local source = file:read("*a")
     file:close()
     local required = {
-        'nameHdr:SetPoint("TOPLEFT", parent, "TOPLEFT", 2, -3)',
-        'nameHdr:SetPoint("TOPRIGHT", qualityHdr, "TOPLEFT", -2, 0)',
+        'headerFrames.name:SetPoint("TOPLEFT", parent, "TOPLEFT", 2, -3)',
+        'headerFrames.name:SetPoint("TOPRIGHT", headerFrames.quality, "TOPLEFT", -2, 0)',
     }
     for _, fragment in ipairs(required) do
         if not source:find(fragment, 1, true) then
@@ -933,6 +932,44 @@ do
     end
 end
 print("Verified build configuration remains staged until Save.")
+
+-- In-place-save regression: committing from Priorities (or any editor tab)
+-- must keep that mounted view and establish the committed build as the new
+-- draft baseline. Cancel remains the explicit route back to Overview.
+do
+    local formFile = assert(io.open("modules/ui/BuildForm.lua", "r"))
+    local formSource = formFile:read("*a")
+    formFile:close()
+    local saveBegin = assert(formSource:find("local function OnSave()", 1, true))
+    local saveEnd = assert(formSource:find("local LoadFromBuild, ApplyStateToInputs", saveBegin, true))
+    local saveBody = formSource:sub(saveBegin, saveEnd - 1)
+    if saveBody:find("ViewRouter.Show", 1, true) then
+        io.stderr:write("IN-PLACE SAVE FAIL: Save still routes away from the active editor tab\n")
+        os.exit(1)
+    end
+    if not saveBody:find("BuildTabs.OnBuildSaved(savedBuild)", 1, true)
+        or saveBody:find("pendingWeights = nil", 1, true)
+        or not formSource:find("function EbonBuilds.BuildForm.AcceptSavedBuild(build)", 1, true) then
+        io.stderr:write("IN-PLACE SAVE FAIL: committed state is not retained as the clean editor baseline\n")
+        os.exit(1)
+    end
+
+    local tabsFile = assert(io.open("modules/ui/BuildTabs.lua", "r"))
+    local tabsSource = tabsFile:read("*a")
+    tabsFile:close()
+    local handlerBegin = assert(tabsSource:find("function EbonBuilds.BuildTabs.OnBuildSaved(savedBuild)", 1, true))
+    local handlerEnd = assert(tabsSource:find("local function CreateTabs", handlerBegin, true))
+    local handlerBody = tabsSource:sub(handlerBegin, handlerEnd - 1)
+    if not handlerBody:find("state.context.tab = activeTab", 1, true)
+        or not handlerBody:find("BuildForm.AcceptSavedBuild(savedBuild)", 1, true)
+        or handlerBody:find("ShowTab", 1, true)
+        or handlerBody:find("UnmountAll", 1, true)
+        or handlerBody:find("ViewRouter", 1, true) then
+        io.stderr:write("IN-PLACE SAVE FAIL: saved handler remounts or loses the active editor view\n")
+        os.exit(1)
+    end
+end
+print("Verified Save commits in place without remounting the active editor tab.")
 
 -- Overview-shell regression: the dashboard must use themed flat tabs and a
 -- shared page header rather than native parchment tab geometry.

@@ -10,11 +10,19 @@ EbonBuilds.GearTooltip = {}
 local hooked = false
 
 function EbonBuilds.GearTooltip.IsEnabled()
-    return EbonBuildsCharDB.gearTooltipEnabled == true
+    if EbonBuilds.Database and EbonBuilds.Database.GetCharacterPreference then
+        return EbonBuilds.Database.GetCharacterPreference("gearTooltipEnabled")
+    end
+    return EbonBuildsCharDB and EbonBuildsCharDB.gearTooltipEnabled == true
 end
 
 function EbonBuilds.GearTooltip.SetEnabled(on)
-    EbonBuildsCharDB.gearTooltipEnabled = on and true or false
+    local enabled = on and true or false
+    if EbonBuilds.Database and EbonBuilds.Database.SetCharacterPreference then
+        EbonBuilds.Database.SetCharacterPreference("gearTooltipEnabled", enabled)
+    else
+        EbonBuildsCharDB.gearTooltipEnabled = enabled
+    end
 end
 
 -- Resolves the spec weight key from the ACTIVE BUILD, not the player's
@@ -55,10 +63,10 @@ end
 EbonBuilds.GearTooltip._AugmentForTests = AugmentTooltip
 
 function EbonBuilds.GearTooltip.Init()
-    -- Default ON for a character that has never touched the setting,
-    -- same == nil pattern (and reasoning) as EchoPerformance's default:
-    -- an explicit false is never overridden.
-    if EbonBuildsCharDB.gearTooltipEnabled == nil then
+    -- Database.Init owns the normal default. Keep the fallback for isolated
+    -- module loading and older integrations that do not expose Database yet.
+    if not (EbonBuilds.Database and EbonBuilds.Database.GetCharacterPreference)
+        and EbonBuildsCharDB.gearTooltipEnabled == nil then
         EbonBuildsCharDB.gearTooltipEnabled = true
     end
 

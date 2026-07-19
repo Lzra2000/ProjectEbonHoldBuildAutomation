@@ -9,6 +9,12 @@ EbonBuilds.ExportImport = {}
 ------------------------------------------------------------------------
 
 local B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+local MAX_ENCODED_BYTES = 98304
+local MAX_DECODED_BYTES = 65536
+local MAX_TREE_DEPTH = 8
+local MAX_TREE_NODES = 10000
+local MAX_WEIGHT_ENTRIES = 1000
+local MAX_POLICY_ENTRIES = 1000
 
 local BASE64_CHUNK = 2000
 local function Base64Encode(data)
@@ -31,6 +37,8 @@ local function Base64Encode(data)
 end
 
 local function Base64Decode(s)
+	if type(s) ~= "string" or #s > MAX_ENCODED_BYTES or #s % 4 ~= 0 then return nil end
+	if s:find("[^A-Za-z0-9+/=]") or s:find("=", 1, true) and not s:match("^[A-Za-z0-9+/]*=?=?$") then return nil end
 	local rev = {}
 	for i = 1, #B64 do rev[B64:byte(i)] = i - 1 end
 	rev[61] = 0
@@ -50,7 +58,9 @@ local function Base64Decode(s)
 			out[#out + 1] = string.char(math.floor(n % 256))
 		end
 	end
-	return table.concat(out)
+	local decoded = table.concat(out)
+	if #decoded > MAX_DECODED_BYTES then return nil end
+	return decoded
 end
 
 ------------------------------------------------------------------------
@@ -253,7 +263,28 @@ end
 -- Export / Import logic
 ------------------------------------------------------------------------
 
-local EXPORT_VERSION = 2
+local EXPORT_VERSION = 3
+
+local function ClampText(value, limit, fallback)
+	value = type(value) == "string" and value or fallback or ""
+	return value:sub(1, limit)
+end
+
+local function IsSafeTree(root, maxDepth, maxNodes)
+	local nodes = 0
+	local function Visit(value, depth)
+		nodes = nodes + 1
+		if nodes > maxNodes or depth > maxDepth then return false end
+		local kind = type(value)
+		if kind ~= "table" then return kind == "nil" or kind == "boolean" or kind == "number" or kind == "string" end
+		for key, child in pairs(value) do
+			if type(key) ~= "number" and type(key) ~= "string" then return false end
+			if not Visit(child, depth + 1) then return false end
+		end
+		return true
+	end
+	return Visit(root, 0)
+end
 
 local function BuildExportData(build)
 	local filteredWeights = {}
@@ -274,12 +305,14 @@ local function BuildExportData(build)
 		lockedEchoes = build.lockedEchoes or { nil, nil, nil, nil, nil, nil },
 		echoWeights = filteredWeights,
 		settings = build.settings,
-		automationEnabled = build.automationEnabled,
 		isPublic = build.isPublic or false,
 		validated = build.validated or false,
 		author = build.author,
 		lastModified = build.lastModified,
 		copiedFrom = build.copiedFrom or nil,
+		revision = tonumber(build.revision) or tonumber(build.version) or 1,
+		strategyRevision = tonumber(build.strategyRevision) or 1,
+		strategyHash = build.strategyHash or EbonBuilds.Build.StrategyChecksum(build),
 		-- Optional: the gear/talents/glyphs snapshot adopted on the
 		-- Character tab travels with the build, so a shared Public Build
 		-- can carry its author's full setup, not just weights.
@@ -291,40 +324,92 @@ function EbonBuilds.ExportImport.ExportBuild(build)
 	if not build then return nil end
 	local data = BuildExportData(build)
 	local json = EbonBuilds.ExportImport.JSONEncode(data)
-	return Base64Encode(json)
+	local encoded = Base64Encode(json)
+	return encoded and #encoded <= MAX_ENCODED_BYTES and encoded or nil
 end
 
 function EbonBuilds.ExportImport.DecodeBuild(b64String)
-	if not b64String or b64String == "" then return nil end
+	if type(b64String) ~= "string" or b64String == "" or #b64String > MAX_ENCODED_BYTES then return nil end
 	local json = Base64Decode(b64String)
 	if not json or json == "" then return nil end
-	local data = EbonBuilds.ExportImport.JSONDecode(json)
-	if not data or type(data) ~= "table" then return nil end
+	local ok, data = pcall(EbonBuilds.ExportImport.JSONDecode, json)
+	if not ok or type(data) ~= "table" or not IsSafeTree(data, MAX_TREE_DEPTH, MAX_TREE_NODES) then return nil end
+	if data.v and (tonumber(data.v) or 0) > EXPORT_VERSION then return nil end
 
-	local locked = data.lockedEchoes or {}
-	for i = 1, EbonBuilds.Build.LOCKED_SLOTS do locked[i] = locked[i] or nil end
-
-	local echoWeights = nil
-	if data.echoWeights and next(data.echoWeights) then
-		echoWeights = EbonBuilds.Weights.NormalizeWeights(data.echoWeights)
+	local locked = {}
+	if type(data.lockedEchoes) == "table" then
+		for key, value in pairs(data.lockedEchoes) do
+			local index = tonumber(key)
+			local spellId = tonumber(value)
+			if not index or index ~= math.floor(index) or index < 1 or index > EbonBuilds.Build.LOCKED_SLOTS
+				or not spellId or spellId ~= math.floor(spellId) or spellId < 1 or spellId > 2147483647 then
+				return nil
+			end
+			locked[index] = spellId
+		end
 	end
 
+	local echoWeights = nil
+	if type(data.echoWeights) == "table" and next(data.echoWeights) then
+		local clean, count = {}, 0
+		for name, entry in pairs(data.echoWeights) do
+			if type(name) ~= "string" or name == "" or #name > 160 then return nil end
+			count = count + 1
+			if count > MAX_WEIGHT_ENTRIES then return nil end
+			if type(entry) == "number" or type(entry) == "string" then
+				if EbonBuilds.Weights.Validate(entry) == nil then return nil end
+				clean[name] = entry -- legacy single-weight import
+			elseif type(entry) == "table" then
+				local ranks = {}
+				for rawRank, rawValue in pairs(entry) do
+					if rawRank == "default" then
+						if EbonBuilds.Weights.Validate(rawValue) == nil then return nil end
+						ranks.default = rawValue
+					else
+						local rank = tonumber(rawRank)
+						if not rank or not EbonBuilds.Quality.IsValid(rank)
+							or EbonBuilds.Weights.Validate(rawValue) == nil then return nil end
+						ranks[rank] = rawValue
+					end
+				end
+				clean[name] = ranks
+			else
+				return nil
+			end
+		end
+		echoWeights = EbonBuilds.Weights.NormalizeWeights(clean)
+	end
+	local settings = type(data.settings) == "table" and data.settings or EbonBuilds.Build.DefaultSettings()
+	if type(settings.echoPolicies) == "table" then
+		local policyCount = 0
+		for name, policy in pairs(settings.echoPolicies) do
+			policyCount = policyCount + 1
+			if policyCount > MAX_POLICY_ENTRIES or type(name) ~= "string" or #name > 160
+				or not (EbonBuilds.EchoPolicy and EbonBuilds.EchoPolicy.IsValid(policy)) then return nil end
+		end
+	end
+	local snapshot = type(data.characterSnapshot) == "table" and data.characterSnapshot or nil
+	local validClasses = { WARRIOR = true, PALADIN = true, HUNTER = true, ROGUE = true, PRIEST = true,
+		DEATHKNIGHT = true, SHAMAN = true, MAGE = true, WARLOCK = true, DRUID = true }
+	local class = type(data.class) == "string" and data.class:upper() or EbonBuilds.Build.PlayerClassToken()
+	if not validClasses[class] then return nil end
+
 	local build = EbonBuilds.Build.NewObject({
-		title       = data.title    or "Imported Build",
-		class       = data.class    or EbonBuilds.Build.PlayerClassToken(),
-		spec        = data.spec     or 1,
-		comments    = data.comments or "",
+		title       = ClampText(data.title, 80, "Imported Build"),
+		class       = class,
+		spec        = math.max(1, math.min(3, tonumber(data.spec) or 1)),
+		comments    = ClampText(data.comments, 4000, ""),
 		lockedEchoes = locked,
 		echoWeights = echoWeights,
-		settings    = data.settings or EbonBuilds.Build.DefaultSettings(),
-		automationEnabled = data.automationEnabled,
+		settings    = settings,
 		isPublic    = data.isPublic or false,
 		validated   = data.validated or false,
-		author      = data.author,
-		lastModified = data.lastModified,
-		copiedFrom  = data.copiedFrom or nil,
-		characterSnapshot = data.characterSnapshot or nil,
+		author      = ClampText(data.author, 80, "Unknown"),
+		lastModified = ClampText(data.lastModified, 32, date("%Y-%m-%d %H:%M:%S")),
+		copiedFrom  = type(data.copiedFrom) == "string" and data.copiedFrom:sub(1, 120) or nil,
+		characterSnapshot = snapshot,
 	})
+	build.importedFrom = build.author
 	EbonBuilds.Build.EnsureSettings(build)
 	return build
 end
@@ -333,6 +418,9 @@ function EbonBuilds.ExportImport.ImportBuild(b64String)
 	local build = EbonBuilds.ExportImport.DecodeBuild(b64String)
 	if not build then return nil end
 	EbonBuildsDB.builds[build.id] = build
+	EbonBuilds.Build.EnsureRuntime(build, false)
+	EbonBuilds.Build.SetAutomationEnabled(build, false)
+	if EbonBuilds.EventHub then EbonBuilds.EventHub.Bump("BUILD_LIBRARY_CHANGED", build.id, "imported") end
 	EbonBuilds.Build.SetActive(build.id)
 	return build
 end
@@ -347,12 +435,7 @@ local function CreateExportDialog()
 	local f = CreateFrame("Frame", "EbonBuildsExportBuildDialog", UIParent)
 	f:SetSize(700, 420)
 	f:SetPoint("CENTER")
-	f:SetBackdrop({
-		bgFile   = "Interface\\Buttons\\WHITE8X8",
-		edgeFile = "Interface\\Buttons\\WHITE8X8",
-		edgeSize = 1,
-		insets   = { left = 1, right = 1, top = 1, bottom = 1 },
-	})
+	EbonBuilds.Theme.ApplyBackdropDefinition(f)
 	f:SetBackdropColor(0, 0, 0, 0.9)
 	f:SetBackdropBorderColor(0.6, 0.6, 0.6, 1)
 	f:SetFrameStrata("FULLSCREEN_DIALOG")
@@ -436,6 +519,15 @@ function EbonBuilds.ExportImport.GenerateAIText(build)
 
     add("=== EbonBuilds Settings Export (for AI analysis) ===")
     add("Build: %s | Class: %s | Spec: %s", build.title or "?", build.class or "?", tostring(build.spec or "?"))
+    local readiness = EbonBuilds.Readiness and EbonBuilds.Readiness.Get(build)
+    if readiness then
+        add("Revision: %d | Strategy revision: %d | Readiness: %s | Evidence: %s",
+            tonumber(build.revision) or tonumber(build.version) or 1,
+            tonumber(build.strategyRevision) or 1, readiness.state or "?", readiness.evidenceTier or "INSUFFICIENT")
+        add("Current-strategy evidence: %d completed run(s), %d decision(s)%s",
+            readiness.completedRuns or 0, readiness.decisionCount or 0,
+            readiness.reviewPending and " | review pending" or "")
+    end
     add("Automation mode: %s", (s.rerollMode or "sum") == "ev" and "Smart (EV)" or "Classic")
     add("")
 
@@ -475,7 +567,9 @@ function EbonBuilds.ExportImport.GenerateAIText(build)
     -- observed-vs-target numbers to reason from instead of just the
     -- configured percentages.
     if EbonBuilds.Calibration and EbonBuilds.Calibration.SampleCount() > 0 then
-        add("--- Tuning Advisor: real observed data (%d samples) ---", EbonBuilds.Calibration.SampleCount())
+        add("--- Tuning Advisor: current strategy-revision data (%d samples) ---", EbonBuilds.Calibration.SampleCount())
+        add("Calibration scope: %s (per-character rolling window; not community data)",
+            EbonBuilds.Calibration.GetScope and EbonBuilds.Calibration.GetScope() or "unknown")
         local function addSuggestion(label, result, unit)
             if result.insufficientData then
                 add("%s: not enough data yet (%d/30 samples)", label, result.sampleCount)
@@ -499,13 +593,13 @@ function EbonBuilds.ExportImport.GenerateAIText(build)
     end
 
     -- Weight suggestions from collected DPS data, if any -- a read-only
-    -- report (not auto-applied like thresholds), since weight changes
+    -- report, since weight changes
     -- are a bigger intervention and this data is noisier. Compares each
     -- echo against others currently sharing its exact weight value.
     if EbonBuilds.EchoPerformance and EbonBuilds.EchoPerformance.IsEnabled() then
         local suggestions = EbonBuilds.EchoPerformance.SuggestWeightAdjustments(build)
         if #suggestions > 0 then
-            add("--- Weight suggestions from DPS data (report only unless auto-apply is enabled) ---")
+            add("--- Weight suggestions from DPS data (review before applying) ---")
             add("DPS is tracked by Echo family because some server builds do not expose the active rank.")
             add("A suggestion therefore means applying the same signed delta to every available rank,")
             add("never replacing the rank-specific weight table.")
@@ -527,7 +621,7 @@ function EbonBuilds.ExportImport.GenerateAIText(build)
     if EbonBuilds.ManualTraining then
         local trainSuggestions = EbonBuilds.ManualTraining.SuggestWeightAdjustments(build)
         if #trainSuggestions > 0 then
-            add("--- Weight suggestions from Manual Training (report only unless auto-apply is enabled) ---")
+            add("--- Weight suggestions from Manual Training (review before applying) ---")
             add("Based on manual picks rather than measured performance. Rank-aware observations")
             add("change only the offered rank; legacy family-level observations nudge every rank.")
             for _, sug in ipairs(trainSuggestions) do
@@ -808,12 +902,7 @@ local function CreateImportDialog()
 	local f = CreateFrame("Frame", "EbonBuildsImportBuildDialog", UIParent)
 	f:SetSize(700, 420)
 	f:SetPoint("CENTER")
-	f:SetBackdrop({
-		bgFile   = "Interface\\Buttons\\WHITE8X8",
-		edgeFile = "Interface\\Buttons\\WHITE8X8",
-		edgeSize = 1,
-		insets   = { left = 1, right = 1, top = 1, bottom = 1 },
-	})
+	EbonBuilds.Theme.ApplyBackdropDefinition(f)
 	f:SetBackdropColor(0, 0, 0, 0.9)
 	f:SetBackdropBorderColor(0.6, 0.6, 0.6, 1)
 	f:SetFrameStrata("FULLSCREEN_DIALOG")

@@ -18,9 +18,6 @@ local function GetEvalDelay()
     return (EbonBuildsDB.globalSettings and EbonBuildsDB.globalSettings.evalDelay) or 2
 end
 
-local evalTimerFrame    = nil
-local evalTimerElapsed  = 0
-local evalTimerActive   = false
 local pendingChoices    = nil
 local trainingNoticeShown = false -- once-per-session Manual Training notice (see the eval timer)
 local origPerkUIShow    = nil
@@ -34,48 +31,31 @@ local lastNoActionReason    = nil
 ------------------------------------------------------------------------
 
 local function StartEvalTimer()
-    if not evalTimerFrame then
-        evalTimerFrame = CreateFrame("Frame")
-        evalTimerFrame:SetScript("OnUpdate", function(self, dt)
-            evalTimerElapsed = evalTimerElapsed + dt
-            if evalTimerElapsed >= GetEvalDelay() then
-                evalTimerActive = false
-                evalTimerFrame:Hide()
-                local build = EbonBuilds.Build.GetActive()
-                local wasActive = build and build.automationEnabled
-                local isTraining = build and EbonBuilds.ManualTraining and EbonBuilds.ManualTraining.IsEnabled(build)
-                if EbonBuilds.Automation.Evaluate() then
-                    pendingChoices = nil
-                    lastNoActionReason = nil
-                    return
+    EbonBuilds.Scheduler.After("automation.evaluate", GetEvalDelay(), function()
+        local build = EbonBuilds.Build.GetActive()
+        local wasActive = build and EbonBuilds.Build.IsAutomationEnabled(build)
+        local isTraining = build and EbonBuilds.ManualTraining and EbonBuilds.ManualTraining.IsEnabled(build)
+        if EbonBuilds.Automation.Evaluate() then
+            pendingChoices = nil
+            lastNoActionReason = nil
+            return
+        end
+        -- Automation couldn't act, show the native perk UI. Manual Training
+        -- gets one explanatory notice per login; normal manual use stays quiet.
+        if pendingChoices and origPerkUIShow then
+            if wasActive and isTraining then
+                if not trainingNoticeShown then
+                    trainingNoticeShown = true
+                    EbonBuilds.Toast.Show("Automation paused: Manual Training is ON for this build (its toggle on the build overview turns it off)")
                 end
-                -- Automation couldn't act, show the native perk UI. Only
-                -- explain why if automation was actually on for this build.
-                -- Manual Training gets its own notice, once per session:
-                -- total silence made "Training: ON" indistinguishable from
-                -- a broken addon (real report: "automation doesn't pick
-                -- anything anymore" with both toggles on), but repeating
-                -- it every choice screen would nag people deliberately
-                -- training. Once per login is the middle ground.
-                if pendingChoices and origPerkUIShow then
-                    if wasActive and isTraining then
-                        if not trainingNoticeShown then
-                            trainingNoticeShown = true
-                            EbonBuilds.Toast.Show("Automation paused: Manual Training is ON for this build (its toggle on the build overview turns it off)")
-                        end
-                    elseif wasActive then
-                        EbonBuilds.Toast.Show(lastNoActionReason or "Automation: no rule matched, choose manually")
-                    end
-                    origPerkUIShow(pendingChoices)
-                end
-                pendingChoices = nil
-                lastNoActionReason = nil
+            elseif wasActive then
+                EbonBuilds.Toast.Show(lastNoActionReason or "Automation: no rule matched, choose manually")
             end
-        end)
-    end
-    evalTimerElapsed = 0
-    evalTimerActive = true
-    evalTimerFrame:Show()
+            origPerkUIShow(pendingChoices)
+        end
+        pendingChoices = nil
+        lastNoActionReason = nil
+    end, EbonBuilds.Scheduler.CRITICAL, true)
 end
 
 -- Returns the cached peak (computed at first evaluation of the current run).
@@ -386,7 +366,7 @@ function EbonBuilds.Automation.Evaluate()
         -- Manual Training Mode is independent of Autopilot. When enabled,
         -- EbonBuilds observes the native manual pick but never acts.
         if EbonBuilds.ManualTraining and EbonBuilds.ManualTraining.IsEnabled(build) then return false end
-        if not build.automationEnabled then return false end
+        if not EbonBuilds.Build.IsAutomationEnabled(build) then return false end
 
         local settings   = EbonBuilds.Scoring.GetEffectiveSettings()
         local runData    = GetRunData()

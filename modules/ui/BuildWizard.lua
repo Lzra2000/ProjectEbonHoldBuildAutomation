@@ -308,7 +308,7 @@ local function RenderStep1()
 
     local title = contentArea:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     title:SetPoint("TOP", contentArea, "TOP", 0, -80)
-    title:SetText("Select your 5 locked echoes")
+    title:SetText("Select your 6 locked echoes")
 
     local sub = contentArea:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     sub:SetPoint("TOP", title, "BOTTOM", 0, -4)
@@ -784,12 +784,7 @@ local function RenderStep5()
     sf:SetPoint("BOTTOMRIGHT", contentArea, "BOTTOMRIGHT", -20,   0)
 
     -- Backdrop
-    sf:SetBackdrop({
-        bgFile   = "Interface\\Buttons\\WHITE8X8",
-        edgeFile = "Interface\\Buttons\\WHITE8X8",
-        edgeSize = 1,
-        insets = { left = 1, right = 1, top = 1, bottom = 1 },
-    })
+    EbonBuilds.Theme.ApplyBackdropDefinition(sf)
     sf:SetBackdropColor(0, 0, 0, 0.4)
     sf:SetBackdropBorderColor(0.3, 0.3, 0.3, 1)
 
@@ -819,7 +814,7 @@ local function RenderStep5()
         hint:SetText("No echoes added yet. Click \"+ Add Echo\" to start.")
     end
 
-    child:SetWidth(contentArea:GetWidth() - 54)
+    child:SetWidth(math.max(360, (sf:GetWidth() or 0) - 24))
     child:SetHeight(1)
     sf:SetScrollChild(child)
 
@@ -843,6 +838,7 @@ local function RenderStep5()
 
     -- Update scrollbar range after layout settles
     local function UpdateRange()
+        child:SetWidth(math.max(360, (sf:GetWidth() or 0) - 24))
         local childH = child:GetHeight()
         local sfH = sf:GetHeight()
         local range = math.max(0, childH - sfH)
@@ -894,12 +890,7 @@ local function RenderStep6()
     local titleBg = CreateFrame("Frame", nil, contentArea)
     titleBg:SetPoint("TOPLEFT",     titleBox, "TOPLEFT",     -2,  2)
     titleBg:SetPoint("BOTTOMRIGHT", titleBox, "BOTTOMRIGHT",  2, -2)
-    titleBg:SetBackdrop({
-        bgFile   = "Interface\\Buttons\\WHITE8X8",
-        edgeFile = "Interface\\Buttons\\WHITE8X8",
-        edgeSize = 1,
-        insets = { left = 1, right = 1, top = 1, bottom = 1 },
-    })
+    EbonBuilds.Theme.ApplyBackdropDefinition(titleBg)
     titleBg:SetBackdropColor(0, 0, 0, 0.6)
     titleBg:SetBackdropBorderColor(0.4, 0.4, 0.4, 1)
     titleBg:SetFrameLevel(titleBox:GetFrameLevel() - 1)
@@ -922,12 +913,7 @@ local function RenderStep6()
     local descBg = CreateFrame("Frame", nil, contentArea)
     descBg:SetPoint("TOPLEFT",     descBox, "TOPLEFT",     -2,  2)
     descBg:SetPoint("BOTTOMRIGHT", descBox, "BOTTOMRIGHT",  2, -2)
-    descBg:SetBackdrop({
-        bgFile   = "Interface\\Buttons\\WHITE8X8",
-        edgeFile = "Interface\\Buttons\\WHITE8X8",
-        edgeSize = 1,
-        insets = { left = 1, right = 1, top = 1, bottom = 1 },
-    })
+    EbonBuilds.Theme.ApplyBackdropDefinition(descBg)
     descBg:SetBackdropColor(0, 0, 0, 0.6)
     descBg:SetBackdropBorderColor(0.4, 0.4, 0.4, 1)
     descBg:SetFrameLevel(descBox:GetFrameLevel() - 1)
@@ -962,11 +948,11 @@ end
 ------------------------------------------------------------------------
 
 local function CreateBuildFromWizard()
-    EbonBuildsDB.pendingWeights = EbonBuildsDB.pendingWeights or {}
+    EbonBuilds.Runtime.pendingWeights = EbonBuilds.Runtime.pendingWeights or {}
 
     -- Apply echo weights
     for name, entry in pairs(state.echoes) do
-        EbonBuildsDB.pendingWeights[name] = EbonBuilds.Weights.MakeUniform(entry.weight)
+        EbonBuilds.Runtime.pendingWeights[name] = EbonBuilds.Weights.MakeUniform(entry.weight)
     end
 
     -- Build settings from wizard (same builder the live peak preview uses)
@@ -976,7 +962,7 @@ local function CreateBuildFromWizard()
     local locked = { unpack(state.locked, 1, EbonBuilds.Build.LOCKED_SLOTS) }
 
     -- Store wizard data so BuildForm can load it in create mode
-    EbonBuildsDB._wizardPrefill = {
+    EbonBuilds.Runtime.wizardPrefill = {
         title        = state.wizardTitle ~= "" and state.wizardTitle or "New Build",
         class        = state.class or EbonBuilds.Build.PlayerClassToken(),
         spec         = state.spec or EbonBuilds.Build.PlayerTopTalentTab(),
@@ -985,7 +971,7 @@ local function CreateBuildFromWizard()
         settings     = settings,
         isPublic     = false,
     }
-    EbonBuildsDB._isEditingBuild = true
+    EbonBuilds.Runtime.isEditingBuild = true
 
     EbonBuilds.ViewRouter.Show("buildTabs", { mode = "create", fromWizard = true })
 end

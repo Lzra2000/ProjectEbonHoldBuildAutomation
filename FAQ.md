@@ -6,7 +6,6 @@
 
 ## FAQ
 
-
 ### How do I generate an Echo Wish List (EWL)?
 Open the build's **Overview** and click **Export EWL**, or use `/ebb ewl` for the active build. The addon creates a standard `EWL1:<CLASS>:` import string.
 
@@ -53,8 +52,8 @@ Enable **Training** from the active build overview. While it is on, Autopilot yi
 ### What are Echo appearance rates?
 EbonBuilds records how often each Echo family appears on a choice screen. Local recording is automatic and lightweight. **Share echo appearance rates** in `/ebb tuning` is a separate opt-in control that exchanges aggregate, class-matched counts with other users. Appearance data is shown in Echo icon tooltips and Export (AI). **Sync Now** sends a few enabled DPS and/or appearance batches immediately instead of waiting for the periodic broadcast.
 
-### What does Auto-apply weight suggestions do?
-This option is off by default and also requires **Continuous auto-tune**. It applies DPS and Manual Training suggestions using signed deltas while preserving the separate Common, Uncommon, Rare, and Epic values. Rank-specific training observations change only that rank. Family-level DPS or legacy observations apply the same delta to each available rank. Opposing signals are combined first, so they cancel rather than silently overwriting one another.
+### What do automatic tuning proposals do?
+**Prepare tuning proposals** is off by default. It periodically stages a small evidence-based proposal, but never changes the live build by itself. Review the current evidence and use the visible Apply controls deliberately. Rank-specific Manual Training evidence remains separate from family-level DPS evidence, and conflicting signals are combined rather than silently overwriting one another.
 
 ### Can I give Epic, Rare, Uncommon, and Common versions different Echo values?
 Yes (2.50). The **Priorities** tab now shows one signed whole-number field for every quality rank that a particular echo can actually roll. For example, Scorching Wounds can use a negative Common value, a modest Uncommon value, and a high Rare value. Unavailable ranks remain blank. Existing single-value builds migrate automatically by copying the old value to every rank, preserving their previous scoring behavior.
@@ -229,9 +228,6 @@ It used to be deliberately hidden there (you already have it in your left sideba
 
 Works with **both Classic and Smart (EV) mode**, covering Banish, Reroll, and Freeze in both. Smart mode's fields are a % of mean/evBest3/EV rather than peak directly -- the advisor converts through the current mean/peak, evBest3/peak, or EV/peak ratio so both modes analyze against comparable underlying data (cross-checked: a Classic and a Smart suggestion targeting the same percentile land on the same real threshold). Smart Reroll's suggestion (2.48) uses its own sample stream with each evaluation's charge-pacing multiplier divided back out, since its live threshold moves with remaining charges -- the same pacing behavior as before, just now something the advisor can actually analyze. "Clear Collected Data" is worth using after a major reweight, since old samples reflect the previous weighting.
 
-### Continuous auto-tune (2.35) -- do I have to keep clicking Apply?
-Not if you don't want to. `/ebb tuning` has a **Continuous auto-tune** checkbox (off by default). Turn it on and thresholds nudge themselves toward their suggested value automatically -- a small gradual step (25% of the gap) every ~20 newly-recorded offers, never an instant jump. You'll get a toast every time it actually adjusts something, so you're never left wondering why automation's behavior changed. It's deliberately gradual and rate-limited so it can't overreact to a short noisy streak; simulated tests show it converges smoothly to a stable value over a few hundred samples rather than oscillating.
-
 ### Whole-run budget pacing (2.36)
 Automation now spends its Banish/Reroll/Freeze charges with the REST OF THE RUN in mind, not just the current offer in isolation. Smart Reroll already did this (get pickier as reroll charges run low); as of 2.36, Banish, Freeze, and Classic Reroll all get the same treatment:
 
@@ -251,16 +247,30 @@ Next to the regular Export button (build edit screen, any tab) is a new **Export
 
 This is deliberately approximate, not a controlled measurement: echoes stack together and fight difficulty/duration/execution vary a lot run to run, so it can't isolate any single echo's true causal effect. Treat it as a rough supplementary signal to combine with the scoring model and Tuning Advisor data, not a replacement for either. If Details! isn't installed, the checkbox tells you and won't enable.
 
+### How does the visual Character tab work?
+The build editor's **Character** tab has three focused views:
+
+- **Overview** summarizes the build's stored talent distribution, snapshotted equipment, capture identity/time, and glyph coverage.
+- **Talents** renders the stored snapshot as one compact WotLK-proportioned tier-and-column tree at a time with spell icons, rank badges, and captured prerequisite branches. The normal eight tiers fit in one view; exceptionally deep data scrolls instead of overlapping. The List view provides the same saved allocation in a compact text layout.
+- **Gear** places the snapshot's items in all 19 WotLK equipment slots around a character panel. It never substitutes the logged-in character's equipped items. Click a saved slot for item level, the build-spec model score, recognized weighted stats, and an explicit warning when item data or effects are only partially modeled.
+
+The gear score is directional build guidance, not a best-in-slot verdict. Uncached saved items remain pending instead of being counted as zero or replaced with current equipment. **Adopt current snapshot** copies current gear, the complete talent-tree presentation/allocation, and glyphs into the editor draft only when the current character and edited build have the same class; a mismatch disables the action and explains why. Save commits the staged snapshot and Cancel discards it. Older rank-only snapshots are expanded automatically from the built-in 3.3.5a talent catalog, restoring their native names, icons, full trees, backgrounds, and prerequisite lines without changing the stored build.
+
 ## Changelog
 
-### 3.22 (2026-07-19) -- Character tab: live gear, full talent trees, glyphs, and snapshot adoption
+### 3.22 (2026-07-19) -- Character tab: stored gear, full talent trees, glyphs, and snapshot adoption
 
 New fifth tab in the build editor, "Character", closing out the last two prepared APIs from 3.20's orphan review (`GearScore.ScoreEquipped`'s scoring path and the talent capture machinery).
 
-- **Live view**: every equipment slot with item name, quality color, and its GearScore for the build's spec; all three talent trees rendered in full -- every talent of every tree, skilled ranks highlighted, unskilled dimmed, ordered by tree position; all six glyph sockets (major/minor per the 3.3.5a socket layout, distinguishing empty from locked). Refreshes automatically on equipment, talent, and glyph events while the tab is open.
+- **Snapshot-owned visual workspace**: Overview, Talents, and Gear always render the build's stored character snapshot, never the logged-in character. Talents uses one focused, centered four-column saved tree with compact WotLK spacing, spell icons, rank badges, captured prerequisite branches, tree tabs, an inspector, and a list fallback. A normal eight-tier tree fits in one view. Gear uses the saved item links/metadata in a responsive 19-slot paper doll with quality borders and a selected-item inspector.
+- **Self-contained captures and legacy recovery**: new snapshots retain the complete talent presentation catalog and durable gear metadata needed for cross-character viewing. A compact built-in catalog reconstructs old rank-only snapshots from 3.3.5a spell IDs, producing localized names and native icons through the client while preserving the original allocation. Uncached saved items remain pending rather than becoming score zero or silently falling back to currently equipped gear.
+- **3.3.5a safeguards**: the Character view has no permanent `OnUpdate`; saved-item cache retries are bounded and scheduler-coalesced, and talent/list/gear widgets are pooled while the view is open. Live equipment, talent, and glyph events do not replace or redraw the stored build snapshot.
+- **Stable first render**: talent-tree centering uses the Character page's deterministic responsive geometry instead of the temporary width reported by a newly shown scroll frame, so it opens directly in its final centered position.
+- **Class-safe adoption**: snapshots can be adopted only when the live character class matches the edited build. The control, BuildForm, and snapshot data layer all enforce the rule; changing the draft class removes a staged snapshot that no longer matches.
+- **In-place editor saves**: Save Build commits the draft without leaving Priorities, Character, or the currently active editor tab. Filters, selection, and scroll position remain intact, and the committed build becomes the clean baseline for continued editing. Cancel remains the explicit route back to Overview.
 - **Adopt snapshot**: one button writes the current gear, complete talent trees, and glyphs onto the build being edited. It follows the editor's normal draft flow -- persisted by Save, discarded by Cancel, exactly like every other edit -- and the tab shows what snapshot (if any) the build currently stores, with its capture time and a points/glyphs/items summary.
 - **Snapshots travel with builds**: exported build strings and Public Builds now carry the snapshot, so a shared build can include its author's full setup rather than just weights. The roundtrip test for this immediately caught that both `DecodeBuild` and `Build.NewObject` field-filter imports -- the snapshot had to be threaded through both, and would otherwise have silently vanished on every import.
-- New `modules/build/CharacterSnapshot.lua` (capture logic, every getter injectable for tests) and `modules/ui/CharacterView.lua`; tab label and hint translated in all six languages. Tests cover full-tree capture including rank-0 talents, tier/column ordering, the glyph socket layout, adoption onto a build, the summary line, the export/import roundtrip, and the tab wiring.
+- New `modules/build/CharacterSnapshot.lua`, `modules/data/TalentCatalogData.lua`, `modules/data/TalentCatalog.lua`, and `modules/ui/CharacterView.lua`; tab label and hint translated in all six languages. Tests cover full-tree capture including rank-0 talents, all 829 fallback talents, tier/column ordering, legacy visual recovery, the glyph socket layout, adoption onto a build, the summary line, the export/import roundtrip, and the tab wiring.
 
 ### 3.21 (2026-07-19) -- Gear upgrade hints on item tooltips
 

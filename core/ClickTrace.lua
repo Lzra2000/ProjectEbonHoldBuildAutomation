@@ -27,12 +27,27 @@ local function DB()
 end
 
 function EbonBuilds.ClickTrace.SetEnabled(on)
-    enabled = on and true or false
-    if enabled then wipe(DB()) end
+    local newValue = on and true or false
+    local changed = enabled ~= newValue
+    enabled = newValue
+    if EbonBuilds.Database and EbonBuilds.Database.SetCharacterPreference then
+        EbonBuilds.Database.SetCharacterPreference("clickTraceEnabled", enabled)
+    elseif EbonBuildsCharDB then
+        EbonBuildsCharDB.clickTraceEnabled = enabled
+    end
+    if enabled and changed then wipe(DB()) end
 end
 
 function EbonBuilds.ClickTrace.IsEnabled()
     return enabled
+end
+
+function EbonBuilds.ClickTrace.Init()
+    if EbonBuilds.Database and EbonBuilds.Database.GetCharacterPreference then
+        enabled = EbonBuilds.Database.GetCharacterPreference("clickTraceEnabled")
+    else
+        enabled = EbonBuildsCharDB and EbonBuildsCharDB.clickTraceEnabled == true or false
+    end
 end
 
 local function Now()

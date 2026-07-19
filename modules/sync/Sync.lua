@@ -23,8 +23,11 @@ if RegisterAddonMessagePrefix then
     RegisterAddonMessagePrefix(PREFIX)
 end
 local MAX_CHUNK     = 180
+local MAX_BUILD_TRANSFER = 27000
+local MAX_TRANSFER_CHUNKS = math.ceil(MAX_BUILD_TRANSFER / MAX_CHUNK)
+local MAX_INFLIGHT_TRANSFERS = 20
 local SYNC_TIMEOUT  = 15
-local BATCH_SIZE    = 3
+local BATCH_SIZE    = 1
 local WANT_TIMEOUT  = 15
 local REQ_COOLDOWN  = 30
 local OFFLINE_COOLDOWN        = 60  -- seconds to block re-sends to a target detected as offline
@@ -44,7 +47,7 @@ local VERBOSE_LOG = false
 local syncFrame
 local syncChannelIndex
 local inflight = {}
-local sendQueue = {}
+local sendQueue = EbonBuilds.RingBuffer.New(MAX_QUEUE_SIZE)
 local nextSendTime = 0
 local SEND_DELAY = 0.15  -- ~6.7 msg/s; WoW 3.3.5a anti-spam ceiling is ~10 msg/s
 local pendingBatches = {}
@@ -61,7 +64,7 @@ local sendTally = {}      -- [playerName] = consecutive sends without response
 -- request is as cheap for responders as a normal single-class sync.
 local CLASS_TOKENS = { "WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST", "DEATHKNIGHT", "SHAMAN", "MAGE", "WARLOCK", "DRUID" }
 local CLASS_SYNC_STAGGER = 1.5  -- seconds between each class's REQ broadcast
-local classSyncQueue = {}
+local classSyncQueue = EbonBuilds.RingBuffer.New(#CLASS_TOKENS)
 local classSyncNextTime = 0
 
 -- Reliability & anti-flood state (sync v2 improvements):
@@ -161,11 +164,7 @@ local function HandleSystemMessage(msg)
         if lower:find(target:lower(), 1, true) then
             failedTargets[target] = now + OFFLINE_COOLDOWN
             sendTally[target] = nil
-            for i = #sendQueue, 1, -1 do
-                if sendQueue[i].target == target then
-                    table.remove(sendQueue, i)
-                end
-            end
+            EbonBuilds.RingBuffer.RemoveIf(sendQueue, function(entry) return entry and entry.target == target end)
             pendingBatches[target] = nil
             VerboseLog("Player " .. target .. " is offline — cancelled pending sync batch.")
             return
@@ -173,20 +172,21 @@ local function HandleSystemMessage(msg)
     end
 
     -- Also scan sendQueue in case pendingBatches was already cleaned
-    for _, entry in ipairs(sendQueue) do
-        if lower:find(entry.target:lower(), 1, true) then
-            local target = entry.target
+    local offlineTarget
+    EbonBuilds.RingBuffer.ForEach(sendQueue, function(entry)
+        if entry and entry.target and lower:find(entry.target:lower(), 1, true) then
+            offlineTarget = entry.target
+            return false
+        end
+    end)
+    if offlineTarget then
+            local target = offlineTarget
             failedTargets[target] = now + OFFLINE_COOLDOWN
             sendTally[target] = nil
-            for i = #sendQueue, 1, -1 do
-                if sendQueue[i].target == target then
-                    table.remove(sendQueue, i)
-                end
-            end
+            EbonBuilds.RingBuffer.RemoveIf(sendQueue, function(entry) return entry and entry.target == target end)
             pendingBatches[target] = nil
             VerboseLog("Player " .. target .. " is offline — flushed send queue.")
             return
-        end
     end
 end
 
@@ -246,19 +246,22 @@ local function Enqueue(target, payload)
         if t < failedTargets[target] then return end
         failedTargets[target] = nil  -- cooldown expired, allow retry
     end
-    -- Safety cap: drop oldest entry if queue grows unreasonably large
-    if #sendQueue >= MAX_QUEUE_SIZE then
-        table.remove(sendQueue, 1)
-    end
-    sendQueue[#sendQueue + 1] = { target = target, payload = payload }
+    -- Ring append is O(1); at the safety cap it overwrites the oldest entry.
+    EbonBuilds.RingBuffer.Append(sendQueue, { target = target, payload = payload })
 end
 
 local function SendChunked(target, code, streamKey, data)
+    if type(data) ~= "string" or #data > MAX_BUILD_TRANSFER then
+        if EbonBuilds.ErrorLog then
+            EbonBuilds.ErrorLog.Record("Sync.SendChunked", "Build payload exceeds the 27 KB transfer limit")
+        end
+        return false
+    end
     local sender = UnitName("player")
     if #data <= MAX_CHUNK then
         local payload = string.format("%s|%s|%s|1/1|%s", code, sender, streamKey, data)
         Enqueue(target, payload)
-        return
+        return true
     end
     local total = math.ceil(#data / MAX_CHUNK)
     for idx = 1, total do
@@ -267,6 +270,7 @@ local function SendChunked(target, code, streamKey, data)
         local payload = string.format("%s|%s|%s|%d/%d|%s", code, sender, streamKey, idx, total, chunk)
         Enqueue(target, payload)
     end
+    return true
 end
 
 ------------------------------------------------------------------------
@@ -324,18 +328,23 @@ local function AssembleBuild(sender, buildId, base64)
     -- Store in remote builds (market), not in local collection
     local rb = EbonBuildsDB.remoteBuilds[buildId]
     if rb then
+        rb._lastSeenAt = time()
         local incomingDate = imported.lastModified or ""
         local storedDate   = rb.lastModified or ""
         if incomingDate > storedDate then
             imported.id = buildId
+            imported._lastSeenAt = time()
             EbonBuildsDB.remoteBuilds[buildId] = imported
             VerboseLog("Build " .. buildId .. " updated in remote (incoming=" .. incomingDate .. ")")
         end
     else
         imported.id = buildId
+        imported._lastSeenAt = time()
         EbonBuildsDB.remoteBuilds[buildId] = imported
         VerboseLog("Build " .. buildId .. " stored in remote (author: " .. (imported.author or "?") .. ")")
     end
+    EbonBuilds.Scheduler.After("database.pruneRemoteBuilds", 0.5,
+        EbonBuilds.Database.PruneRemoteBuilds, EbonBuilds.Scheduler.MAINTENANCE, false)
 
     if EbonBuilds.PublicBuildsView and EbonBuilds.PublicBuildsView.RefreshIfMounted then
         EbonBuilds.PublicBuildsView.RefreshIfMounted()
@@ -389,8 +398,7 @@ local function SendBatchBuilds(requester, wantedUuids)
             if b64 then
                 VerboseLog(string.format("BLD enqueued for %s: %s (%d bytes)",
                     requester, b.id, #b64))
-                SendChunked(requester, "BLD", b.id, b64)
-                pb.sent = pb.sent + 1
+                if SendChunked(requester, "BLD", b.id, b64) then pb.sent = pb.sent + 1 end
             end
         end
     end
@@ -447,7 +455,7 @@ local function HandleRequest(requester, classFilter)
             -- noisy on a full server sync; the total counts below cover it.
         elseif NormalizeName(build.author) ~= NormalizeName(requester) then
             if VALIDATION_REQUIRED and not build.validated then
-                VerboseLog("  build " .. (build.title or "?") .. " skipped: not validated")
+                VerboseLog("  build " .. (build.title or "?") .. " skipped: no completed local run reported")
             else
                 eligible[#eligible + 1] = build
             end
@@ -593,13 +601,21 @@ local function HandleChunk(payload, sender)
     if not idx then return end
     idx = tonumber(idx)
     total = tonumber(total)
+    if not idx or not total or total < 1 or total > MAX_TRANSFER_CHUNKS then return end
+    if type(data) ~= "string" or #data > MAX_CHUNK then return end
+    if type(buildId) ~= "string" or #buildId > 80 then return end
+    if NormalizeName(snd) ~= NormalizeName(sender) then return end
 
-    local key = snd .. ":" .. buildId
+    local key = NormalizeName(sender) .. ":" .. buildId
     local rec = inflight[key]
     if not rec then
+        local activeTransfers = 0
+        for _ in pairs(inflight) do activeTransfers = activeTransfers + 1 end
+        if activeTransfers >= MAX_INFLIGHT_TRANSFERS then CleanupExpired(); return end
         rec = { total = total, got = 0, parts = {}, t0 = Now() }
         inflight[key] = rec
     end
+    if rec.total ~= total then inflight[key] = nil; return end
 
     if idx >= 1 and idx <= total and not rec.parts[idx] then
         rec.parts[idx] = data
@@ -756,8 +772,7 @@ local function HandleRtx(payload, sender)
         if b and b.isPublic then
             local b64 = EbonBuilds.ExportImport.ExportBuild(b)
             if b64 then
-                SendChunked(sender, "BLD", uuid, b64)
-                resent = resent + 1
+                if SendChunked(sender, "BLD", uuid, b64) then resent = resent + 1 end
             end
         end
     end
@@ -775,8 +790,9 @@ function HandleGet(payload, sender)
         if b.isPublic and id:gsub("%-", ""):sub(1, 8) == id8 then
             local b64 = EbonBuilds.ExportImport.ExportBuild(b)
             if b64 then
-                SendChunked(sender, "BLD", id, b64)
-                SyncTrace(("GET from %s: served %s"):format(sender, id))
+                if SendChunked(sender, "BLD", id, b64) then
+                    SyncTrace(("GET from %s: served %s"):format(sender, id))
+                end
             end
             return
         end
@@ -889,13 +905,13 @@ EbonBuilds.Sync._HandleChannelMessageForTests = function(...) return HandleChann
 EbonBuilds.Sync._HandleSystemMessageForTests = function(...) return HandleSystemMessage(...) end
 EbonBuilds.Sync._DebugState = function()
     local q, opcodes = 0, {}
-    for _, entry in ipairs(sendQueue) do
+    EbonBuilds.RingBuffer.ForEach(sendQueue, function(entry)
         q = q + 1
         local payload = type(entry) == "table" and entry.payload or entry
         if type(payload) == "string" then
             opcodes[#opcodes + 1] = payload:sub(1, 3)
         end
-    end
+    end)
     local wf = 0
     for _, rec in pairs(wantedFrom) do
         for _ in pairs(rec.uuids) do wf = wf + 1 end
@@ -906,8 +922,8 @@ EbonBuilds.Sync._ResetForTests = function()
     wantedFrom = {}
     requestedThisSync = {}
     reqCooldown = {}
-    for i = #sendQueue, 1, -1 do table.remove(sendQueue, i) end
-    for i = #classSyncQueue, 1, -1 do table.remove(classSyncQueue, i) end
+    EbonBuilds.RingBuffer.Clear(sendQueue)
+    EbonBuilds.RingBuffer.Clear(classSyncQueue)
     syncSession.active = false
     syncSession.received = 0
 end
@@ -959,7 +975,7 @@ function EbonBuilds.Sync.RequestSync(classFilter)
     syncSession.received = 0
     syncSession.lastActivity = Now()
 
-    wipe(classSyncQueue) -- a single-class request cancels any pending "sync all" run
+    EbonBuilds.RingBuffer.Clear(classSyncQueue) -- a single-class request cancels any pending "sync all" run
 
     if classFilter then
         Log("Requesting sync (class filter: " .. classFilter .. ")...")
@@ -988,12 +1004,12 @@ function EbonBuilds.Sync.RequestSyncAllClasses()
     syncSession.received = 0
     syncSession.lastActivity = Now()
 
-    wipe(classSyncQueue)
+    EbonBuilds.RingBuffer.Clear(classSyncQueue)
     for _, token in ipairs(CLASS_TOKENS) do
-        classSyncQueue[#classSyncQueue + 1] = token
+        EbonBuilds.RingBuffer.Append(classSyncQueue, token)
     end
     classSyncNextTime = 0 -- fire the first class immediately on next OnUpdate
-    Log(("Requesting sync for all %d classes (staggered)..."):format(#classSyncQueue))
+    Log(("Requesting sync for all %d classes (staggered)..."):format(EbonBuilds.RingBuffer.Count(classSyncQueue)))
 end
 
 function EbonBuilds.Sync.Init()
@@ -1013,14 +1029,18 @@ function EbonBuilds.Sync.Init()
             local newLevel = ...
             if newLevel == 80 then
                 local build = EbonBuilds.Build.GetActive()
-                if build and not build.validated then
+                local session = EbonBuilds.Session and EbonBuilds.Session.GetActiveSession()
+                local sameStrategy = build and session and session.buildId == build.id
+                    and not session.mixedStrategy
+                    and (tonumber(session.strategyRevision) or 1) == (tonumber(build.strategyRevision) or 1)
+                if build and sameStrategy and not build.validated then
                     build.validated = true
-                    VerboseLog("Build \"" .. (build.title or "?") .. "\" validated (reached level 80)")
+                    VerboseLog("Build \"" .. (build.title or "?") .. "\" marked locally run-tested (reached level 80)")
                 end
             end
         end
     end)
-    syncFrame:SetScript("OnUpdate", function()
+    local function TickSync()
         local now = Now()
 
         -- Retransmit lost transfers: if a sender we WNT'd builds from has
@@ -1067,8 +1087,8 @@ function EbonBuilds.Sync.Init()
         -- current one's channel-retry cycle is idle and the stagger gap
         -- has elapsed. Keeps every individual REQ as cheap as a normal
         -- single-class sync instead of one unfiltered blast.
-        if #classSyncQueue > 0 and channelRetries.remaining == 0 and now >= classSyncNextTime then
-            local nextClass = table.remove(classSyncQueue, 1)
+        if EbonBuilds.RingBuffer.Count(classSyncQueue) > 0 and channelRetries.remaining == 0 and now >= classSyncNextTime then
+            local nextClass = EbonBuilds.RingBuffer.PopOldest(classSyncQueue)
             DoBroadcastREQ(nextClass)
             classSyncNextTime = now + CLASS_SYNC_STAGGER
         end
@@ -1104,9 +1124,8 @@ function EbonBuilds.Sync.Init()
             end
         end
         -- Send queue (rate-limited, with offline guard)
-        if #sendQueue > 0 and now >= nextSendTime then
-            local entry = sendQueue[1]
-            table.remove(sendQueue, 1)
+        if EbonBuilds.RingBuffer.Count(sendQueue) > 0 and now >= nextSendTime then
+            local entry = EbonBuilds.RingBuffer.PopOldest(sendQueue)
             if entry.target and entry.target ~= "" and entry.payload then
                 local blocked = failedTargets[entry.target]
                 local tally = sendTally[entry.target] or 0
@@ -1127,7 +1146,9 @@ function EbonBuilds.Sync.Init()
             end
             nextSendTime = now + SEND_DELAY
         end
-    end)
+    end
+    EbonBuilds.Scheduler.Every("sync.tick", 0.05, TickSync,
+        EbonBuilds.Scheduler.INTERACTIVE, true)
 
     -- Join and hide the sync channel
     syncChannelIndex = FindSyncChannel() or JoinChannelByName(SYNC_CHANNEL)

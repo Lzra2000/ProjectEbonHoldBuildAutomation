@@ -138,7 +138,8 @@ local function BuildQualitySection(parent, x, y)
     local panel = EbonBuilds.Theme.CreateSection(parent, "Rank strategy",
         "Shape the value curve from EPIC on the left to COMMON on the right. Add is the clearest default; Multiply is an advanced option.")
     panel:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
-    panel:SetSize(610, 126)
+    panel:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -x, y)
+    panel:SetHeight(126)
 
     for i, q in ipairs(QUALITY_ORDER) do
         local info = EbonBuilds.Quality
@@ -165,7 +166,8 @@ local function BuildFamilySection(parent, x, y)
     local panel = EbonBuilds.Theme.CreateSection(parent, "Role emphasis",
         "Raise or lower whole groups when your build clearly favors a role or damage type.")
     panel:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
-    panel:SetSize(610, 188)
+    panel:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -x, y)
+    panel:SetHeight(188)
 
     local function CreateFamily(fam, col, row)
         local box, mode = CreateModifierItem(panel, 10 + (col - 1) * 148, -54 - (row - 1) * 62, fam)
@@ -193,7 +195,8 @@ local function BuildNoveltySection(parent, x, y)
     local panel = EbonBuilds.Theme.CreateSection(parent, "Unique Echo strategy",
         "Applied only the first time an Echo family appears in the run. This is the main control for encouraging unique picks.")
     panel:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
-    panel:SetSize(610, 104)
+    panel:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -x, y)
+    panel:SetHeight(104)
 
     local box, mode = CreateModifierItem(panel, 12, -54, "New unique Echo")
     box._fieldTitle = "Novelty modifier"
@@ -283,12 +286,16 @@ local function BuildViewFrame(parent)
     scrollBar:SetScript("OnValueChanged", function(_, value)
         scrollFrame:SetVerticalScroll(value)
     end)
-    scrollFrame:SetScript("OnSizeChanged", UpdateScrollRange)
+    scrollFrame:SetScript("OnSizeChanged", function(self)
+        scrollChild:SetWidth(math.max(610, self:GetWidth() or 0))
+        UpdateScrollRange()
+    end)
 
     BuildQualitySection(scrollChild, 4, -4)
     BuildFamilySection(scrollChild, 4, -140)
     BuildNoveltySection(scrollChild, 4, -338)
     EbonBuilds.Theme.BindScrollWheel(scrollFrame, scrollBar, 24, scrollChild)
+    scrollChild:SetWidth(math.max(610, scrollFrame:GetWidth() or 0))
     return f
 end
 

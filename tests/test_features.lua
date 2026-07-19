@@ -16,7 +16,7 @@ local function equal(actual, expected, message)
     check(actual == expected, string.format("%s (expected %s, got %s)", message, tostring(expected), tostring(actual)))
 end
 
-EbonBuilds = {}
+EbonBuilds = { Runtime = {} }
 EbonBuildsDB = { builds = {} }
 EbonBuildsCharDB = {}
 
@@ -79,8 +79,10 @@ EbonBuilds.DebugLog = {
 }
 EbonBuilds.Toast = { ShowAutomationResult = function() end, Show = function() end }
 EbonBuilds.Session = { LogAction = function() end, GetActiveSession = function() return EbonBuilds.Session._activeSession end }
+EbonBuilds.Scheduler = { BACKGROUND = 3, Every = function() return true end }
 
 -- Load only the modules needed by these tests.
+dofile("core/RingBuffer.lua")
 dofile("modules/data/Quality.lua")
 dofile("modules/weights/Weights.lua")
 dofile("modules/build/Build.lua")
@@ -356,6 +358,7 @@ do
     })
     EbonBuildsDB.builds[build.id] = build
     EbonBuildsCharDB.activeBuildId = build.id
+    EbonBuilds.Build.SetAutomationEnabled(build, true)
     ProjectEbonhold._choices = {
         { spellId = 100, quality = 0 },
         { spellId = 101, quality = 2 },
@@ -498,6 +501,7 @@ do
     })
     EbonBuildsDB.builds[build.id] = build
     EbonBuildsCharDB.activeBuildId = build.id
+    EbonBuilds.Build.SetAutomationEnabled(build, true)
     EbonBuildsDB._isEditingBuild = nil
     ProjectEbonhold._choices = {
         { spellId = 100, quality = 0 },
@@ -606,6 +610,7 @@ do
     })
     EbonBuildsDB.builds[build.id] = build
     EbonBuildsCharDB.activeBuildId = build.id
+    EbonBuilds.Build.SetAutomationEnabled(build, true)
     ProjectEbonhold._choices = { { spellId = 100, quality = 0 }, { spellId = 101, quality = 2 } }
     EbonholdPlayerRunData = { remainingBanishes = 1, totalRerolls = 0, usedRerolls = 0, totalFreezes = 0, usedFreezes = 0 }
     ProjectEbonhold._banished = nil
@@ -661,6 +666,7 @@ do
     })
     EbonBuildsDB.builds[build.id] = build
     EbonBuildsCharDB.activeBuildId = build.id
+    EbonBuilds.Build.SetTrainingEnabled(build, true)
     EbonBuildsCharDB.manualTraining = nil
     ProjectEbonhold._choices = {
         { spellId = 100, quality = 0 },
@@ -715,8 +721,8 @@ end
 -- and duplicate ranks of the same Echo count once per evaluation.
 do
     local build = EbonBuilds.Build.GetActive()
-    build.automationEnabled = false
-    build.manualTrainingEnabled = true
+    EbonBuilds.Build.SetAutomationEnabled(build, false)
+    EbonBuilds.Build.SetTrainingEnabled(build, true)
     ProjectEbonhold._choices = {
         { spellId = 100, quality = 0 },
         { spellId = 103, quality = 1 },
@@ -731,7 +737,7 @@ do
         "duplicate ranks of one Echo count once in an evaluation")
     equal(math.floor((arcane and arcane.pct or 0) + 0.5), 100,
         "other offered Echoes are recorded while Autopilot is off")
-    build.manualTrainingEnabled = false
+    EbonBuilds.Build.SetTrainingEnabled(build, false)
 end
 
 -- DPS suggestions remain family-level and never assume a scalar weight.
@@ -760,7 +766,8 @@ do
     EbonBuilds.EchoTableRows.BuildBestByName = originalCatalog
 end
 
--- Auto-apply combines family and rank-specific deltas without scalarizing.
+-- Proposal preparation combines family and rank-specific deltas without
+-- mutating the live build before explicit review.
 do
     local build = EbonBuilds.Build.GetActive()
     build.echoWeights = {
@@ -796,12 +803,19 @@ do
 
     EbonBuilds.Calibration.MaybeAutoTune()
     check(type(build.echoWeights["Scorching Wounds"]) == "table", "auto-apply preserves the rank table")
-    equal(EbonBuilds.Weights.GetFromWeights(build.echoWeights, "Scorching Wounds", 0), 10,
-        "family-level delta applies to Common")
-    equal(EbonBuilds.Weights.GetFromWeights(build.echoWeights, "Scorching Wounds", 1), 15,
-        "family-level delta applies to Uncommon")
-    equal(EbonBuilds.Weights.GetFromWeights(build.echoWeights, "Scorching Wounds", 2), 20,
-        "opposing Rare deltas cancel before saving")
+    equal(EbonBuilds.Weights.GetFromWeights(build.echoWeights, "Scorching Wounds", 0), 0,
+        "proposal preparation does not mutate live Common")
+    local proposal, proposalStatus = EbonBuilds.Calibration.GetPendingReview()
+    equal(proposalStatus, "READY", "combined weight proposal is ready for explicit review")
+    check(proposal and proposal.echoWeights and type(proposal.echoWeights["Scorching Wounds"]) == "table",
+        "proposal preserves the rank table")
+    equal(EbonBuilds.Weights.GetFromWeights(proposal.echoWeights, "Scorching Wounds", 0), 10,
+        "family-level delta is staged for Common")
+    equal(EbonBuilds.Weights.GetFromWeights(proposal.echoWeights, "Scorching Wounds", 1), 15,
+        "family-level delta is staged for Uncommon")
+    equal(EbonBuilds.Weights.GetFromWeights(proposal.echoWeights, "Scorching Wounds", 2), 20,
+        "opposing Rare deltas cancel in the proposal")
+    EbonBuilds.Calibration.DismissPendingReview()
 
     EbonBuilds.Calibration.SuggestBanish, EbonBuilds.Calibration.SuggestReroll, EbonBuilds.Calibration.SuggestFreeze = oldB, oldR, oldF
     EbonBuilds.Calibration.SuggestSmartBanish, EbonBuilds.Calibration.SuggestSmartReroll, EbonBuilds.Calibration.SuggestSmartFreeze = oldSB, oldSR, oldSF
@@ -1167,33 +1181,24 @@ do
     end
 end
 
--- Echo Performance (DPS/appearance tracking) now defaults to on for a
--- character that has never touched the setting, without silently
--- re-enabling it for someone who explicitly turned it off. Tests the exact
--- nil-check EchoPerformance.Init() uses, not a duplicated copy of it, by
--- calling Init() itself against three starting states.
+-- Echo Performance requires explicit, versioned consent. Legacy enable flags
+-- cannot silently opt a character in, while explicit on/off choices persist.
 do
-    local originalCreateFrame = CreateFrame
-    CreateFrame = function()
-        return setmetatable({}, { __index = function() return function() end end })
-    end
-
-    EbonBuildsCharDB.echoPerformanceEnabled = nil
+    EbonBuildsCharDB.consent = nil
+    EbonBuildsCharDB.echoPerformanceEnabled = true
     EbonBuilds.EchoPerformance.Init()
-    check(EbonBuilds.EchoPerformance.IsEnabled() == true,
-        "a character who never touched the setting gets it enabled by default")
+    check(not EbonBuilds.EchoPerformance.IsEnabled(),
+        "a legacy enable flag does not bypass explicit consent")
 
-    EbonBuildsCharDB.echoPerformanceEnabled = false
+    EbonBuilds.EchoPerformance.SetEnabled(false)
     EbonBuilds.EchoPerformance.Init()
     check(EbonBuilds.EchoPerformance.IsEnabled() == false,
-        "a character who explicitly disabled tracking stays disabled after the default is applied")
+        "a character who explicitly disabled tracking stays disabled")
 
-    EbonBuildsCharDB.echoPerformanceEnabled = true
+    EbonBuilds.EchoPerformance.SetEnabled(true)
     EbonBuilds.EchoPerformance.Init()
     check(EbonBuilds.EchoPerformance.IsEnabled() == true,
         "a character who explicitly enabled tracking stays enabled")
-
-    CreateFrame = originalCreateFrame
 end
 
 -- Gear upgrade detection (GearScore.UpgradeInfo) and its tooltip wiring
