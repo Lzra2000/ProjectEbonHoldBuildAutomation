@@ -1039,6 +1039,3 @@ function EbonBuilds.MainWindow.Toggle()
     end
 end
 
-function EbonBuilds.MainWindow.GetRightPanel()
-    return EbonBuilds.MainWindow._right
-end

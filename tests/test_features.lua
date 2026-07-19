@@ -1136,6 +1136,14 @@ do
         for key in src:gmatch('EbonBuilds%.L%["(.-[^\\])"%]') do
             usedKeys[key:gsub('\\"', '"')] = true
         end
+        -- Alias lookups too (local L = EbonBuilds.L; L["..."]) --
+        -- BuildTabs.lua's tab labels only go through the alias, so
+        -- without this a missing tab-label translation passes silently.
+        for alias in src:gmatch("local%s+([%a_][%w_]*)%s*=%s*EbonBuilds%.L%f[%W]") do
+            for key in src:gmatch(alias:gsub("%W", "%%%1") .. '%["(.-[^\\])"%]') do
+                usedKeys[key:gsub('\\"', '"')] = true
+            end
+        end
     end
     local usedCount = 0
     for _ in pairs(usedKeys) do usedCount = usedCount + 1 end

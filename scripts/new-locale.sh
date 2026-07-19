@@ -58,12 +58,18 @@ local ordered = {}
 for _, path in ipairs(files) do
     local src = ReadFile(path)
     local fileKeys = {}
-    for key in src:gmatch('EbonBuilds%.L%["(.-[^\\])"%]') do
+    local function record(key)
         local unescaped = key:gsub('\\"', '"')
         if not seen[unescaped] then
             seen[unescaped] = true
             fileKeys[#fileKeys + 1] = unescaped
         end
+    end
+    for key in src:gmatch('EbonBuilds%.L%["(.-[^\\])"%]') do record(key) end
+    -- Alias lookups (local L = EbonBuilds.L; L["..."]) -- same blind spot
+    -- the i18n report had, fixed everywhere the same way.
+    for alias in src:gmatch("local%s+([%a_][%w_]*)%s*=%s*EbonBuilds%.L%f[%W]") do
+        for key in src:gmatch(alias:gsub("%W", "%%%1") .. '%["(.-[^\\])"%]') do record(key) end
     end
     if #fileKeys > 0 then
         ordered[#ordered + 1] = { file = path, keys = fileKeys }

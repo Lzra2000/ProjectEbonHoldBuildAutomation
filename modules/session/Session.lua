@@ -489,30 +489,6 @@ function EbonBuilds.Session.DeleteSession(id)
     return false
 end
 
-function EbonBuilds.Session.ClearAllSessions()
-    EbonBuildsDB.sessions = {}
-    EbonBuildsDB.currentSessionIndex = nil
-    maxLevel = 0
-    -- Immediately create a fresh session at the current player level.
-    -- CreateSession() performs the history notification.
-    CreateSession()
-end
-
-function EbonBuilds.Session.DeleteLogEntry(sessionId, logIndex)
-    local sessions = EbonBuildsDB.sessions
-    for _, s in ipairs(sessions) do
-        if s.id == sessionId then
-            if s.logs and logIndex >= 1 and logIndex <= #s.logs then
-                table.remove(s.logs, logIndex)
-                NotifyHistoryChanged()
-                return true
-            end
-            return false
-        end
-    end
-    return false
-end
-
 -- Test/integration helpers. These are pure and do not mutate saved data.
 EbonBuilds.Session._CountEpicChoices = CountEpicChoices
 EbonBuilds.Session._EarlyOfferMaxLevel = EARLY_OFFER_MAX_LEVEL

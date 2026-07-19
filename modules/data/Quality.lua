@@ -39,10 +39,6 @@ function EbonBuilds.Quality.IsValid(quality)
     return EbonBuilds.Quality.LABELS[quality] ~= nil
 end
 
-function EbonBuilds.Quality.Hex(q)
-    return HEX[q] or HEX[0]
-end
-
 function EbonBuilds.Quality.GetRGB(q)
     local c = RGB[q] or RGB[0]
     return c[1], c[2], c[3]

@@ -225,11 +225,6 @@ end
 -- UUID
 ------------------------------------------------------------------------
 
-function EbonBuilds.Build.NewId()
-    local name = UnitName("player") or "unknown"
-    return tostring(time()) .. "-" .. tostring(math.random(1, 1000000000)) .. "-" .. name
-end
-
 function EbonBuilds.Build.NewObjectId()
     return string.format("%08x%04x%04x%04x%04x",
         time(),
@@ -680,6 +675,3 @@ function EbonBuilds.Build.RestoreLastDeleted()
     return restored
 end
 
-function EbonBuilds.Build.HasRestorableDelete()
-    return lastDeleted ~= nil
-end

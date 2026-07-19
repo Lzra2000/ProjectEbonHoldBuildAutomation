@@ -33,12 +33,21 @@ local used = {}
 local usedCount = 0
 local p = io.popen("find core modules -name '*.lua' -not -path 'modules/i18n/locales/*'")
 for path in p:lines() do
-    for key in ReadFile(path):gmatch('EbonBuilds%.L%["(.-[^\\])"%]') do
+    local src = ReadFile(path)
+    local function record(key)
         local k = key:gsub('\\"', '"')
         if not used[k] then
             used[k] = true
             usedCount = usedCount + 1
         end
+    end
+    for key in src:gmatch('EbonBuilds%.L%["(.-[^\\])"%]') do record(key) end
+    -- Alias lookups: files commonly do `local L = EbonBuilds.L` and then
+    -- `L["..."]`. Matching only the full literal misses every one of
+    -- those -- which is exactly how the tab labels in BuildTabs.lua got
+    -- falsely reported as orphaned once.
+    for alias in src:gmatch("local%s+([%a_][%w_]*)%s*=%s*EbonBuilds%.L%f[%W]") do
+        for key in src:gmatch(alias:gsub("%W", "%%%1") .. '%["(.-[^\\])"%]') do record(key) end
     end
 end
 p:close()

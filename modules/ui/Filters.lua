@@ -231,10 +231,6 @@ local function CreateSearchBox(bar)
     return container
 end
 
-function EbonBuilds.Filters.FocusSearch()
-    if searchEditBox then searchEditBox:SetFocus() end
-end
-
 function EbonBuilds.Filters.ShowAllClasses()
     return state.showAllClasses
 end

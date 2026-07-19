@@ -32,10 +32,6 @@ function EbonBuilds.Affix.HasData()
     return #DB().list > 0
 end
 
-function EbonBuilds.Affix.LastReceivedAt()
-    return DB().lastReceivedAt
-end
-
 -- Case-insensitive lookup, tolerant of a trailing " IV"-style rank suffix
 -- matching a differently-ranked query (rank is ignored -- callers that
 -- care about rank should compare .name exactly instead).

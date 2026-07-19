@@ -253,6 +253,14 @@ This is deliberately approximate, not a controlled measurement: echoes stack tog
 
 ## Changelog
 
+### 3.20 (2026-07-19) -- Acting on what 3.19's tooling found
+
+Follow-up to the two findings the new scripts surfaced.
+
+- **The "8 orphaned translation keys per locale" finding was a false alarm -- and led to a real fix elsewhere.** Before deleting them, verification showed the keys are actively used: `BuildTabs.lua` looks them up through an alias (`local L = EbonBuilds.L`), which the i18n report, `scripts/new-locale.sh`, and the locale consistency test were all blind to. All three now recognize alias lookups. Real key count went from 14 to 22, coverage is 100% in all six languages with zero orphans -- and, more importantly, a missing tab-label translation now actually fails the test suite, which it previously wouldn't have.
+- **13 of the 18 uncalled exports are gone**: `Affix.LastReceivedAt`, `Build.HasRestorableDelete`, `Build.NewId`, `BuildTabs.GetActiveTab`, `BuildTabs.IsDirty`, `Filters.FocusSearch`, `MainWindow.GetRightPanel`, `Quality.Hex`, `Scoring.ComputeRerollEV`, `Session.ClearAllSessions`, `Session.DeleteLogEntry`, `Talents.PointSummary`, `Talents.TotalPoints`. Each had zero callers anywhere, including through module aliases and tests; git history keeps them if one is ever wanted back.
+- **5 kept deliberately**: `GearScore.HasWeights` / `IsUpgrade` / `ScoreEquipped` (a coherent, documented gear-upgrade API waiting to be wired up), `Talents.ScanUnit` (the async inspect machinery, similarly documented and self-contained), and `Affix.IsLearned` (documented lookup utility). These read as prepared features, not leftovers.
+
 ### 3.19 (2026-07-19) -- Six pieces of developer tooling
 
 Repo/tooling release; the only in-game-relevant piece is the new fuzz test hardening confidence in Sync's crash resistance.

@@ -177,10 +177,6 @@ function EbonBuilds.Scoring.ComputeOutcomeStats(classToken, settings, weightFn)
     return { mean = sum / n, evBest3 = ev / n3 }
 end
 
-function EbonBuilds.Scoring.ComputeRerollEV(classToken, settings, weightFn)
-    return EbonBuilds.Scoring.ComputeOutcomeStats(classToken, settings, weightFn).evBest3
-end
-
 function EbonBuilds.Scoring.GetEffectiveLockedEchoes()
     if EbonBuilds.BuildForm and EbonBuilds.BuildForm.GetEditingLockedEchoes then
         local p = EbonBuilds.BuildForm.GetEditingLockedEchoes()

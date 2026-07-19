@@ -55,10 +55,6 @@ function EbonBuilds.BuildTabs.ClearDirty()
     RefreshSaveState()
 end
 
-function EbonBuilds.BuildTabs.IsDirty()
-    return dirty
-end
-
 local function UnmountAll()
     EbonBuilds.BuildForm.Unmount()
     EbonBuilds.WeightsView.Unmount()
@@ -115,10 +111,6 @@ local function ShowTab(index)
         EbonBuilds.MainWindow.SetPageContext(prefix .. " · " .. TAB_DEFS[index].label)
     end
     return true
-end
-
-function EbonBuilds.BuildTabs.GetActiveTab()
-    return activeTab
 end
 
 function EbonBuilds.BuildTabs.ShowTab(index)
