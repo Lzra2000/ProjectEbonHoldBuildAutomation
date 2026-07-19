@@ -65,7 +65,7 @@ Every command starts with `/ebb`. A full in-game reference is also available via
 
 The build editor's tabs, buttons, and tooltips are translated into German, Spanish, French, Polish, Brazilian Portuguese, and Russian, matching the languages this README is already available in. EbonBuilds picks a translation automatically from your client's own language, or you can override it with `/ebb locale <code>`.
 
-Translation strings live in `modules/i18n/locales/*.lua`, one file per language, each mapping the original English string to its translation. Adding a language: copy an existing locale file, translate its strings, register it under the new locale code, and add it to `EbonBuilds.toc`. Game-specific terms (Echo, Build, Banish/Reroll/Freeze/Select, Autopilot) are kept in English across all languages, matching the existing README translations -- follow that convention rather than translating them.
+Translation strings live in `modules/i18n/locales/*.lua`, one file per language, each mapping the original English string to its translation. Adding a language: run `sh scripts/new-locale.sh <code>` to generate a starting file pre-filled with every known key, then translate the values -- see `CONTRIBUTING.md` for the rest of the steps. Game-specific terms (Echo, Build, Banish/Reroll/Freeze/Select, Autopilot) are kept in English across all languages, matching the existing README translations -- follow that convention rather than translating them.
 
 Only the build editor is translated so far; the rest of the addon's UI still falls back to English (missing keys never error, they just show the English text). Extending coverage to more views is just adding more `EbonBuilds.L["..."]` call sites and the matching translation-table entries.
 
@@ -74,6 +74,8 @@ Only the build editor is translated so far; the rest of the addon's UI still fal
 Attach `/ebb errors` output or an `/ebb debug` log to your report — it's the single fastest way to get something fixed instead of guessed at.
 
 ## Development
+
+See `CONTRIBUTING.md` for setup, the pre-PR checklist, and project conventions. Quick version:
 
 - Pure Lua, WotLK 3.3.5a API (Interface 30300).
 - One-time setup: `sh scripts/dev-setup.sh` installs the toolchain (`lua5.1`, `texlive-binaries` for the test suite, `zip`).

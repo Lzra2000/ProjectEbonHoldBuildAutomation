@@ -1,4 +1,4 @@
-name: Lua syntax check
+name: Checks
 
 on:
   push:
@@ -7,36 +7,16 @@ on:
     branches: ["**"]
 
 jobs:
-  syntax-check:
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Lua 5.1 (matches WotLK 3.3.5a's runtime)
-        run: sudo apt-get update && sudo apt-get install -y lua5.1
+      - name: Install toolchain
+        run: sh scripts/dev-setup.sh
 
-      - name: Check every non-test .lua file with luac5.1 -p
-        run: |
-          fail=0
-          for f in $(find . -name "*.lua" -not -path "./tests/*"); do
-            if ! luac5.1 -p "$f"; then
-              echo "::error file=$f::Syntax error"
-              fail=1
-            fi
-          done
-          exit $fail
+      - name: Run scripts/check.sh (syntax, test suite, .toc verification)
+        run: sh scripts/check.sh
 
-      - name: Install texlua (used by the test suite -- tests/*.lua use Lua 5.3-style bitwise operators luac5.1 doesn't parse)
-        run: sudo apt-get install -y texlive-binaries
-
-      - name: Run the test suite (TOC load order + feature checks)
-        run: sh tests/run.sh
-
-      - name: Verify every .lua file listed in the .toc exists on disk
-        run: |
-          fail=0
-          grep -E '^\S+\.lua$' EbonBuilds.toc > /tmp/toc_files.txt
-          while IFS= read -r line; do
-            [ -f "$line" ] || { echo "::error::Missing file listed in EbonBuilds.toc: $line"; fail=1; }
-          done < /tmp/toc_files.txt
-          exit $fail
+      - name: Verify dist/EbonBuilds.zip builds cleanly
+        run: sh scripts/build-dist.sh

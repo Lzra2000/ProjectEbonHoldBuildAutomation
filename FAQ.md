@@ -253,6 +253,13 @@ This is deliberately approximate, not a controlled measurement: echoes stack tog
 
 ## Changelog
 
+### 3.14 (2026-07-19) -- Contributor tooling: CI consolidation, templates, locale scaffolding
+
+- CI (`.github/workflows/lua-syntax.yml`) now runs `scripts/dev-setup.sh` + `scripts/check.sh` + `scripts/build-dist.sh` directly, instead of duplicating the syntax/test/TOC-check logic inline. That duplication meant a fix to `scripts/check.sh` (like the shellcheck fix in 3.06) never actually reached CI -- now there's one script both contributors and CI run, so they can't drift apart again.
+- New `scripts/new-locale.sh <code>`: scans the whole addon for every `EbonBuilds.L["..."]` call site and generates a starting locale file with every known key pre-filled (English placeholder as the value), grouped by source file. Adding a language used to mean manually copying an existing locale file and hoping nothing was missed; now it's one command plus filling in the values.
+- New `CONTRIBUTING.md`: setup, the pre-PR checklist, and the project's actual conventions (file headers, test-hook naming, `ErrorLog.Protect`, changelog format, the release process) in one place instead of scattered across READMEs and code comments.
+- New PR template with a checklist matching those conventions, and bug report / feature request issue templates (the bug report one asks for `/ebb errors` and `/ebb clicktrace` output up front, matching the README's existing bug-reporting guidance).
+
 ### 3.13 (2026-07-19) -- DPS/appearance tracking (Echo Performance) is on by default
 
 A character that has never touched the setting now gets it enabled automatically, instead of requiring an opt-in. A character who explicitly turned it off keeps that choice -- only ever applies to a character that has never set it either way.
