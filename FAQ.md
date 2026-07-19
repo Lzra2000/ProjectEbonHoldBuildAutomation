@@ -253,6 +253,17 @@ This is deliberately approximate, not a controlled measurement: echoes stack tog
 
 ## Changelog
 
+### 3.19 (2026-07-19) -- Six pieces of developer tooling
+
+Repo/tooling release; the only in-game-relevant piece is the new fuzz test hardening confidence in Sync's crash resistance.
+
+- `scripts/ship.sh <version>`: release, push, and publish the GitHub Release as one command, stopping with a clear message at whichever stage fails. The token goes through a temporary credential helper, never into the remote URL. Exists because "pushed the tag but never published the Release" has already happened here once.
+- `scripts/check-load-order.sh`: flags file-scope references to an `EbonBuilds.<Module>` that no earlier `.toc` file defines -- the exact trap the ErrorLog.Protect wrap fell into in 3.10. Comment- and string-aware, so keywords in either can't produce false positives; verified it catches a deliberately reintroduced violation.
+- `scripts/find-orphans.sh`: Lua files the `.toc` never loads (hard failure) and exported functions with no visible caller (listed for review; `_`-prefixed test hooks exempt, tests count as callers). Currently reports 18 uncalled exports worth a look.
+- `scripts/i18n-report.sh`: per-locale coverage report -- missing keys and orphaned entries. Reads each locale file by actually loading it with a stub `Register`, so it's escaping-accurate rather than grep-approximate. Immediately caught 8 orphaned keys per locale left over from the contributed settings redesign (PR #4 replaced the tab labels that BuildTabs.lua used to look up).
+- `scripts/triage-error.sh`: paste an `/ebb errors` dump (file or stdin), get every mentioned `file:line` with surrounding source, the error line marked, and the last commits touching that exact range via `git log -L`. Reproduces the full context of 3.11's real crash report from just the pasted error text.
+- `tests/test_sync_fuzz.lua`, now part of `tests/run.sh`: 4000 deterministic hostile payloads (control-byte floods, truncated batches, delimiter storms, absurd numerics, wrong prefixes) against `DispatchAddon`, `HandleChannelMessage`, and `HandleSystemMessage`. Uses its own LCG so the seed reproduces identically across Lua versions; on failure it prints seed, iteration, and the escaped payload. First full run passes -- the control-byte fix from PR #1 holds under pressure. Adds `_HandleChannelMessageForTests`/`_HandleSystemMessageForTests` hooks to Sync.lua, matching the existing pattern.
+
 ### 3.18 (2026-07-19) -- Settings window redesigned (contributed)
 
 Contributed by ha99dfs (PR #4), building on 3.15's category tabs.

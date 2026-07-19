@@ -21,6 +21,16 @@ Runs the same three checks CI runs: Lua 5.1 syntax check, the full test suite (`
 
 The PR template has a short checklist -- FAQ.md entry for user-facing changes, translation keys for new UI strings, that kind of thing.
 
+Further tooling, all under `scripts/`:
+
+- `sh scripts/check-load-order.sh` -- verifies no file references an `EbonBuilds.<Module>` at file scope before the `.toc` has loaded the file defining it. Function bodies are exempt (they run post-load). This exact trap has bitten before; run it after adding cross-module references at the top of a file.
+- `sh scripts/find-orphans.sh` -- lists Lua files the `.toc` never loads (hard failure: they silently don't exist in-game) and exported functions with no visible caller (listed for review only -- dynamic dispatch is invisible to it, and `_`-prefixed test hooks are exempt).
+- `sh scripts/i18n-report.sh` -- per-locale translation coverage: missing keys and orphaned entries. The test suite only fails on missing; this shows the whole picture.
+- `sh scripts/triage-error.sh <file|-|>` -- paste an in-game error dump, get the source context and the last commits touching each mentioned line range.
+- `GITHUB_TOKEN=... sh scripts/ship.sh <version>` -- release.sh + push + publish-github-release.sh as one command (maintainers only).
+
+The test suite also includes `tests/test_sync_fuzz.lua`: 4000 deterministic hostile payloads against Sync's inbound message handlers. If it fails, it prints the seed, iteration, and escaped payload -- turn that into a named regression test alongside the fix.
+
 ## Project conventions
 
 - **File header.** Every module starts with:

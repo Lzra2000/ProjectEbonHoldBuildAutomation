@@ -885,6 +885,8 @@ end
 -- Internal export for unit tests
 EbonBuilds.Sync._StripChatPrefix = _StripChatPrefix
 EbonBuilds.Sync._DispatchAddonForTests = function(...) return DispatchAddon(...) end
+EbonBuilds.Sync._HandleChannelMessageForTests = function(...) return HandleChannelMessage(...) end
+EbonBuilds.Sync._HandleSystemMessageForTests = function(...) return HandleSystemMessage(...) end
 EbonBuilds.Sync._DebugState = function()
     local q, opcodes = 0, {}
     for _, entry in ipairs(sendQueue) do
