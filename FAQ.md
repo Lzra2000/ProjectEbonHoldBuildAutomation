@@ -253,6 +253,15 @@ This is deliberately approximate, not a controlled measurement: echoes stack tog
 
 ## Changelog
 
+### 3.18 (2026-07-19) -- Settings window redesigned (contributed)
+
+Contributed by ha99dfs (PR #4), building on 3.15's category tabs.
+
+- The Settings popup is now a larger window (640x520) with a left-hand category navigation instead of a horizontal tab row, each category with a title and short description of what lives there.
+- Settings edits are held as a draft against a baseline: nothing applies until Save, Cancel discards cleanly, and categories with an invalid value get a visible error marker in the navigation.
+- The window remembers which category you had open last and clamps to the screen.
+- The "Language" category is now "Interface".
+
 ### 3.17 (2026-07-19) -- Repo page design applied to all six translated READMEs
 
 Repo-only release, nothing changes in-game.
