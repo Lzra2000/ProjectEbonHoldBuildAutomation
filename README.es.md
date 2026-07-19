@@ -1,10 +1,26 @@
-# EbonBuilds
+<p align="center">
+  <img src="assets/banner.svg" alt="EbonBuilds" width="100%">
+</p>
 
-[English](README.md) | [Deutsch](README.de.md) | [Русский](README.ru.md) | [Português (Brasil)](README.pt-BR.md) | **[Español](README.es.md)** | [Français](README.fr.md) | [Polski](README.pl.md)
+<p align="center">
+  <a href="https://github.com/Lzra2000/-ProjectEbonHoldBuildAutomation/actions/workflows/lua-syntax.yml"><img src="https://github.com/Lzra2000/-ProjectEbonHoldBuildAutomation/actions/workflows/lua-syntax.yml/badge.svg" alt="Checks"></a>
+  <a href="https://github.com/Lzra2000/-ProjectEbonHoldBuildAutomation/releases/latest"><img src="https://img.shields.io/github/v/release/Lzra2000/-ProjectEbonHoldBuildAutomation?label=release&color=2a6e5a" alt="Latest release"></a>
+  <img src="https://img.shields.io/badge/WoW-3.3.5a%20(12340)-4a7ab5" alt="WoW 3.3.5a">
+  <img src="https://img.shields.io/badge/Lua-5.1-8a5fc9" alt="Lua 5.1">
+</p>
+
+<p align="center">
+  <a href="README.md">English</a> | <a href="README.de.md">Deutsch</a> | <a href="README.ru.md">Русский</a> | <a href="README.pt-BR.md">Português (Brasil)</a> | <b>Español</b> | <a href="README.fr.md">Français</a> | <a href="README.pl.md">Polski</a>
+</p>
 
 Un addon de World of Warcraft (3.3.5a) para **ProjectEbonhold** que automatiza las elecciones de eco (Banish / Reroll / Freeze / Select) según un build que defines, y se autoajusta con el tiempo a partir de datos reales de juego.
 
 Requiere **ProjectEbonhold** o **ProjectEbonhold Enhanced**. Algunas funciones usan además **[Details!](https://www.curseforge.com/wow/addons/details)** si está instalado.
+
+
+<p align="center">
+  <img src="assets/how-it-works.svg" alt="How it works" width="100%">
+</p>
 
 ## Qué hace
 
@@ -37,27 +53,11 @@ Luego reinicia el juego o haz `/reload`.
 
 ## Comandos
 
-Todos los comandos empiezan con `/ebb`. También hay una referencia completa en el juego mediante `/ebb showcase`.
-
-| Comando | Descripción |
-|---|---|
-| `/ebb` | Abrir o cerrar la ventana principal |
-| `/ebb faq` (o `/ebb help`) | Guía completa dentro del juego |
-| `/ebb showcase` (o `/ebb commands`) | Esta lista de comandos, en el juego |
-| `/ebb tuning` (o `/ebb advisor`) | Tuning Advisor: umbrales, auto-tune, compartir DPS/tasa de aparición |
-| `/ebb cleartraining` | Borrar los datos de Manual Training del build activo |
-| `/ebb atlas` (o `/ebb tomes`) | Tome Atlas |
-| `/ebb affix` | Referencia de afijos |
-| `/ebb autosell` | Alternar la venta automática de basura de 0 de cobre en vendedores |
-| `/ebb bagdots` | Alternar puntos de color en objetos de la mochila sin afijo |
-| `/ebb debug` | Alternar el registro detallado de decisiones de la automatización |
-| `/ebb debuglog` (o `/ebb log`) | Ver el registro de depuración capturado |
-| `/ebb errors` | Ver errores capturados, para reportes de errores |
-| `/ebb clicktrace` | Registrar cada clic de botón de la interfaz, para reportes de "no pasó nada" |
+Solo `/ebb` (o `/ebonbuilds`): abre o cierra la ventana principal. Todo lo que antes era un comando aparte ahora está en el icono de engranaje (Ajustes) en la cabecera de la ventana, todo en un solo lugar en vez de subcomandos que memorizar: idioma, venta automática, puntos de afijo en las bolsas, registro de depuración, Click Trace, los registros de depuración/errores/Click Trace, el Tuning Advisor, el Tome Atlas, la referencia de afijos, la guía de comandos, y la exportación EWL y el reinicio del Manual Training del build activo.
 
 ## Reportar errores
 
-Adjunta la salida de `/ebb errors` o un registro de `/ebb debug` a tu reporte — es la forma más rápida de que algo se corrija de verdad en lugar de solo suponerlo.
+Adjunta la salida del registro de errores o del registro de depuración (Ajustes — icono de engranaje — Windows & Tools) a tu reporte: es la forma más rápida de que algo se arregle en lugar de adivinarse.
 
 ## Desarrollo
 

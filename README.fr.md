@@ -1,10 +1,26 @@
-# EbonBuilds
+<p align="center">
+  <img src="assets/banner.svg" alt="EbonBuilds" width="100%">
+</p>
 
-[English](README.md) | [Deutsch](README.de.md) | [Русский](README.ru.md) | [Português (Brasil)](README.pt-BR.md) | [Español](README.es.md) | **[Français](README.fr.md)** | [Polski](README.pl.md)
+<p align="center">
+  <a href="https://github.com/Lzra2000/-ProjectEbonHoldBuildAutomation/actions/workflows/lua-syntax.yml"><img src="https://github.com/Lzra2000/-ProjectEbonHoldBuildAutomation/actions/workflows/lua-syntax.yml/badge.svg" alt="Checks"></a>
+  <a href="https://github.com/Lzra2000/-ProjectEbonHoldBuildAutomation/releases/latest"><img src="https://img.shields.io/github/v/release/Lzra2000/-ProjectEbonHoldBuildAutomation?label=release&color=2a6e5a" alt="Latest release"></a>
+  <img src="https://img.shields.io/badge/WoW-3.3.5a%20(12340)-4a7ab5" alt="WoW 3.3.5a">
+  <img src="https://img.shields.io/badge/Lua-5.1-8a5fc9" alt="Lua 5.1">
+</p>
+
+<p align="center">
+  <a href="README.md">English</a> | <a href="README.de.md">Deutsch</a> | <a href="README.ru.md">Русский</a> | <a href="README.pt-BR.md">Português (Brasil)</a> | <a href="README.es.md">Español</a> | <b>Français</b> | <a href="README.pl.md">Polski</a>
+</p>
 
 Un addon World of Warcraft (3.3.5a) pour **ProjectEbonhold** qui automatise les choix d'écho (Banish / Reroll / Freeze / Select) en fonction d'un build que vous définissez, et qui s'auto-ajuste au fil du temps à partir de données de jeu réelles.
 
 Nécessite **ProjectEbonhold** ou **ProjectEbonhold Enhanced**. Certaines fonctionnalités utilisent en plus **[Details!](https://www.curseforge.com/wow/addons/details)** si installé.
+
+
+<p align="center">
+  <img src="assets/how-it-works.svg" alt="How it works" width="100%">
+</p>
 
 ## Ce qu'il fait
 
@@ -37,27 +53,11 @@ Puis redémarrez le jeu ou faites `/reload`.
 
 ## Commandes
 
-Chaque commande commence par `/ebb`. Une référence complète est aussi disponible en jeu via `/ebb showcase`.
-
-| Commande | Description |
-|---|---|
-| `/ebb` | Ouvrir ou fermer la fenêtre principale |
-| `/ebb faq` (ou `/ebb help`) | Guide complet en jeu |
-| `/ebb showcase` (ou `/ebb commands`) | Cette liste de commandes, en jeu |
-| `/ebb tuning` (ou `/ebb advisor`) | Tuning Advisor : seuils, auto-tune, partage DPS/taux d'apparition |
-| `/ebb cleartraining` | Effacer les données de Manual Training du build actif |
-| `/ebb atlas` (ou `/ebb tomes`) | Tome Atlas |
-| `/ebb affix` | Référence des affixes |
-| `/ebb autosell` | Activer/désactiver la vente automatique des objets à 0 cuivre chez les marchands |
-| `/ebb bagdots` | Activer/désactiver les points colorés sur les objets du sac sans affixe |
-| `/ebb debug` | Activer/désactiver la journalisation détaillée des décisions de l'automatisation |
-| `/ebb debuglog` (ou `/ebb log`) | Voir le journal de débogage capturé |
-| `/ebb errors` | Voir les erreurs capturées, pour les rapports de bugs |
-| `/ebb clicktrace` | Journaliser chaque clic de bouton de l'interface, pour les rapports « rien ne s'est passé » |
+Juste `/ebb` (ou `/ebonbuilds`) : ouvre ou ferme la fenêtre principale. Tout ce qui était auparavant une commande séparée se trouve désormais derrière l'icône d'engrenage (Paramètres) dans l'en-tête de la fenêtre, le tout au même endroit plutôt que des sous-commandes à mémoriser : langue, vente automatique, points d'affixe des sacs, journalisation de débogage, Click Trace, les journaux de débogage/erreurs/Click Trace, le Tuning Advisor, le Tome Atlas, la référence des affixes, le guide des commandes, ainsi que l'export EWL et la réinitialisation du Manual Training du build actif.
 
 ## Signaler un bug
 
-Joignez la sortie de `/ebb errors` ou un journal `/ebb debug` à votre rapport — c'est le moyen le plus rapide d'obtenir une vraie correction plutôt qu'une supposition.
+Joignez la sortie du journal d'erreurs ou du journal de débogage (Paramètres — icône d'engrenage — Windows & Tools) à votre rapport : c'est de loin le moyen le plus rapide pour qu'un problème soit corrigé plutôt que deviné.
 
 ## Développement
 

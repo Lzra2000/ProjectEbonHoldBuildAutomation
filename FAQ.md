@@ -253,6 +253,13 @@ This is deliberately approximate, not a controlled measurement: echoes stack tog
 
 ## Changelog
 
+### 3.17 (2026-07-19) -- Repo page design applied to all six translated READMEs
+
+Repo-only release, nothing changes in-game.
+
+- All six translated READMEs (Deutsch, Español, Français, Polski, Português (Brasil), Русский) now open with the same banner, status badges, and how-it-works diagram as the English one, with the language bar bolding its own language.
+- While touching them anyway, their Commands and bug-reporting sections were finally brought up to date with 3.15's slash-command removal -- they'd still been showing the full table of removed `/ebb` subcommands. Each now describes the Settings popup instead, translated in the same register the rest of that README already uses.
+
 ### 3.16 (2026-07-19) -- Repo page: banner, diagram, badges
 
 Repo-only release, nothing changes in-game.

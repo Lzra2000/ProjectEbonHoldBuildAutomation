@@ -1,10 +1,26 @@
-# EbonBuilds
+<p align="center">
+  <img src="assets/banner.svg" alt="EbonBuilds" width="100%">
+</p>
 
-[English](README.md) | [Deutsch](README.de.md) | [Русский](README.ru.md) | [Português (Brasil)](README.pt-BR.md) | [Español](README.es.md) | [Français](README.fr.md) | **[Polski](README.pl.md)**
+<p align="center">
+  <a href="https://github.com/Lzra2000/-ProjectEbonHoldBuildAutomation/actions/workflows/lua-syntax.yml"><img src="https://github.com/Lzra2000/-ProjectEbonHoldBuildAutomation/actions/workflows/lua-syntax.yml/badge.svg" alt="Checks"></a>
+  <a href="https://github.com/Lzra2000/-ProjectEbonHoldBuildAutomation/releases/latest"><img src="https://img.shields.io/github/v/release/Lzra2000/-ProjectEbonHoldBuildAutomation?label=release&color=2a6e5a" alt="Latest release"></a>
+  <img src="https://img.shields.io/badge/WoW-3.3.5a%20(12340)-4a7ab5" alt="WoW 3.3.5a">
+  <img src="https://img.shields.io/badge/Lua-5.1-8a5fc9" alt="Lua 5.1">
+</p>
+
+<p align="center">
+  <a href="README.md">English</a> | <a href="README.de.md">Deutsch</a> | <a href="README.ru.md">Русский</a> | <a href="README.pt-BR.md">Português (Brasil)</a> | <a href="README.es.md">Español</a> | <a href="README.fr.md">Français</a> | <b>Polski</b>
+</p>
 
 Addon do World of Warcraft (3.3.5a) dla **ProjectEbonhold**, który automatyzuje wybory echa (Banish / Reroll / Freeze / Select) na podstawie zdefiniowanego przez ciebie builda i z czasem sam się dostraja na podstawie prawdziwych danych z gry.
 
 Wymaga **ProjectEbonhold** lub **ProjectEbonhold Enhanced**. Niektóre funkcje dodatkowo korzystają z **[Details!](https://www.curseforge.com/wow/addons/details)**, jeśli jest zainstalowany.
+
+
+<p align="center">
+  <img src="assets/how-it-works.svg" alt="How it works" width="100%">
+</p>
 
 ## Co robi
 
@@ -37,27 +53,11 @@ Następnie zrestartuj grę lub wykonaj `/reload`.
 
 ## Komendy
 
-Każda komenda zaczyna się od `/ebb`. Pełne odniesienie jest też dostępne w grze przez `/ebb showcase`.
-
-| Komenda | Opis |
-|---|---|
-| `/ebb` | Otwórz lub zamknij główne okno |
-| `/ebb faq` (lub `/ebb help`) | Pełny przewodnik w grze |
-| `/ebb showcase` (lub `/ebb commands`) | Ta lista komend, w grze |
-| `/ebb tuning` (lub `/ebb advisor`) | Tuning Advisor: progi, auto-tune, udostępnianie DPS/częstotliwości pojawiania się |
-| `/ebb cleartraining` | Wyczyść dane Manual Training aktywnego builda |
-| `/ebb atlas` (lub `/ebb tomes`) | Tome Atlas |
-| `/ebb affix` | Baza afiksów |
-| `/ebb autosell` | Przełącz automatyczną sprzedaż śmieci za 0 miedzi u handlarzy |
-| `/ebb bagdots` | Przełącz kolorowe kropki na przedmiotach w plecaku bez afiksu |
-| `/ebb debug` | Przełącz szczegółowe logowanie decyzji automatyzacji |
-| `/ebb debuglog` (lub `/ebb log`) | Zobacz zarejestrowany log debugowania |
-| `/ebb errors` | Zobacz przechwycone błędy, do zgłoszeń błędów |
-| `/ebb clicktrace` | Loguj każde kliknięcie przycisku interfejsu, do zgłoszeń „nic się nie stało” |
+Tylko `/ebb` (lub `/ebonbuilds`) — otwiera lub zamyka główne okno. Wszystko, co wcześniej było osobną komendą, znajduje się teraz pod ikoną zębatki (Ustawienia) w nagłówku okna, wszystko w jednym miejscu zamiast podkomend do zapamiętania: język, automatyczna sprzedaż, kropki afiksów w torbach, logowanie debugowania, Click Trace, logi debugowania/błędów/Click Trace, Tuning Advisor, Tome Atlas, spis afiksów, przewodnik po komendach oraz eksport EWL i reset Manual Training aktywnego builda.
 
 ## Zgłaszanie błędów
 
-Dołącz do zgłoszenia wynik `/ebb errors` lub log `/ebb debug` — to najszybszy sposób, żeby coś naprawdę naprawić, zamiast zgadywać.
+Dołącz do zgłoszenia zawartość logu błędów lub logu debugowania (Ustawienia — ikona zębatki — Windows & Tools) — to zdecydowanie najszybszy sposób, by coś zostało naprawione, a nie zgadywane.
 
 ## Rozwój
 
