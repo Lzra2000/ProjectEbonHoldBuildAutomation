@@ -85,8 +85,104 @@ function EbonBuilds.WorldIntegration.BuildZoneTomeLines(zoneName, listByZone)
     return lines
 end
 
+------------------------------------------------------------------------
+-- (3) Continent view: color every zone with known tome drops
+------------------------------------------------------------------------
+-- The approach quest-overlay addons use: UpdateMapHighlight(x, y)
+-- answers "which zone highlight sits at this point" for the continent
+-- map, including the highlight texture's file, size, and position. We
+-- sample the map once per continent, cache those answers, and keep the
+-- highlight textures of tome-bearing zones shown permanently with a
+-- green tint -- zone-level coloring needs zone names only, which is
+-- exactly what the atlas has.
+
+local highlightCache = {}   -- [continent] = { [zoneName] = {file, tpx, tpy, tx, ty, sx, sy} }
+local overlayPool = {}      -- reusable texture frames on WorldMapButton
+local legend
+
+-- Pure step, injectable: which zone names deserve color.
+function EbonBuilds.WorldIntegration.ZonesWithTomes(listByZone)
+    listByZone = listByZone or (EbonBuilds.TomeAtlas and EbonBuilds.TomeAtlas.ListByZone)
+    local set = {}
+    if not listByZone then return set end
+    for _, z in ipairs(listByZone() or {}) do
+        if z.tomes and next(z.tomes) then set[z.zone] = true end
+    end
+    return set
+end
+
+local function SampleContinent(cont)
+    if highlightCache[cont] then return highlightCache[cont] end
+    local cache = {}
+    -- 40x30 grid over the map button; each hit caches one zone's
+    -- highlight geometry. One-time cost per continent per session.
+    for gx = 1, 40 do
+        for gy = 1, 30 do
+            local name, file, tpx, tpy, tx, ty, sx, sy = UpdateMapHighlight(gx / 41, gy / 31)
+            if name and file and not cache[name] then
+                cache[name] = { file = file, tpx = tpx, tpy = tpy, tx = tx, ty = ty, sx = sx, sy = sy }
+            end
+        end
+    end
+    highlightCache[cont] = cache
+    return cache
+end
+
+local function HideOverlays()
+    for _, tex in ipairs(overlayPool) do tex:Hide() end
+    if legend then legend:Hide() end
+end
+
+local function ShowContinentOverlays()
+    local parent = WorldMapButton or WorldMapDetailFrame
+    if not parent then return end
+    local cont = GetCurrentMapContinent and GetCurrentMapContinent() or 0
+    local zone = GetCurrentMapZone and GetCurrentMapZone() or 0
+    if cont <= 0 or zone ~= 0 then
+        HideOverlays()
+        return
+    end
+    local cache = SampleContinent(cont)
+    local wanted = EbonBuilds.WorldIntegration.ZonesWithTomes()
+    local w, h = parent:GetWidth(), parent:GetHeight()
+    if not w or w == 0 then return end
+    local used = 0
+    for zoneName in pairs(wanted) do
+        local geo = cache[zoneName]
+        if geo then
+            used = used + 1
+            local tex = overlayPool[used]
+            if not tex then
+                tex = parent:CreateTexture(nil, "OVERLAY")
+                overlayPool[used] = tex
+            end
+            tex:SetTexture("Interface\\WorldMap\\" .. geo.file .. "\\" .. geo.file .. "Highlight")
+            tex:SetTexCoord(0, geo.tpx, 0, geo.tpy)
+            tex:SetWidth(geo.tx * w)
+            tex:SetHeight(geo.ty * h)
+            tex:ClearAllPoints()
+            tex:SetPoint("TOPLEFT", parent, "TOPLEFT", geo.sx * w, -geo.sy * h)
+            tex:SetVertexColor(0.35, 0.85, 0.6, 0.45)
+            tex:Show()
+        end
+    end
+    for i = used + 1, #overlayPool do overlayPool[i]:Hide() end
+    if used > 0 then
+        if not legend then
+            legend = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+            legend:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -10, 10)
+        end
+        legend:SetText("|cff59d9a0Colored zones:|r tome drops known (zoom in for the list)")
+        legend:Show()
+    elseif legend then
+        legend:Hide()
+    end
+end
+EbonBuilds.WorldIntegration._ShowContinentOverlaysForTests = ShowContinentOverlays
+
 local function RefreshMapPanel()
     if not WorldMapFrame or not WorldMapFrame:IsShown() then return end
+    ShowContinentOverlays()
     EnsureMapPanel()
     -- Displayed zone's localized name (3.3.5a): resolve via the map
     -- zone index; fall back to the player's current zone text when the

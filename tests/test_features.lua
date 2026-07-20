@@ -1576,6 +1576,83 @@ do
         "zones without tome data produce no lines (panel stays hidden)")
 end
 
+-- Continent coloring: zone selection and the sampled-geometry render path.
+do
+    local fixture = function()
+        return {
+            { zone = "Dragonblight", tomes = { [1] = { name = "T", total = 1, mobs = {} } } },
+            { zone = "Empty Zone", tomes = {} },
+        }
+    end
+    local set = EbonBuilds.WorldIntegration.ZonesWithTomes(fixture)
+    check(set["Dragonblight"] == true and set["Empty Zone"] == nil,
+        "only zones with actual tome entries get colored")
+
+    -- Render path against stubbed map API: one overlay per tome zone,
+    -- colored and positioned from the sampled highlight geometry.
+    local texes = {}
+    local function NewTex()
+        local t = { shown = false, props = {} }
+        function t:SetTexture(p) self.props.path = p end
+        function t:SetTexCoord(...) self.props.coord = { ... } end
+        function t:SetWidth(w) self.props.w = w end
+        function t:SetHeight(h) self.props.h = h end
+        function t:ClearAllPoints() end
+        function t:SetPoint(_, _, _, x, y) self.props.x, self.props.y = x, y end
+        function t:SetVertexColor(...) self.props.color = { ... } end
+        function t:Show() self.shown = true end
+        function t:Hide() self.shown = false end
+        return t
+    end
+    local parentStub = {
+        GetWidth = function() return 1000 end,
+        GetHeight = function() return 600 end,
+        CreateTexture = function() local t = NewTex(); texes[#texes + 1] = t; return t end,
+        CreateFontString = function()
+            local fsStub = {}
+            function fsStub:SetPoint() end
+            function fsStub:SetText(t) self.text = t end
+            function fsStub:Show() self.shown = true end
+            function fsStub:Hide() self.shown = false end
+            return fsStub
+        end,
+    }
+    WorldMapButton = parentStub
+    GetCurrentMapContinent = function() return 4 end
+    GetCurrentMapZone = function() return 0 end
+    UpdateMapHighlight = function(x, y)
+        if x < 0.5 then
+            return "Dragonblight", "Dragonblight", 0.8, 0.7, 0.2, 0.15, 0.3, 0.4
+        end
+        return "Empty Zone", "EmptyZone", 0.8, 0.7, 0.2, 0.15, 0.6, 0.4
+    end
+    local origList = EbonBuilds.TomeAtlas and EbonBuilds.TomeAtlas.ListByZone
+    EbonBuilds.TomeAtlas = EbonBuilds.TomeAtlas or {}
+    EbonBuilds.TomeAtlas.ListByZone = fixture
+
+    EbonBuilds.WorldIntegration._ShowContinentOverlaysForTests()
+    local shown = {}
+    for _, t in ipairs(texes) do if t.shown then shown[#shown + 1] = t end end
+    check(#shown == 1, "exactly the one tome-bearing zone gets an overlay")
+    local p = shown[1].props
+    check(p.path:find("Dragonblight", 1, true) ~= nil and p.path:find("Highlight", 1, true) ~= nil,
+        "overlay uses the zone's own highlight texture")
+    check(p.w == 200 and p.h == 90 and p.x == 300 and p.y == -240,
+        "geometry maps sampled fractions onto the map's pixel space")
+    check(p.color[1] < 0.5 and p.color[2] > 0.7 and p.color[4] < 1,
+        "overlay is tinted green and translucent, not opaque")
+
+    -- Zoomed into a zone: overlays hide again.
+    GetCurrentMapZone = function() return 3 end
+    EbonBuilds.WorldIntegration._ShowContinentOverlaysForTests()
+    local anyShown = false
+    for _, t in ipairs(texes) do if t.shown then anyShown = true end end
+    check(anyShown == false, "zone view hides all continent overlays")
+
+    EbonBuilds.TomeAtlas.ListByZone = origList
+    WorldMapButton, GetCurrentMapContinent, GetCurrentMapZone, UpdateMapHighlight = nil, nil, nil, nil
+end
+
 if failures > 0 then
     io.stderr:write(string.format("%d test(s) failed.\n", failures))
     os.exit(1)

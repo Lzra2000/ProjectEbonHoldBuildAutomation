@@ -264,6 +264,14 @@ The gear score is directional build guidance, not a best-in-slot verdict. Uncach
 
 ## Changelog
 
+### 3.33 (2026-07-20) -- Continent map colors every zone with tome drops
+
+Follow-up to 3.32's zone panel, using the approach quest-overlay addons use.
+
+- On the continent view of the world map, every zone with recorded tome drops is tinted green (translucent, using the zone's own highlight texture), with a legend line noting that zooming in shows the list. Zone-level coloring needs zone names only -- exactly what the atlas has -- so this works without the coordinates that map pins would need.
+- Under the hood: the map is sampled once per continent per session through `UpdateMapHighlight`, which answers "which zone highlight sits at this point" including the highlight texture's file, size, and position; those answers are cached and the tome-bearing zones' highlights stay shown with a tint. Zooming into a zone hides the overlays and shows 3.32's detail panel instead.
+- The render path is tested against a stubbed map API: zone selection, texture choice, pixel-space geometry from sampled fractions, the translucent green tint, and overlays hiding on zone view.
+
 ### 3.32 (2026-07-20) -- Player tooltips show EbonBuilds users; world map lists the zone's tomes
 
 Two ways the addon now shows itself in the world instead of only in its own windows.
