@@ -55,6 +55,10 @@ local canonicalIndexBuilt = false
 
 local function CanonicalName(value)
     if value == nil then return nil end
+    -- Stable Echo references (g:<groupId>/s:<spellId>) are storage keys, not
+    -- display names. Treating one as both made P.Set write the policy and then
+    -- immediately delete the same key during legacy-name cleanup.
+    if type(value) == "string" and value:match("^[gs]:%d+$") then return nil end
     if type(value) == "number" or (type(value) == "string" and value:match("^%d+$")) then
         return EbonBuilds.Weights and EbonBuilds.Weights.CanonicalName(tonumber(value)) or tostring(value)
     end
@@ -153,10 +157,10 @@ function P.Set(settings, value, policy)
     settings.echoPolicies = type(settings.echoPolicies) == "table" and settings.echoPolicies or {}
     if policy == P.NORMAL then
         settings.echoPolicies[key] = nil
-        if refKey and name then settings.echoPolicies[name] = nil end
+        if refKey and name and name ~= refKey then settings.echoPolicies[name] = nil end
     else
         settings.echoPolicies[key] = policy
-        if refKey and name then settings.echoPolicies[name] = nil end
+        if refKey and name and name ~= refKey then settings.echoPolicies[name] = nil end
     end
     return true
 end

@@ -750,7 +750,8 @@ local function BuildAdvancedPanel(parent, y)
     add:SetText("Add Echo")
     add:SetScript("OnClick", function()
         local settings = Settings()
-        local list = EbonBuilds.EchoTableRows.BuildAllQualitiesList()
+        local classToken = EbonBuilds.BuildForm.GetEditingClass()
+        local list = EbonBuilds.EchoTableRows.BuildAllQualitiesList(classToken)
         local filtered = {}
         for _, entry in ipairs(list) do
             if not (settings.echoBanList or {})[entry.spellId]
@@ -759,7 +760,7 @@ local function BuildAdvancedPanel(parent, y)
                 filtered[#filtered + 1] = entry
             end
         end
-        EbonBuilds.EchoPicker.Show(function(spellId, _, name) AddBannedEcho(name, spellId) end, filtered)
+        EbonBuilds.EchoPicker.Show(function(spellId, _, name) AddBannedEcho(name, spellId) end, filtered, classToken)
     end)
 
     banListFrame = CreateFrame("Frame", nil, panel)

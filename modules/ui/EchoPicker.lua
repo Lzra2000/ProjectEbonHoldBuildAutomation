@@ -24,18 +24,68 @@ local function ClassLabel(classToken)
     return labels[tostring(classToken or ""):upper()] or tostring(classToken or "")
 end
 
+local function IsPlaceholderName(value)
+    local normalized = EbonBuilds.EchoIdentity.NormalizeSearch(value)
+    return normalized == "" or normalized == "unknown" or normalized == "unknown echo"
+        or normalized == "unknown spell" or normalized == "echo" or normalized == "spell"
+end
+
+local function ResolveEntryName(entry, spellId)
+    local candidates = {
+        entry and entry.displayName,
+        entry and entry.sourceName,
+        entry and entry.name,
+    }
+    for i = 1, #candidates do
+        local value = EbonBuilds.EchoIdentity.VisibleName(candidates[i])
+        if not IsPlaceholderName(value) then return value end
+    end
+
+    local variant = EbonBuilds.EchoCatalog and EbonBuilds.EchoCatalog.GetBySpellId(spellId)
+    if variant then
+        local value = EbonBuilds.EchoIdentity.VisibleName(variant.sourceName)
+        if not IsPlaceholderName(value) then return value end
+        value = EbonBuilds.EchoIdentity.StripClassPrefix(
+            EbonBuilds.EchoIdentity.StripQualitySuffix(variant.internalComment))
+        if not IsPlaceholderName(value) then return value end
+    end
+
+    local spellName = GetSpellInfo and GetSpellInfo(spellId)
+    spellName = EbonBuilds.EchoIdentity.VisibleName(spellName)
+    if not IsPlaceholderName(spellName) then return spellName end
+    return "Echo #" .. tostring(spellId or "?")
+end
+
+local function PrepareEntry(entry)
+    if type(entry) ~= "table" then return nil end
+    local spellId = tonumber(entry.spellId or entry.id)
+    if not spellId then return nil end
+    entry.spellId = spellId
+    entry.displayName = ResolveEntryName(entry, spellId)
+    entry.name = entry.name or entry.displayName
+    entry.sourceName = entry.sourceName or entry.displayName
+    if not entry.searchBlob or entry.searchBlob == "" then
+        entry.searchBlob = EbonBuilds.EchoIdentity.NormalizeSearch(entry.displayName)
+    end
+    if not entry.refKey and EbonBuilds.EchoCatalog then
+        entry.refKey = EbonBuilds.EchoCatalog.GetRefForSpell(spellId)
+    end
+    return entry
+end
+
 local function StrictEntries(classToken)
     local list = {}
     if not EbonBuilds.EchoProjection then return list end
     for _, entry in ipairs(EbonBuilds.EchoProjection.GetAvailable(classToken) or {}) do
         local spellId, quality = EbonBuilds.EchoProjection.GetBestVariant(classToken, entry.refKey)
         if spellId then
+            local displayName = ResolveEntryName(entry, spellId)
             list[#list + 1] = {
                 refKey = entry.refKey,
                 spellId = spellId,
                 quality = quality or entry.quality or 0,
-                name = entry.displayName or entry.sourceName or entry.name,
-                displayName = entry.displayName or entry.sourceName or entry.name,
+                name = displayName,
+                displayName = displayName,
                 sourceName = entry.sourceName,
                 searchBlob = entry.searchBlob,
                 disambiguator = entry.disambiguator,
@@ -175,7 +225,7 @@ local function Render()
             row:SetPoint("RIGHT", viewport, "RIGHT", -18, 0)
             row._icon:SetTexture(select(3, GetSpellInfo(entry.spellId)) or FALLBACK_ICON)
             local r, g, b = EbonBuilds.Quality.GetRGB(entry.quality or 0)
-            row._label:SetText(entry.displayName or "Unknown Echo")
+            row._label:SetText(ResolveEntryName(entry, entry.spellId))
             row._label:SetTextColor(r, g, b, 1)
             row._meta:SetText(entry.disambiguator or (EbonBuilds.EchoCatalog.GetSemanticSummary(entry.spellId, 2) or "Unclassified"))
             row._rank:SetText(EbonBuilds.Quality.LABELS[entry.quality or 0] or ("Rank " .. tostring(entry.quality or 0)))
@@ -305,7 +355,12 @@ end
 function Picker.Show(callback, dataSource, classToken)
     if not frame then frame = BuildFrame() end
     activeClass = tostring(classToken or activeClass or EbonBuilds.Build.PlayerClassToken()):upper()
-    allEntries = type(dataSource) == "table" and dataSource or StrictEntries(activeClass)
+    local source = type(dataSource) == "table" and dataSource or StrictEntries(activeClass)
+    allEntries = {}
+    for i = 1, #source do
+        local entry = PrepareEntry(source[i])
+        if entry then allEntries[#allEntries + 1] = entry end
+    end
     onPick = callback
     classContextText:SetText("Only verified " .. ClassLabel(activeClass) .. " Echoes are shown.")
     searchPlaceholder:SetText("Search " .. ClassLabel(activeClass) .. " Echoes or aliases...")
