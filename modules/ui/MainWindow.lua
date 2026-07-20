@@ -300,6 +300,9 @@ local function BuildSettingsPopup(ownerFrame)
             evalDelay = tonumber(source.evalDelay) or 2,
             toastDuration = tonumber(source.toastDuration) or 3,
             autoSell = Bool(source.autoSell),
+            autoSellPoorOnly = Bool(source.autoSellPoorOnly),
+            autoSellExcludeTradeGoods = Bool(source.autoSellExcludeTradeGoods),
+            autoSellExcludeRecipes = Bool(source.autoSellExcludeRecipes),
             bagDots = Bool(source.bagDots),
             debugLog = Bool(source.debugLog),
             clickTrace = Bool(source.clickTrace),
@@ -315,6 +318,11 @@ local function BuildSettingsPopup(ownerFrame)
             evalDelay = tonumber(gs.evalDelay) or 2,
             toastDuration = tonumber(gs.toastDuration) or 3,
             autoSell = ReadModuleToggle(EbonBuilds.AutoSell),
+            autoSellPoorOnly = Bool(EbonBuilds.AutoSell and EbonBuilds.AutoSell.GetCategory and EbonBuilds.AutoSell.GetCategory("poorOnly")),
+            autoSellExcludeTradeGoods = EbonBuilds.AutoSell and EbonBuilds.AutoSell.GetCategory
+                and EbonBuilds.AutoSell.GetCategory("excludeTradeGoods") ~= false or true,
+            autoSellExcludeRecipes = EbonBuilds.AutoSell and EbonBuilds.AutoSell.GetCategory
+                and EbonBuilds.AutoSell.GetCategory("excludeRecipes") ~= false or true,
             bagDots = ReadModuleToggle(EbonBuilds.BagAffixDots),
             debugLog = ReadModuleToggle(EbonBuilds.DebugLog),
             clickTrace = ReadModuleToggle(EbonBuilds.ClickTrace),
@@ -334,6 +342,9 @@ local function BuildSettingsPopup(ownerFrame)
         if not SameNumber(draft.evalDelay, baseline.evalDelay) then count = count + 1 end
         if not SameNumber(draft.toastDuration, baseline.toastDuration) then count = count + 1 end
         if Bool(draft.autoSell) ~= Bool(baseline.autoSell) then count = count + 1 end
+        if Bool(draft.autoSellPoorOnly) ~= Bool(baseline.autoSellPoorOnly) then count = count + 1 end
+        if Bool(draft.autoSellExcludeTradeGoods) ~= Bool(baseline.autoSellExcludeTradeGoods) then count = count + 1 end
+        if Bool(draft.autoSellExcludeRecipes) ~= Bool(baseline.autoSellExcludeRecipes) then count = count + 1 end
         if Bool(draft.bagDots) ~= Bool(baseline.bagDots) then count = count + 1 end
         if Bool(draft.debugLog) ~= Bool(baseline.debugLog) then count = count + 1 end
         if Bool(draft.clickTrace) ~= Bool(baseline.clickTrace) then count = count + 1 end
@@ -490,6 +501,9 @@ local function BuildSettingsPopup(ownerFrame)
         if controls.delaySlider then controls.delaySlider:SetValue(draft.evalDelay) end
         if controls.toastSlider then controls.toastSlider:SetValue(draft.toastDuration) end
         if controls.autoSellCB then controls.autoSellCB:SetChecked(draft.autoSell) end
+        if controls.autoSellPoorOnlyCB then controls.autoSellPoorOnlyCB:SetChecked(draft.autoSellPoorOnly) end
+        if controls.autoSellExcludeTradeGoodsCB then controls.autoSellExcludeTradeGoodsCB:SetChecked(draft.autoSellExcludeTradeGoods) end
+        if controls.autoSellExcludeRecipesCB then controls.autoSellExcludeRecipesCB:SetChecked(draft.autoSellExcludeRecipes) end
         if controls.bagDotsCB then controls.bagDotsCB:SetChecked(draft.bagDots) end
         if controls.debugCB then controls.debugCB:SetChecked(draft.debugLog) end
         if controls.clickTraceCB then controls.clickTraceCB:SetChecked(draft.clickTrace) end
@@ -687,28 +701,44 @@ local function BuildSettingsPopup(ownerFrame)
             -110, 0.5, 8.0, "toastDuration")
     end)
 
-    BuildCategory("automation", 366, function(panel)
+    BuildCategory("automation", 570, function(panel)
         AddSectionTitle(panel, "CONVENIENCE & DIAGNOSTICS", -2)
         controls.autoSellCB = AddCheckbox(panel,
             "Auto-sell junk at vendors",
             "Sells eligible zero-copper items while a vendor is open; unlearned affixes remain protected.",
             -24, "autoSell")
+        controls.autoSellPoorOnlyCB = AddCheckbox(panel,
+            "Only sell Poor (gray) quality",
+            "Restricts the zero-copper sweep to Poor-quality items only, instead of any quality.",
+            -92, "autoSellPoorOnly")
+        controls.autoSellExcludeTradeGoodsCB = AddCheckbox(panel,
+            "Never auto-sell Trade Goods",
+            "Materials sometimes show as zero-copper but are still worth keeping (e.g. for professions).",
+            -160, "autoSellExcludeTradeGoods")
+        controls.autoSellExcludeRecipesCB = AddCheckbox(panel,
+            "Never auto-sell Recipes",
+            "Recipes/patterns can be zero-copper at a vendor but still worth learning or trading.",
+            -228, "autoSellExcludeRecipes")
+        controls.autoSellKeepListButton = AddToolButton(panel,
+            "Manage Auto-Sell Keep List...",
+            -296,
+            function() EbonBuilds.AutoSell.ShowKeepListWindow() end)
         controls.bagDotsCB = AddCheckbox(panel,
             "Bag affix dots",
-            "Marks bag items that contain an affix or rank you have not learned yet.",
-            -92, "bagDots")
+            "Marks bag items with an unlearned affix/rank (red/purple), an unbound BoE item (blue), or a likely disenchant candidate (teal).",
+            -332, "bagDots")
         controls.debugCB = AddCheckbox(panel,
             "Detailed automation logging",
             "Records every automation decision and its reasoning in the Debug Log.",
-            -160, "debugLog")
+            -400, "debugLog")
         controls.clickTraceCB = AddCheckbox(panel,
             "Log every button click",
             "Records interface clicks for troubleshooting actions that appear to do nothing.",
-            -228, "clickTrace")
+            -468, "clickTrace")
         controls.gearTooltipCB = AddCheckbox(panel,
             "Gear upgrade hints on tooltips",
             "Adds a line to item tooltips saying whether the item scores as an upgrade for the active build's spec.",
-            -296, "gearTooltip")
+            -536, "gearTooltip")
     end)
 
     BuildCategory("interface", 238, function(panel)
@@ -917,6 +947,11 @@ local function BuildSettingsPopup(ownerFrame)
             EbonBuilds.EchoTable.RefreshScaleLabels()
         end
         if EbonBuilds.AutoSell and EbonBuilds.AutoSell.SetEnabled then EbonBuilds.AutoSell.SetEnabled(draft.autoSell) end
+        if EbonBuilds.AutoSell and EbonBuilds.AutoSell.SetCategory then
+            EbonBuilds.AutoSell.SetCategory("poorOnly", draft.autoSellPoorOnly)
+            EbonBuilds.AutoSell.SetCategory("excludeTradeGoods", draft.autoSellExcludeTradeGoods)
+            EbonBuilds.AutoSell.SetCategory("excludeRecipes", draft.autoSellExcludeRecipes)
+        end
         if EbonBuilds.BagAffixDots and EbonBuilds.BagAffixDots.SetEnabled then EbonBuilds.BagAffixDots.SetEnabled(draft.bagDots) end
         if EbonBuilds.DebugLog and EbonBuilds.DebugLog.SetEnabled then EbonBuilds.DebugLog.SetEnabled(draft.debugLog) end
         if EbonBuilds.ClickTrace and EbonBuilds.ClickTrace.SetEnabled then EbonBuilds.ClickTrace.SetEnabled(draft.clickTrace) end

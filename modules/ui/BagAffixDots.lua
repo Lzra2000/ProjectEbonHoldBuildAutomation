@@ -1,9 +1,18 @@
 -- EbonBuilds: modules/ui/BagAffixDots.lua
--- Draws a colored dot on bag items whose gear affix you haven't learned:
--- red for a brand-new affix line, purple for a rank you're missing on an
--- affix line you already have some rank of. Hooks the default Blizzard
--- container frame the same low-cost way AutoDelete's proven affix-dot
--- feature does (per-slot link-change cache, visibility short-circuit).
+-- Draws a colored dot on bag items worth a second look:
+--   red    -- carries a gear affix line you haven't learned at all
+--   purple -- carries an affix you know a different rank of (upgrade)
+--   blue   -- Bind on Equip and still unbound (tradeable/auctionable --
+--             equipping, sending to a vendor, or disenchanting it forfeits
+--             that option, so it's worth a second look before either)
+--   teal   -- likely worth disenchanting rather than selling: soulbound
+--             Uncommon/Rare gear that doesn't score as an upgrade for the
+--             active build's spec
+-- Hooks the default Blizzard container frame the same low-cost way
+-- AutoDelete's proven affix-dot feature does (per-slot link-change cache,
+-- visibility short-circuit). This module only marks items -- it never acts
+-- on them; see modules/vendor/AutoSell.lua for the module that actually
+-- sells things.
 
 EbonBuilds.BagAffixDots = {}
 
@@ -12,9 +21,14 @@ local DOT_SIZE     = 9
 local BACKING_SIZE = 12
 
 local COLORS = {
-    missing_new     = { 0.90, 0.15, 0.15 }, -- red
-    missing_upgrade = { 0.64, 0.21, 0.93 }, -- purple
+    missing_new         = { 0.90, 0.15, 0.15 }, -- red
+    missing_upgrade     = { 0.64, 0.21, 0.93 }, -- purple
+    boe_unbound         = { 0.20, 0.55, 0.95 }, -- blue
+    disenchant_candidate = { 0.20, 0.80, 0.60 }, -- teal
 }
+
+-- Checked in this order; the first match wins (only one dot per item).
+local PRIORITY = { "missing_new", "missing_upgrade", "boe_unbound", "disenchant_candidate" }
 
 local enabled = true
 local dotVersion = 0
@@ -68,12 +82,66 @@ local function SetButtonDot(button, classification)
     dot:Show()
 end
 
+-- Lazily-created hidden tooltip used only to read bind status off an item
+-- (WoW's item APIs don't expose "is this still tradeable" directly -- the
+-- tooltip text is the only source). Kept as a singleton like GearTooltip's
+-- own scanning frame; ITEM_BIND_ON_EQUIP/ITEM_SOULBOUND are Blizzard's own
+-- localized globals, so this doesn't hardcode English tooltip text.
+local scanTip
+
+local function GetBindLine(bag, slot)
+    if not (ITEM_BIND_ON_EQUIP or ITEM_SOULBOUND) then return nil end
+    if not scanTip then
+        scanTip = CreateFrame("GameTooltip", "EbonBuildsBagDotsScanTip", nil, "GameTooltipTemplate")
+        scanTip:SetOwner(UIParent, "ANCHOR_NONE")
+    end
+    scanTip:ClearLines()
+    scanTip:SetBagItem(bag, slot)
+    for i = 1, scanTip:NumLines() do
+        local fs = _G["EbonBuildsBagDotsScanTipTextLeft" .. i]
+        local text = fs and fs:GetText()
+        if text == ITEM_SOULBOUND then return "bound" end
+        if text == ITEM_BIND_ON_EQUIP then return "boe" end
+    end
+    return "other" -- readable but neither line found (BoP already worn, unique, etc.)
+end
+
+-- A soulbound Uncommon/Rare piece of gear that isn't an upgrade for the
+-- active build's spec is a reasonable disenchant candidate -- reuses the
+-- same spec-scoring GearScore already does for AutoSell's upgrade check.
+local function IsDisenchantCandidate(link, quality, equipLoc)
+    if not (quality == 2 or quality == 3) then return false end -- Uncommon/Rare only
+    if not equipLoc or equipLoc == "" then return false end -- not equippable gear
+    if not (EbonBuilds.Build and EbonBuilds.GearScore) then return false end
+    local build = EbonBuilds.Build.GetActive()
+    local specKey = build and EbonBuilds.GearScore.SpecKey(build.class, build.spec)
+    if not specKey then return false end
+    local slotIds = EbonBuilds.GearScore.INVTYPE_SLOTS and EbonBuilds.GearScore.INVTYPE_SLOTS[equipLoc]
+    if not slotIds then return false end
+    for _, slotId in ipairs(slotIds) do
+        local curLink = GetInventoryItemLink("player", slotId)
+        if not curLink or EbonBuilds.GearScore.IsUpgrade(link, curLink, specKey) then
+            return false -- either an empty slot or an actual upgrade -- not disenchant fodder
+        end
+    end
+    return true
+end
+
 -- Decides what (if anything) to draw for a bag slot's current item.
-local function DecideDot(link)
+local function DecideDot(bag, slot, link)
     if not link or not enabled then return nil end
     local name = link:match("%[(.-)%]")
-    if not name then return nil end
-    return EbonBuilds.AffixItemScan.Classify(name)
+    local affixClass = name and EbonBuilds.AffixItemScan.Classify(name)
+    if affixClass then return affixClass end
+
+    local _, _, quality = GetContainerItemInfo(bag, slot)
+    local _, _, _, _, _, _, _, _, equipLoc = GetItemInfo(link)
+    if not equipLoc or equipLoc == "" then return nil end -- not gear; nothing else to flag
+
+    local bind = GetBindLine(bag, slot)
+    if bind == "boe" then return "boe_unbound" end
+    if IsDisenchantCandidate(link, quality, equipLoc) then return "disenchant_candidate" end
+    return nil
 end
 
 local function UpdateFrame(frame)
@@ -90,7 +158,7 @@ local function UpdateFrame(frame)
             if button._ebbCachedLink ~= link or button._ebbDotVersion ~= dotVersion then
                 button._ebbCachedLink  = link
                 button._ebbDotVersion  = dotVersion
-                SetButtonDot(button, DecideDot(link))
+                SetButtonDot(button, DecideDot(bag, slot, link))
             end
         end
     end

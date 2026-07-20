@@ -264,6 +264,18 @@ The gear score is directional build guidance, not a best-in-slot verdict. Uncach
 
 ## Changelog
 
+### 3.49 (2026-07-20) -- Auto-Sell keep-list & category filters; two new Bag Dots colors
+
+**Auto-Sell** (Settings -> Convenience & Diagnostics) can now be tuned instead of being all-or-nothing:
+- **Keep List**: a new "Manage Auto-Sell Keep List..." window lets you protect specific items by exact name, regardless of category or value. Per-character (junk on a bank alt isn't junk on a main).
+- **Category filters**: "Only sell Poor (gray) quality" (off by default, matches the previous behavior), "Never auto-sell Trade Goods", and "Never auto-sell Recipes" (both on by default -- a truly zero-copper material or recipe is unusual enough that sweeping it automatically is more likely a surprise than a convenience).
+- Still not a general rule engine by design (see the module's own comment) -- this is deliberately just enough control that the zero-value sweep doesn't have to be all-or-nothing, not a reimplementation of AutoDelete.
+
+**Bag Dots** gains two colors alongside the existing affix red/purple:
+- **Blue** -- Bind on Equip and still unbound. A reminder to consider trading/auctioning before equipping, vendoring, or disenchanting forfeits that option.
+- **Teal** -- likely worth disenchanting rather than selling: soulbound Uncommon/Rare gear that doesn't score as an upgrade for the active build's spec (reuses the same spec-scoring `GearScore.IsUpgrade` already powers Auto-Sell's "don't sell an upgrade" check and gear-tooltip hints).
+- Bind status comes from a lazy tooltip scan against Blizzard's own `ITEM_BIND_ON_EQUIP`/`ITEM_SOULBOUND` globals (locale-safe, no hardcoded English text), same low-cost per-slot caching as the existing dots.
+
 ### 3.48 (2026-07-20) -- UI consistency pass: unified search boxes and selected-state color
 
 Two small visual inconsistencies found by a repo-wide scan, both fixed centrally instead of file-by-file.
