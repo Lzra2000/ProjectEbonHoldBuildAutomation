@@ -4,14 +4,21 @@
 
 EbonBuilds.FAQContent = { PAGES = {
 {
-    title = "What's new: 3.50 (2026-07-20) -- Handler protection: MinimapButton.lua",
+    title = "What's new: 3.51 (2026-07-20) -- Custom minimap icon; media/ now actually ships",
     lines = {
         "",
-        "- modules/ui/MinimapButton.lua -- the minimap button itself now opts into",
-        "EbonBuilds.Debug.ProtectScript.",
-        "- Remaining files: PublicBuildsView, ExportImport, EchoPicker, AffixView",
-        "(handler protection specifically -- its search box was already fixed in",
-        "3.48), BonusView.",
+        "The minimap button referenced a custom icon path (media/minimap_icon)",
+        "that never existed -- dead code since it was added, silently falling back",
+        "to a generic Blizzard gear icon (INV_Misc_Gear_01) every session.",
+        "",
+        "- Added a real icon: three concentric gold rings over a dark circular",
+        "backing (an \"echo\" motif, matching the addon's core mechanic), in the",
+        "same gold used throughout the UI.",
+        "- scripts/build-dist.sh now packages media/ into the release zip -- it",
+        "didn't before, so even a correctly-pathed custom texture would have",
+        "shipped broken.",
+        "- Shipped as .tga rather than .blp: the 3.3.5a client loads both, and",
+        ".tga needs no format conversion to produce.",
     },
 },
 {
