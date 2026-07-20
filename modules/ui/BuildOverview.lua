@@ -95,6 +95,9 @@ end
 
 local function CreateIconButton(parent, size)
     local btn = CreateFrame("Button", nil, parent)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(btn, "BuildOverview.IconButton")
+    end
     btn:SetWidth(size)
     btn:SetHeight(size)
     local icon = btn:CreateTexture(nil, "ARTWORK")
@@ -496,6 +499,9 @@ end
 
 local function BuildOverviewTab(parent)
     local outer = CreateFrame("Frame", nil, parent)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(outer, "BuildOverview.StatusOuter")
+    end
     outer:SetAllPoints(parent)
 
     -- Editing is the primary action for this page, so it lives separately in
@@ -543,6 +549,9 @@ local function BuildOverviewTab(parent)
 
     -- Public, readiness, and evidence status (button frame for tooltip support)
     local statusFrame = CreateFrame("Button", nil, outer)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(statusFrame, "BuildOverview.StatusFrame")
+    end
     statusFrame:SetPoint("TOPLEFT",     metaLabel, "BOTTOMLEFT", 0, -12)
     statusFrame:SetPoint("RIGHT",       outer,     "RIGHT",      -10, 0)
     statusFrame:SetHeight(16)
@@ -838,6 +847,9 @@ local function BuildOverviewTab(parent)
 
     -- SMF inside scroll child -- renders text with hyperlink tooltip support
     local descSmf = CreateFrame("ScrollingMessageFrame", nil, descChild)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(descSmf, "BuildOverview.DescScrollingMessage")
+    end
     descSmf:SetPoint("TOPLEFT", descChild, "TOPLEFT", 0, -2)
     descSmf:SetWidth(416)
     descSmf:SetFontObject("GameFontNormalSmall")
@@ -1144,6 +1156,9 @@ RefreshMissing = function(assumeNoneOwned)
         -- can otherwise hang forever on a fresh character).
         if not missingRetryFrame then
             missingRetryFrame = CreateFrame("Frame")
+            if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+                EbonBuilds.Debug.ProtectScript(missingRetryFrame, "BuildOverview.MissingRetryTimer")
+            end
             missingRetryFrame:SetScript("OnUpdate", function(self, dt)
                 missingRetryElapsed = missingRetryElapsed + dt
                 if missingRetryElapsed < MISSING_RETRY_INTERVAL then return end
@@ -1199,6 +1214,9 @@ RefreshMissing = function(assumeNoneOwned)
         while #missingRows < rowIdx do
             local n = #missingRows + 1
             local btn = CreateFrame("Button", nil, missingChild)
+            if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+                EbonBuilds.Debug.ProtectScript(btn, "BuildOverview.MissingRow")
+            end
             btn:SetPoint("LEFT", missingChild, "LEFT", 4, 0)
             btn:SetPoint("RIGHT", missingChild, "RIGHT", -4, 0)
             btn:RegisterForClicks("LeftButtonUp")

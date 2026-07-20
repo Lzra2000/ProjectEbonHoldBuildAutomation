@@ -264,6 +264,11 @@ The gear score is directional build guidance, not a best-in-slot verdict. Uncach
 
 ## Changelog
 
+### 3.38 (2026-07-20) -- Handler protection: BuildOverview.lua
+
+- `modules/ui/BuildOverview.lua` -- 6 frames now opt into `EbonBuilds.Debug.ProtectScript` at creation (icon button, status container and status frame, description scrolling-message frame, missing-retry OnUpdate timer, missing-list row buttons). Of the file's 37 `SetScript` calls, 31 were already covered indirectly through Theme.lua's widget factories (3.36) -- only these 6 raw `CreateFrame` sites were left.
+- Remaining files, largest first: StatsView, SettingsView, BuildWizardPriorityStep, MainWindow, BuildWizard, Calibration, TomeAtlasView, CharacterView, and others.
+
 ### 3.37 (2026-07-20) -- Handler protection: SessionHistory.lua (1 of ~19 remaining files)
 
 Step 3 of the handler-protection follow-up: going module by module through files that create frames directly with `CreateFrame` instead of through a Theme.lua factory (which got covered in 3.36).
