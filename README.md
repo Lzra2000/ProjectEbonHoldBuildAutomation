@@ -146,3 +146,7 @@ See `CONTRIBUTING.md` for setup, the pre-PR checklist, and project conventions. 
 - `sh scripts/release.sh <version>` is the release helper: refuses to run unless `FAQ.md` has changed since the last tag, bumps the version in `EbonBuilds.toc` and `FAQ.md`, runs the check suite, rebuilds `dist/EbonBuilds.zip`, then commits and tags (does not push).
 - `GITHUB_TOKEN=... sh scripts/publish-github-release.sh <version>` publishes an actual GitHub Release (the page under `/releases`, with notes) for an already-pushed tag — pushing a tag alone only creates a git ref, not a Release. Pulls the title/notes straight from the matching `### <version>` section of `FAQ.md`.
 - For day-to-day development the repo root itself already *is* the addon folder structure expected by `Interface/AddOns/` — the dist zip is only needed for a clean shareable release build.
+
+## License
+
+See [`LICENSE`](LICENSE). Personal and private-server community use is free; redistributing modified versions under the EbonBuilds name, or commercial use, requires prior permission from the copyright holder.

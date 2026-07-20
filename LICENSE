@@ -1,0 +1,43 @@
+EbonBuilds License
+
+Copyright (c) 2026 Hasan and contributors to the EbonBuilds project.
+All rights reserved.
+
+This addon ("EbonBuilds") and its source code are provided for use with
+World of Warcraft 3.3.5a private servers, in particular ProjectEbonhold.
+
+Permission is granted to:
+
+1. Use this addon, unmodified, for personal or private-server community use.
+2. Fork and modify this repository for the purpose of submitting
+   contributions (pull requests) back to this project.
+3. Redistribute unmodified copies of official releases (as published under
+   https://github.com/Lzra2000/-ProjectEbonHoldBuildAutomation/releases),
+   provided this LICENSE file and all copyright/attribution notices are
+   preserved, and the original repository is credited as the source.
+
+The following require prior written permission from the copyright holder:
+
+- Distributing modified versions of this addon under the EbonBuilds name,
+  or in a way that could be mistaken for an official release.
+- Selling this addon or bundling it as part of a commercial product or
+  paid service.
+- Removing or altering attribution to the original authors and
+  contributors.
+
+Contributions submitted via pull request are accepted under the
+understanding that they may be distributed as part of this project under
+these same terms, and that the contributor retains attribution for their
+individual contribution in the project's commit history and, where
+applicable, in FAQ.md / release notes.
+
+THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL
+THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR
+OTHER LIABILITY ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE
+OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+EbonBuilds is an independent, unofficial addon and is not affiliated with
+Blizzard Entertainment or ProjectEbonhold's operators beyond community
+collaboration.
