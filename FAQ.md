@@ -1,6 +1,6 @@
 # EbonBuilds — FAQ & Changelog
 
-*This file is updated with every release. Latest version: 3.30 — also available in-game via* `/ebb faq`
+*This file is updated with every release. Latest version: 3.30 — also available in-game via Settings (gear icon) under Windows & Tools.*
 
 ---
 
@@ -53,10 +53,10 @@ Use **Learned only** in the second row of the Priorities filter bar. While activ
 
 
 ### What is Manual Training Mode?
-Enable **Training** from the active build overview. While it is on, Autopilot yields to the native Echo picker and EbonBuilds observes what you choose. When your manual choice repeatedly disagrees with the current scoring, the addon produces a rank-specific raise or lower suggestion. Older 2.57 family-level observations remain compatible and are treated as an equal nudge to every available rank. Use `/ebb cleartraining` to clear the active build's training history.
+Enable **Training** from the active build overview. While it is on, Autopilot yields to the native Echo picker and EbonBuilds observes what you choose. When your manual choice repeatedly disagrees with the current scoring, the addon produces a rank-specific raise or lower suggestion. Clear the active build's training history in Settings under Build.
 
 ### What are Echo appearance rates?
-EbonBuilds records how often each Echo family appears on a choice screen. Local recording is automatic and lightweight. **Share echo appearance rates** in `/ebb tuning` is a separate opt-in control that exchanges aggregate, class-matched counts with other users. Appearance data is shown in Echo icon tooltips and Export (AI). **Sync Now** sends a few enabled DPS and/or appearance batches immediately instead of waiting for the periodic broadcast.
+EbonBuilds records how often each Echo family appears on a choice screen. Local recording is automatic and lightweight. **Share echo appearance rates** in the Tuning Advisor (Settings, Windows & Tools) is a separate opt-in control that exchanges aggregate, class-matched counts with other users. Appearance data is shown in Echo icon tooltips and Export (AI). **Sync Now** sends a few enabled DPS and/or appearance batches immediately instead of waiting for the periodic broadcast.
 
 ### What do automatic tuning proposals do?
 **Prepare tuning proposals** is off by default. It periodically stages a small evidence-based proposal, but never changes the live build by itself. Review the current evidence and use the visible Apply controls deliberately. Rank-specific Manual Training evidence remains separate from family-level DPS evidence, and conflicting signals are combined rather than silently overwriting one another.
@@ -115,7 +115,7 @@ Standard WoW rarity colors everywhere: purple Epic, blue Rare, green Uncommon, a
 ### How does the Tome Atlas work? (new in 2.2)
 An AtlasLoot-style **community drop database** for echo tomes. When you loot a tome, the addon records the mob and zone automatically and shares the observation with other EbonBuilds users (over the sync channel and guild). Data from other players arrives live as drops happen and whenever anyone syncs (Public Builds > Reload). Duplicate reports merge via max-count, so nothing ever double-counts.
 
-**Using it:** open via the *Tome Atlas* button in the left panel or `/ebb atlas`. Search by tome, mob, or zone. Toggle *"Show: Missing only"* to hide everything you already collected (matched against your Echoes spellbook — any quality tier counts as collected). The `(x3)` behind a source shows how often the community saw that drop.
+**Using it:** open via the *Tome Atlas* button in the left panel. Search by tome, mob, or zone. Toggle *"Show: Missing only"* to hide everything you already collected (matched against your Echoes spellbook — any quality tier counts as collected). The `(x3)` behind a source shows how often the community saw that drop.
 
 **For new players:** filter to *Missing only* and farm the zones with the most entries — that's your collection route.
 
@@ -263,6 +263,13 @@ The build editor's **Character** tab has three focused views:
 The gear score is directional build guidance, not a best-in-slot verdict. Uncached saved items remain pending instead of being counted as zero or replaced with current equipment. **Adopt current snapshot** copies current gear, the complete talent-tree presentation/allocation, and glyphs into the editor draft only when the current character and edited build have the same class; a mismatch disables the action and explains why. Save commits the staged snapshot and Cancel discards it. Older rank-only snapshots are expanded automatically from the built-in 3.3.5a talent catalog, restoring their native names, icons, full trees, backgrounds, and prerequisite lines without changing the stored build.
 
 ## Changelog
+
+### 3.31 (2026-07-20) -- In-game FAQ generated from FAQ.md; peer version notice
+
+Two answers to "how do players stay current".
+
+- **The in-game FAQ can no longer go stale.** It had been showing 2.99 content at version 3.30 -- thirty releases of drift -- because its pages were a hand-maintained copy. Pages are now GENERATED from FAQ.md at release time (`scripts/build-faq-pages.sh`, wired into release.sh): page one is always the newest changelog entry, followed by one page per FAQ question. While converting, the FAQ section itself was modernized -- five references to slash commands removed in 3.15 now point at the Settings window instead.
+- **Update notice over the sync channel.** A sandboxed addon cannot ask GitHub anything (no network access), but peers are a signal: clients announce their version in a lightweight VER message, and seeing a strictly HIGHER version than yours triggers one chat notice per session with the releases link. Equal, lower, and malformed versions stay silent; the notice never repeats. Older clients ignore the unknown opcode -- the sync fuzzer already guarantees unknown opcodes are harmless, and the version-comparison semantics have their own test now.
 
 ### 3.30 (2026-07-20) -- Build Wizard reworked: grouped Echo priorities (contributed)
 
@@ -423,7 +430,7 @@ The Settings popup (gear icon, added in 3.14 to hold everything the removed slas
 
 A character that has never touched the setting now gets it enabled automatically, instead of requiring an opt-in. A character who explicitly turned it off keeps that choice -- only ever applies to a character that has never set it either way.
 
-Worth knowing: enabling this also means your own tracked DPS-per-Echo data gets included in the periodic sync broadcast to your guild and current sync channel (same as it always did for anyone with tracking on) -- this default change means that now happens automatically instead of only for people who'd opted in. Turn it off any time with `/ebb tuning` (or `/ebb advisor`).
+Worth knowing: enabling this also means your own tracked DPS-per-Echo data gets included in the periodic sync broadcast to your guild and current sync channel (same as it always did for anyone with tracking on) -- this default change means that now happens automatically instead of only for people who'd opted in. Turn it off any time in the Tuning Advisor (Settings, Windows & Tools).
 
 - `modules/automation/EchoPerformance.lua`: `Init()` now defaults `echoPerformanceEnabled` to `true` for a character seeing the setting for the first time (checked with `== nil`, not `or true`, so an explicit `false` is never overridden).
 - New test covers all three starting states: never set, explicitly off, explicitly on.

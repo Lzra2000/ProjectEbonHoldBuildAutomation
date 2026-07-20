@@ -1503,6 +1503,23 @@ do
     EbonBuilds.EchoSamples.Clear()
 end
 
+-- Generated FAQ content and the peer version notice.
+do
+    dofile("modules/data/FAQContent.lua")
+    local pages = EbonBuilds.FAQContent.PAGES
+    check(#pages > 40, "FAQ generator produced the full page set from FAQ.md")
+    check(pages[1].title:find("What's new", 1, true) == 1 and pages[1].title:find("3%.") ~= nil,
+        "page one is the newest changelog entry with its version")
+    local staleFound = false
+    for _, p in ipairs(pages) do
+        for _, l in ipairs(p.lines) do
+            if l:find("/ebb cleartraining", 1, true) or l:find("2.99", 1, true) then staleFound = true end
+        end
+    end
+    check(staleFound == false, "no stale 2.99-era content survives generation")
+
+end
+
 if failures > 0 then
     io.stderr:write(string.format("%d test(s) failed.\n", failures))
     os.exit(1)

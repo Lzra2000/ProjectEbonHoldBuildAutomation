@@ -45,6 +45,8 @@ fi
 
 echo ""
 echo "== Running full check suite =="
+echo "== Regenerating in-game FAQ pages from FAQ.md =="
+sh scripts/build-faq-pages.sh
 sh scripts/check.sh
 
 echo ""

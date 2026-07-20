@@ -21,6 +21,14 @@ local SYNC_CHANNEL  = "ebonbuildssync"
 -- Must be called at file scope (during addon load), not inside ADDON_LOADED event
 if RegisterAddonMessagePrefix then
     RegisterAddonMessagePrefix(PREFIX)
+    -- Announce our version once shortly after login (guild channel is
+    -- enough reach; the sync channel rebroadcast happens on activity).
+    EbonBuilds.Scheduler.After("sync.versionPing", 15, function()
+        local v = GetAddOnMetadata and GetAddOnMetadata("EbonBuilds", "Version")
+        if v and GetGuildInfo("player") then
+            SendAddonMessage(PREFIX, "VER|" .. v, "GUILD")
+        end
+    end)
 end
 local MAX_CHUNK     = 180
 local MAX_BUILD_TRANSFER = 27000
@@ -855,6 +863,41 @@ end
 -- Dispatch (CHAT_MSG_ADDON events)
 ------------------------------------------------------------------------
 
+-- Update notice: peers include their addon version in a lightweight
+-- VER message. Seeing a HIGHER version than ours triggers one chat
+-- notice per session pointing at the GitHub releases page -- the only
+-- update check a sandboxed addon can do (no network access, so GitHub
+-- itself is unreachable from in-game; peers ARE the signal). Older
+-- clients without this handler simply ignore the unknown opcode, which
+-- the sync fuzzer already guarantees is safe.
+local updateNoticeShown = false
+
+local function ParseVersion(v)
+    local major, minor = tostring(v or ""):match("^(%d+)%.(%d+)")
+    if not major then return nil end
+    return tonumber(major) * 10000 + tonumber(minor)
+end
+
+local function OwnVersion()
+    if GetAddOnMetadata then
+        return GetAddOnMetadata("EbonBuilds", "Version")
+    end
+    return nil
+end
+
+local function HandleVersionPing(payload, sender)
+    if sender == UnitName("player") then return end
+    if updateNoticeShown then return end
+    local theirs = ParseVersion(payload:sub(5))
+    local mine = ParseVersion(OwnVersion())
+    if not theirs or not mine or theirs <= mine then return end
+    updateNoticeShown = true
+    DEFAULT_CHAT_FRAME:AddMessage(string.format(
+        "|cffffd100EbonBuilds:|r a newer version (%s) is in use around you. Download: |cff6ea3d9github.com/Lzra2000/-ProjectEbonHoldBuildAutomation/releases|r",
+        payload:sub(5)))
+end
+EbonBuilds.Sync._HandleVersionPingForTests = function(...) return HandleVersionPing(...) end
+
 local function DispatchAddon(prefix, payload, dist, sender)
     if prefix ~= PREFIX then return end
     if not payload or payload == "" then return end
@@ -863,7 +906,9 @@ local function DispatchAddon(prefix, payload, dist, sender)
     -- Server may inject hardcore prefix even into addon messages
     payload = _StripChatPrefix(payload)
     local code = payload:sub(1, 3)
-    if code == "REQ" then
+    if code == "VER" then
+        HandleVersionPing(payload, sender)
+    elseif code == "REQ" then
         HandleAddonREQ(payload, sender)
     elseif code == "BLD" then
         HandleChunk(payload, sender)

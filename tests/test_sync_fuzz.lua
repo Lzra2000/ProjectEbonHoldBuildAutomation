@@ -57,6 +57,7 @@ function strtrim(s) return (s:gsub("^%s*(.-)%s*$", "%1")) end
 date = os.date
 time = os.time
 
+EbonBuilds.Scheduler = { After = function() end, Every = function() end, BACKGROUND = 1 }
 EbonBuilds.DebugLog = { IsEnabled = function() return false end, Add = function() end, AddF = function() end }
 EbonBuilds.Toast = { Show = function() end, ShowAutomationResult = function() end }
 EbonBuilds.EchoPerformance = { HandleBroadcast = function() end }
@@ -141,5 +142,21 @@ for i = 1, ITERATIONS do
         protectedCall(system, "HandleSystemMessage", i, "No player named '" .. randomBytes(rnd(20)) .. "' is currently playing.")
     end
 end
+
+-- Version ping semantics (Sync is fully loaded here with all stubs).
+local messages = {}
+DEFAULT_CHAT_FRAME = { AddMessage = function(_, msg) messages[#messages + 1] = msg end }
+GetAddOnMetadata = function() return "3.31" end
+local ping = EbonBuilds.Sync._HandleVersionPingForTests
+ping("VER|3.30", "Other")
+ping("VER|garbage", "Other")
+ping("VER|3.31", "Other")
+assert(#messages == 0, "equal/lower/malformed versions must never notify")
+ping("VER|3.32", "Other")
+assert(#messages == 1 and messages[1]:find("3.32", 1, true) and messages[1]:find("github.com", 1, true),
+    "a higher peer version triggers one notice with the releases link")
+ping("VER|3.33", "Other")
+assert(#messages == 1, "the notice fires once per session")
+print("Version ping semantics passed.")
 
 print(string.format("Sync fuzz passed: %d hostile payloads across DispatchAddon, HandleChannelMessage, and HandleSystemMessage (seed %d).", ITERATIONS, SEED))

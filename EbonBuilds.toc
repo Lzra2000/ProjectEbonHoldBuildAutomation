@@ -54,6 +54,7 @@ modules/recommendations/StarterBuildPolicy.lua
 modules/ui/Theme.lua
 modules/ui/VirtualList.lua
 core/ClickTrace.lua
+modules/data/FAQContent.lua
 modules/ui/FAQView.lua
 modules/ui/MinimapButton.lua
 modules/ui/MainWindow.lua
