@@ -258,6 +258,16 @@ The gear score is directional build guidance, not a best-in-slot verdict. Uncach
 
 ## Changelog
 
+### 3.23 (2026-07-19) -- Unified responsive editing, snapshot-first Character tab, explicit tracking consent (contributed)
+
+Contributed by ha99dfs (PR #5), a large structural release building on 3.22's Character tab.
+
+- The build editor is responsive across supported UI scales, and Save Build keeps you on the active tab with filters, selection, and scroll position intact instead of resetting the view.
+- Stored character snapshots are now the single model behind viewed talents, glyphs, gear, and item affixes -- including viewing another character's snapshot -- backed by a complete 3.3.5a talent catalog and class-safe snapshot adoption with recovery for snapshots stored by older versions.
+- New foundation layers (`core/Database.lua`, `Scheduler`, `EventHub`, `RingBuffer`, readiness/review/aggregate modules) give SavedVariables a single owner and bound all background work.
+- Tuning proposals are now staged for explicit review instead of being applied to live strategies in the background.
+- **Behavior change: DPS tracking and community sharing are opt-in again.** 3.13 turned tracking on by default; this release replaces that with an explicit per-character consent, and existing characters are reset to off until they opt in (Settings). The default-on approach meant data sharing happened without a deliberate choice -- this puts that choice back where it belongs. If you had tracking on and want it back, it's one checkbox.
+
 ### 3.22 (2026-07-19) -- Character tab: stored gear, full talent trees, glyphs, and snapshot adoption
 
 New fifth tab in the build editor, "Character", closing out the last two prepared APIs from 3.20's orphan review (`GearScore.ScoreEquipped`'s scoring path and the talent capture machinery).
