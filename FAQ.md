@@ -258,6 +258,14 @@ The gear score is directional build guidance, not a best-in-slot verdict. Uncach
 
 ## Changelog
 
+### 3.27 (2026-07-19) -- Security policy, wiki, repo polish
+
+Repo-only release, nothing changes in-game.
+
+- New `SECURITY.md`: private vulnerability reporting (enabled on the repository), what actually counts as a security issue for a sandboxed WoW addon -- hostile sync payloads, malicious import strings, SavedVariables integrity, and consent around shared data -- and what's an ordinary bug instead.
+- Wiki content written and versioned under `docs/wiki/`: Home, Getting Started, Settings, Localization, Development, Troubleshooting. GitHub only creates a wiki's git repository after its first page is made through the web UI, so publishing is `GITHUB_TOKEN=... sh scripts/publish-wiki.sh` after that one-time step -- the script syncs `docs/wiki/` to the wiki from then on.
+- Repository description and topics set; README links the wiki and the security policy.
+
 ### 3.26 (2026-07-19) -- fix: screenshots matched to the right captions
 
 Repo-only release, nothing changes in-game.

@@ -126,6 +126,10 @@ Translation strings live in `modules/i18n/locales/*.lua`, one file per language,
 
 Only the build editor is translated so far; the rest of the addon's UI still falls back to English (missing keys never error, they just show the English text). Extending coverage to more views is just adding more `EbonBuilds.L["..."]` call sites and the matching translation-table entries.
 
+## Documentation
+
+The [wiki](https://github.com/Lzra2000/-ProjectEbonHoldBuildAutomation/wiki) covers getting started, every setting, localization, development, and troubleshooting. Its source lives in [`docs/wiki/`](docs/wiki/) and is versioned with the code. Security concerns -- hostile sync payloads, malicious import strings, data-sharing consent -- have their own reporting path: see [SECURITY.md](SECURITY.md).
+
 ## Reporting bugs
 
 Attach the Error log or Debug log output (Settings -- gear icon in the main window -- Windows & tools) to your report -- it's the single fastest way to get something fixed instead of guessed at.

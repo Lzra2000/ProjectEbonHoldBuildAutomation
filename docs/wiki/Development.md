@@ -1,0 +1,29 @@
+Full contributor guide: [CONTRIBUTING.md](https://github.com/Lzra2000/-ProjectEbonHoldBuildAutomation/blob/main/CONTRIBUTING.md). This page is the short map.
+
+## Setup
+
+```
+sh scripts/dev-setup.sh      # lua5.1, texlua, zip
+sh scripts/install-hooks.sh  # optional pre-commit hook
+sh scripts/check.sh          # what CI runs: syntax, test suite, .toc verification
+```
+
+No build step -- the repo root already is the addon folder structure.
+
+## The script toolbox
+
+| Script | What it does |
+|---|---|
+| `check.sh` | Syntax + full test suite + TOC verification (CI runs exactly this) |
+| `check-load-order.sh` | Flags file-scope references to modules the `.toc` hasn't loaded yet |
+| `find-orphans.sh` | Files the TOC never loads (hard fail) and exports with no visible caller (review list) |
+| `i18n-report.sh` | Per-language translation coverage, missing and orphaned keys |
+| `new-locale.sh <code>` | Scaffolds a new locale file from every real call site |
+| `triage-error.sh <file\|->` | Pasted error dump -> source context + `git log -L` per mentioned line |
+| `release.sh` / `ship.sh` | Version bump, checks, dist zip, tag / plus push and GitHub Release (maintainers) |
+
+The test suite includes a sync fuzzer (`tests/test_sync_fuzz.lua`): thousands of deterministic hostile payloads against the inbound message handlers every CI run.
+
+## Conventions worth knowing before a PR
+
+File headers name the file and its single responsibility. Everything hangs off `EbonBuilds.<Module>`; test-only hooks are `_`-prefixed. User-interaction handlers get wrapped in `EbonBuilds.ErrorLog.Protect` so failures land in the in-game Error log instead of vanishing. User-facing changes get a changelog entry in `FAQ.md` -- plain and specific, no marketing language.
