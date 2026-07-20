@@ -4,18 +4,14 @@
 
 EbonBuilds.FAQContent = { PAGES = {
 {
-    title = "What's new: 3.39 (2026-07-20) -- Handler protection: StatsView.lua",
+    title = "What's new: 3.40 (2026-07-20) -- Handler protection: SettingsView.lua",
     lines = {
         "",
-        "- modules/ui/StatsView.lua -- 9 frames now opt into",
-        "EbonBuilds.Debug.ProtectScript at creation (echo row,",
-        "summary/early-epic/action metric cards, echo and recommendations scroll",
-        "frames, card hit-area overlay, row frame, DPS bar segments). Covers all",
-        "of the file's raw-handler SetScript sites; the rest were already",
-        "indirectly covered by Theme.lua's factories.",
-        "- Remaining files, largest first: SettingsView, BuildWizardPriorityStep,",
-        "MainWindow, BuildWizard, Calibration, TomeAtlasView, CharacterView, and",
-        "others.",
+        "- modules/ui/SettingsView.lua -- 5 frames now opt into",
+        "EbonBuilds.Debug.ProtectScript at creation (two threshold/row sliders, an",
+        "edit box, the ban-list icon button, and the settings scroll frame).",
+        "- Remaining files, largest first: BuildWizardPriorityStep, MainWindow,",
+        "BuildWizard, Calibration, TomeAtlasView, CharacterView, and others.",
     },
 },
 {
