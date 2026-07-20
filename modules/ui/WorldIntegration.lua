@@ -96,9 +96,19 @@ end
 -- green tint -- zone-level coloring needs zone names only, which is
 -- exactly what the atlas has.
 
-local highlightCache = {}   -- [continent] = { [zoneName] = {file, tpx, tpy, tx, ty, sx, sy} }
+local highlightCache = {}   -- [continent] = { [normalizedZoneName] = {file, tpx, tpy, tx, ty, sx, sy} }
 local overlayPool = {}      -- reusable texture frames on WorldMapButton
 local legend
+
+-- TomeAtlas zone names come from GetRealZoneText() at loot time; map zone
+-- names come from UpdateMapHighlight()'s sampling. Both should already be
+-- the same localized string for a given zone, but trimming here makes the
+-- lookup below tolerant of incidental leading/trailing whitespace instead
+-- of silently failing the exact-match and never coloring that zone.
+local function NormalizeZoneName(name)
+    if type(name) ~= "string" then return name end
+    return name:match("^%s*(.-)%s*$")
+end
 
 -- Pure step, injectable: which zone names deserve color.
 function EbonBuilds.WorldIntegration.ZonesWithTomes(listByZone)
@@ -106,7 +116,7 @@ function EbonBuilds.WorldIntegration.ZonesWithTomes(listByZone)
     local set = {}
     if not listByZone then return set end
     for _, z in ipairs(listByZone() or {}) do
-        if z.tomes and next(z.tomes) then set[z.zone] = true end
+        if z.tomes and next(z.tomes) then set[NormalizeZoneName(z.zone)] = true end
     end
     return set
 end
@@ -114,11 +124,17 @@ end
 local function SampleContinent(cont)
     if highlightCache[cont] then return highlightCache[cont] end
     local cache = {}
-    -- 40x30 grid over the map button; each hit caches one zone's
-    -- highlight geometry. One-time cost per continent per session.
-    for gx = 1, 40 do
-        for gy = 1, 30 do
-            local name, file, tpx, tpy, tx, ty, sx, sy = UpdateMapHighlight(gx / 41, gy / 31)
+    -- 41x31 grid over the map button (0..1 inclusive on both axes) so the
+    -- sampling reaches the map's actual edges. The previous 1/41..40/41
+    -- and 1/31..30/31 ranges never touched x=0, x=1, y=0, or y=1, which
+    -- could miss the highlight region of a zone whose geometry sits at
+    -- the continent texture's border. Each grid hit caches one zone's
+    -- highlight geometry; this is a one-time cost per continent per
+    -- session (see highlightCache above).
+    for gx = 0, 40 do
+        for gy = 0, 30 do
+            local name, file, tpx, tpy, tx, ty, sx, sy = UpdateMapHighlight(gx / 40, gy / 30)
+            name = NormalizeZoneName(name)
             if name and file and not cache[name] then
                 cache[name] = { file = file, tpx = tpx, tpy = tpy, tx = tx, ty = ty, sx = sx, sy = sy }
             end
@@ -163,6 +179,13 @@ local function ShowContinentOverlays()
             tex:ClearAllPoints()
             tex:SetPoint("TOPLEFT", parent, "TOPLEFT", geo.sx * w, -geo.sy * h)
             tex:SetVertexColor(0.35, 0.85, 0.6, 0.45)
+            -- Pin to the top of the OVERLAY layer explicitly. Draw order
+            -- among same-layer textures otherwise depends on creation
+            -- order, and this texture is only created/reused lazily on
+            -- first use -- pinning it removes any dependency on exactly
+            -- when that first happens relative to Blizzard's own zone-tile
+            -- artwork, which is what actually made the tint invisible.
+            if tex.SetDrawLayer then tex:SetDrawLayer("OVERLAY", 7) end
             tex:Show()
         end
     end
