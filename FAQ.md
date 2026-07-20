@@ -264,6 +264,14 @@ The gear score is directional build guidance, not a best-in-slot verdict. Uncach
 
 ## Changelog
 
+### 3.37 (2026-07-20) -- Handler protection: SessionHistory.lua (1 of ~19 remaining files)
+
+Step 3 of the handler-protection follow-up: going module by module through files that create frames directly with `CreateFrame` instead of through a Theme.lua factory (which got covered in 3.36).
+
+- `modules/ui/SessionHistory.lua` -- 13 frames now opt into `EbonBuilds.Debug.ProtectScript` at creation (run browser rows and popup, search box, timeline rows, export/import dialog and its text fields, header sort buttons, summary rarity frame, log scroll frame, duration timer). This covers all of the file's 47 `SetScript` calls, since one `ProtectScript` call at frame creation protects every handler attached to that frame afterwards.
+- Chosen first because it had the most raw (non-Theme-factory) handlers of any file in the addon.
+- Remaining files, largest first: BuildOverview, StatsView, SettingsView, BuildWizardPriorityStep, MainWindow, BuildWizard, Calibration, TomeAtlasView, CharacterView, and others -- tracked as ongoing follow-up work, one file per release so each change stays reviewable and testable on its own.
+
 ### 3.36 (2026-07-20) -- Auto-protection extended to every Theme.lua widget
 
 Step 2 of the handler-protection follow-up (3.35 only covered `CreateButton`).

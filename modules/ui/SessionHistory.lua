@@ -1078,6 +1078,9 @@ end
 
 local function CreateRunBrowserRow(parent)
     local row = CreateFrame("Button", nil, parent)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(row, "SessionHistory.RunBrowserRow")
+    end
     row:SetHeight(RUN_BROWSER_ROW_H - 2)
     Theme.ApplyCard(row)
 
@@ -1150,6 +1153,9 @@ local function EnsureRunBrowser()
     if runBrowser then return runBrowser end
 
     local popup = CreateFrame("Frame", nil, UIParent)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(popup, "SessionHistory.RunBrowserPopup")
+    end
     popup:SetSize(RUN_BROWSER_WIDTH, 526)
     popup:SetFrameStrata("FULLSCREEN_DIALOG")
     popup:SetToplevel(true)
@@ -1182,6 +1188,9 @@ local function EnsureRunBrowser()
     Theme.ApplyInput(searchWrap)
 
     local search = CreateFrame("EditBox", nil, searchWrap)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(search, "SessionHistory.RunBrowserSearch")
+    end
     search:SetPoint("TOPLEFT", searchWrap, "TOPLEFT", 7, -3)
     search:SetPoint("BOTTOMRIGHT", searchWrap, "BOTTOMRIGHT", -22, 3)
     search:SetFont("Fonts\\FRIZQT__.TTF", 11, "")
@@ -1197,6 +1206,9 @@ local function EnsureRunBrowser()
     runBrowserPlaceholder = placeholder
 
     local clearSearch = CreateFrame("Button", nil, searchWrap)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(clearSearch, "SessionHistory.RunBrowserClearSearch")
+    end
     clearSearch:SetSize(18, 18)
     clearSearch:SetPoint("RIGHT", searchWrap, "RIGHT", -2, 0)
     local clearText = clearSearch:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
@@ -1478,6 +1490,9 @@ end
 
 local function BuildTimelineRow(parent)
     local row = CreateFrame("Button", nil, parent)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(row, "SessionHistory.TimelineRow")
+    end
     row:RegisterForClicks("LeftButtonUp")
     Theme.ApplyCard(row)
     if logScroll and logBar then
@@ -1857,6 +1872,9 @@ local exportDialog
 local function EnsureExportDialog()
     if exportDialog then return exportDialog end
     local frame = CreateFrame("Frame", "EbonBuildsExportDialog", UIParent)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(frame, "SessionHistory.ExportDialog")
+    end
     frame:SetSize(800, 550)
     frame:SetPoint("CENTER")
     frame:SetFrameStrata("FULLSCREEN_DIALOG")
@@ -1878,6 +1896,9 @@ local function EnsureExportDialog()
     scroll:SetPoint("TOPLEFT", title, "BOTTOMLEFT", -2, -8)
     scroll:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -24, 10)
     local edit = CreateFrame("EditBox", nil, scroll)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(edit, "SessionHistory.ExportDialogText")
+    end
     edit:SetMultiLine(true)
     edit:SetFontObject("GameFontHighlightSmall")
     edit:SetAutoFocus(false)
@@ -1955,6 +1976,9 @@ local function CreateSearch(parent)
     wrap:SetSize(FILTER_SEARCH_W, FILTER_CONTROL_H)
     Theme.ApplyInput(wrap)
     local edit = CreateFrame("EditBox", nil, wrap)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(edit, "SessionHistory.ImportField")
+    end
     edit:SetPoint("TOPLEFT", wrap, "TOPLEFT", 8, -2)
     edit:SetPoint("BOTTOMRIGHT", wrap, "BOTTOMRIGHT", -25, 2)
     edit:SetFont("Fonts\\FRIZQT__.TTF", 11, "")
@@ -1968,6 +1992,9 @@ local function CreateSearch(parent)
     placeholder:SetText("Search Echoes, actions, reasons")
     placeholder:SetTextColor(unpack(Theme.TEXT_MUTED))
     local clear = CreateFrame("Button", nil, wrap)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(clear, "SessionHistory.ImportFieldClear")
+    end
     clear:SetSize(20, 20)
     clear:SetPoint("RIGHT", wrap, "RIGHT", -2, 0)
     local x = clear:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
@@ -1993,6 +2020,9 @@ end
 
 local function BuildHeaderButton(parent, key)
     local button = CreateFrame("Button", nil, parent)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(button, "SessionHistory.HeaderButton")
+    end
     button:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1 })
     button:SetBackdropColor(0, 0, 0, 0)
     button:SetBackdropBorderColor(0, 0, 0, 0)
@@ -2122,6 +2152,9 @@ local function BuildSummaryStrip(container)
     end
 
     summaryRarityFrame = CreateFrame("Frame", nil, summaryStrip)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(summaryRarityFrame, "SessionHistory.SummaryRarityFrame")
+    end
     summaryRarityFrame:SetPoint("BOTTOMLEFT", summaryStrip, "BOTTOMLEFT", 8, 4)
     summaryRarityFrame:SetPoint("BOTTOMRIGHT", summaryStrip, "BOTTOMRIGHT", -8, 4)
     summaryRarityFrame:SetHeight(18)
@@ -2265,6 +2298,9 @@ local function BuildEventTimeline()
     end
 
     logScroll = CreateFrame("ScrollFrame", nil, bottomPanel)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(logScroll, "SessionHistory.LogScroll")
+    end
     logChild = CreateFrame("Frame", nil, logScroll)
     logChild:SetSize(430, 1)
     logScroll:SetScrollChild(logChild)
@@ -2440,6 +2476,9 @@ function H.Show(container)
     if session and GetRunCompletionState(session) == "active" then
         if not durationTimer then
             durationTimer = CreateFrame("Frame")
+            if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+                EbonBuilds.Debug.ProtectScript(durationTimer, "SessionHistory.DurationTimer")
+            end
             durationTimer:SetScript("OnUpdate", DurationTick)
         end
         durationTimer._elapsed = 0
