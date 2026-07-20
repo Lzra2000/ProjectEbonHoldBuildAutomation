@@ -4,14 +4,14 @@
 
 EbonBuilds.FAQContent = { PAGES = {
 {
-    title = "What's new: 3.40 (2026-07-20) -- Handler protection: SettingsView.lua",
+    title = "What's new: 3.41 (2026-07-20) -- Handler protection: BuildWizardPriorityStep.lua",
     lines = {
         "",
-        "- modules/ui/SettingsView.lua -- 5 frames now opt into",
-        "EbonBuilds.Debug.ProtectScript at creation (two threshold/row sliders, an",
-        "edit box, the ban-list icon button, and the settings scroll frame).",
-        "- Remaining files, largest first: BuildWizardPriorityStep, MainWindow,",
-        "BuildWizard, Calibration, TomeAtlasView, CharacterView, and others.",
+        "- modules/ui/BuildWizardPriorityStep.lua -- 5 frames now opt into",
+        "EbonBuilds.Debug.ProtectScript at creation (dismiss overlay,",
+        "grouped-priority popup, per-row inspect and evidence buttons, search box).",
+        "- Remaining files, largest first: MainWindow, BuildWizard, Calibration,",
+        "TomeAtlasView, CharacterView, and others.",
     },
 },
 {
