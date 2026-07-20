@@ -642,6 +642,9 @@ end
 
 local function CreateTalentNode(parent)
     local button = CreateFrame("Button", nil, parent)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(button, "CharacterView.TalentNode")
+    end
     button:SetSize(TALENT_NODE_SIZE, TALENT_NODE_SIZE)
     Theme.ApplyCard(button)
     local icon = button:CreateTexture(nil, "ARTWORK")
@@ -848,6 +851,9 @@ end
 
 local function CreateTalentListRow(parent)
     local row = CreateFrame("Button", nil, parent)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(row, "CharacterView.Row")
+    end
     row:SetHeight(36)
     Theme.ApplyCard(row)
     local icon = row:CreateTexture(nil, "ARTWORK")
@@ -1036,6 +1042,9 @@ local function CreateTalentPage(parent)
     TUI.body:SetPoint("TOPLEFT", page, "TOPLEFT", 4, -82)
     TUI.body:SetPoint("BOTTOMRIGHT", page, "BOTTOMRIGHT", -4, 4)
     TUI.area = CreateFrame("Frame", nil, TUI.body)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(TUI.area, "CharacterView.TalentArea")
+    end
     TUI.area:SetScript("OnSizeChanged", function(_, width, height)
         width = math.floor(tonumber(width) or 0)
         height = math.floor(tonumber(height) or 0)
@@ -1317,6 +1326,9 @@ end
 
 local function CreateGearSlotButton(parent, slotId)
     local button = CreateFrame("Button", nil, parent)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(button, "CharacterView.GearSlot")
+    end
     button:SetSize(42, 42)
     button._slotId = slotId
     Theme.ApplyCard(button)
@@ -1650,6 +1662,9 @@ local function EnsureBuilt(container)
     if viewFrame then return end
     Theme = EbonBuilds.Theme
     viewFrame = CreateFrame("Frame", nil, container)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(viewFrame, "CharacterView.ViewFrame")
+    end
 
     local defs = { { "overview", "Overview" }, { "talents", "Talents" }, { "gear", "Gear" } }
     local previous
@@ -1717,6 +1732,9 @@ local function EnsureBuilt(container)
     viewFrame:SetScript("OnShow", function() Layout(); Refresh() end)
 
     eventFrame = CreateFrame("Frame")
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(eventFrame, "CharacterView.GearEventFrame")
+    end
     eventFrame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
     eventFrame:SetScript("OnEvent", function() MarkDirty("gear") end)
 end
