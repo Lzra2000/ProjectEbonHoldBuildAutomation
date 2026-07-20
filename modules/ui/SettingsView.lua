@@ -238,6 +238,9 @@ local function CreatePercentControl(parent, action, y)
     effect:SetTextColor(unpack(Theme.TEXT_PRIMARY))
 
     local slider = CreateFrame("Slider", nil, row)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(slider, "SettingsView.RowSlider")
+    end
     slider:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 14, 13)
     slider:SetWidth(445)
     slider:SetHeight(22)
@@ -262,6 +265,9 @@ local function CreatePercentControl(parent, action, y)
     Theme.ApplyInput(container)
 
     local box = CreateFrame("EditBox", nil, container)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(box, "SettingsView.EditBox")
+    end
     box:SetPoint("TOPLEFT", container, "TOPLEFT", 4, -3)
     box:SetPoint("BOTTOMRIGHT", container, "BOTTOMRIGHT", -15, 3)
     box:SetFont("Fonts\\FRIZQT__.TTF", 11, "")
@@ -386,6 +392,9 @@ local function CreateCompactSlider(parent, labelText, descriptionText, key, minV
     description:SetTextColor(unpack(Theme.TEXT_MUTED))
 
     local slider = CreateFrame("Slider", nil, parent)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(slider, "SettingsView.ThresholdSlider")
+    end
     slider:SetPoint("TOPLEFT", description, "BOTTOMLEFT", 0, -6)
     slider:SetWidth(430)
     slider:SetHeight(20)
@@ -624,6 +633,9 @@ local function RefreshBanList()
         local btn = banItems[index]
         if not btn then
             btn = CreateFrame("Button", nil, banScrollChild)
+            if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+                EbonBuilds.Debug.ProtectScript(btn, "SettingsView.BanListIcon")
+            end
             btn:SetSize(BAN_ICON, BAN_ICON)
             local icon = btn:CreateTexture(nil, "ARTWORK")
             icon:SetPoint("TOPLEFT", btn, "TOPLEFT", 2, -2)
@@ -894,6 +906,9 @@ local function BuildViewFrame(parent)
     subtitle:SetTextColor(unpack(Theme.TEXT_MUTED))
 
     scrollFrame = CreateFrame("ScrollFrame", nil, frame)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(scrollFrame, "SettingsView.ScrollFrame")
+    end
     scrollFrame:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -44)
     scrollFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -22, 8)
 
