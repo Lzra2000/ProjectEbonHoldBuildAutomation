@@ -11,7 +11,7 @@ local ROW_POOL = 12
 local FALLBACK_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
 
 local frame, searchBox, searchPlaceholder, clearSearchButton
-local viewport, scrollBar, resultText, emptyState, classContextText
+local viewport, scrollFrame, scrollChild, scrollBar, resultText, emptyState, classContextText
 local allEntries, filtered, rowPool = {}, {}, {}
 local onPick, searchText, scrollOffset = nil, "", 0
 local activeClass
@@ -151,11 +151,19 @@ end
 local function Render()
     if not viewport then return end
     local visibleRows = VirtualList.VisibleCount(viewport:GetHeight(), ROW_HEIGHT, ROW_POOL)
-    local requested = math.floor(tonumber(scrollBar:GetValue()) or scrollOffset)
+    local requestedPixels = tonumber(scrollBar:GetValue()) or (scrollOffset * ROW_HEIGHT)
+    local requested = math.floor(requestedPixels / ROW_HEIGHT + 0.0001)
     local maxOffset
     scrollOffset, maxOffset = VirtualList.ClampOffset(#filtered, visibleRows, requested)
-    scrollBar:SetMinMaxValues(0, maxOffset)
-    if scrollBar:GetValue() ~= scrollOffset then scrollBar:SetValue(scrollOffset) end
+
+    -- The shared wheel router operates in pixels. This picker remains
+    -- virtualized, so convert its row offset to a pixel range while keeping
+    -- the recycled rows anchored inside the fixed viewport.
+    local maxScroll = maxOffset * ROW_HEIGHT
+    local snappedScroll = scrollOffset * ROW_HEIGHT
+    scrollBar:SetMinMaxValues(0, maxScroll)
+    if scrollBar:GetValue() ~= snappedScroll then scrollBar:SetValue(snappedScroll) end
+    if scrollFrame then scrollFrame._virtualScrollValue = snappedScroll end
 
     for i = 1, ROW_POOL do
         local row = rowPool[i]
@@ -242,14 +250,31 @@ local function BuildFrame()
     viewport = CreateFrame("Frame", nil, listPanel)
     viewport:SetPoint("TOPLEFT", listPanel, "TOPLEFT", 7, -7)
     viewport:SetPoint("BOTTOMRIGHT", listPanel, "BOTTOMRIGHT", -7, 7)
+
+    -- Bind the virtualized picker through the same content-tree wheel path
+    -- used by native ScrollFrames. The adapter exposes pixel scroll values
+    -- without moving the viewport itself; Render() converts them back to row
+    -- offsets for the recycled pool.
+    scrollFrame = viewport
+    scrollChild = viewport
+    function scrollFrame:GetVerticalScroll()
+        return tonumber(self._virtualScrollValue) or 0
+    end
+    function scrollFrame:SetVerticalScroll(value)
+        self._virtualScrollValue = tonumber(value) or 0
+    end
+
     scrollBar = Theme.CreateScrollBar(viewport)
     scrollBar:SetPoint("TOPRIGHT", viewport, "TOPRIGHT", 0, 0)
     scrollBar:SetPoint("BOTTOMRIGHT", viewport, "BOTTOMRIGHT", 0, 0)
-    scrollBar:SetValueStep(1)
-    scrollBar:SetScript("OnValueChanged", function(_, value) scrollOffset = math.floor((tonumber(value) or 0) + 0.5); Render() end)
+    scrollBar:SetValueStep(ROW_HEIGHT)
+    scrollBar:SetScript("OnValueChanged", function(_, value)
+        scrollOffset = math.floor((tonumber(value) or 0) / ROW_HEIGHT + 0.0001)
+        Render()
+    end)
 
     for i = 1, ROW_POOL do rowPool[i] = CreateRow(viewport) end
-    Theme.BindSliderWheel(viewport, scrollBar, 1, unpack(rowPool))
+    Theme.BindScrollWheel(scrollFrame, scrollBar, ROW_HEIGHT, scrollChild)
     viewport:HookScript("OnSizeChanged", Render)
 
     emptyState = Theme.CreateEmptyState(viewport, "No matching Echoes", "Try the player-facing name or a legacy alias.")
