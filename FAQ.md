@@ -264,6 +264,12 @@ The gear score is directional build guidance, not a best-in-slot verdict. Uncach
 
 ## Changelog
 
+### 3.46 (2026-07-20) -- Handler protection: BuildList.lua, BuildForm.lua
+
+- `modules/ui/BuildList.lua` -- 4 frames now opt into `EbonBuilds.Debug.ProtectScript` at creation (icon button, build list row, search box, clear-search button).
+- `modules/ui/BuildForm.lua` -- 4 frames now opt into `ProtectScript` at creation (icon button, name box, description scroll frame, description edit box).
+- Remaining files, largest first: EchoTableRows, Filters, PublicBuildsView, ExportImport, EchoPicker, AffixView, BonusView, MinimapButton.
+
 ### 3.45 (2026-07-20) -- Handler protection: CharacterView.lua
 
 - `modules/ui/CharacterView.lua` -- 6 frames now opt into `EbonBuilds.Debug.ProtectScript` at creation (talent node button, row button, talent UI area, gear slot button, tab view frame, gear item-info event frame).

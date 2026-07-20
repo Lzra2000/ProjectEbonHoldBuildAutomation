@@ -36,6 +36,9 @@ end
 
 local function CreateIconButton(parent, size)
     local btn = CreateFrame("Button", nil, parent)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(btn, "BuildList.IconButton")
+    end
     btn:SetSize(size, size)
     local icon = btn:CreateTexture(nil, "ARTWORK")
     icon:SetAllPoints(btn)
@@ -105,6 +108,9 @@ end
 
 local function CreateRow(parent)
     local row = CreateFrame("Button", nil, parent)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(row, "BuildList.Row")
+    end
     row:SetPoint("LEFT", parent, "LEFT", 0, 0)
     row:SetPoint("RIGHT", parent, "RIGHT", 0, 0)
     row:SetHeight(ROW_HEIGHT)
@@ -311,6 +317,9 @@ local function CreateSearch(parent, anchor)
     EbonBuilds.Theme.ApplyInput(wrap)
 
     local edit = CreateFrame("EditBox", nil, wrap)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(edit, "BuildList.SearchBox")
+    end
     edit:SetPoint("TOPLEFT", wrap, "TOPLEFT", 7, -3)
     edit:SetPoint("BOTTOMRIGHT", wrap, "BOTTOMRIGHT", -24, 3)
     edit:SetFont("Fonts\\FRIZQT__.TTF", 11, "")
@@ -324,6 +333,9 @@ local function CreateSearch(parent, anchor)
     placeholder:SetTextColor(unpack(EbonBuilds.Theme.TEXT_MUTED))
 
     local clear = CreateFrame("Button", nil, wrap)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(clear, "BuildList.ClearSearch")
+    end
     clear:SetSize(20, 20)
     clear:SetPoint("RIGHT", wrap, "RIGHT", -2, 0)
     local x = clear:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")

@@ -170,6 +170,9 @@ end
 
 local function CreateIconButton(parent, size)
     local btn = CreateFrame("Button", nil, parent)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(btn, "BuildForm.IconButton")
+    end
     btn:SetWidth(size)
     btn:SetHeight(size)
     local icon = btn:CreateTexture(nil, "ARTWORK")
@@ -234,6 +237,9 @@ local function CreateBackdropEditBox(parent, width, height, multi)
     EbonBuilds.Theme.ApplyInput(c)
 
     local box = CreateFrame("EditBox", nil, c)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(box, "BuildForm.NameBox")
+    end
     box:SetPoint("TOPLEFT",     c, "TOPLEFT",     4,  -4)
     box:SetPoint("BOTTOMRIGHT", c, "BOTTOMRIGHT", -4,  4)
     box:SetFont("Fonts\\FRIZQT__.TTF", 12, "")
@@ -407,6 +413,9 @@ local function BuildDescriptionField(parent, x, y, height)
     EbonBuilds.Theme.ApplyInput(container)
 
     local scroll = CreateFrame("ScrollFrame", "EbonBuildsBuildFormDescriptionSF", container)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(scroll, "BuildForm.DescriptionScroll")
+    end
     scroll:SetPoint("TOPLEFT",     container, "TOPLEFT",      4, -4)
     scroll:SetPoint("BOTTOMRIGHT", container, "BOTTOMRIGHT", -20,  4)
 
@@ -419,6 +428,9 @@ local function BuildDescriptionField(parent, x, y, height)
     end)
 
     local box = CreateFrame("EditBox", nil, scroll)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(box, "BuildForm.DescriptionBox")
+    end
     box:SetMultiLine(true)
     box:SetMaxLetters(0)
     box:SetFont("Fonts\\FRIZQT__.TTF", 12, "")
