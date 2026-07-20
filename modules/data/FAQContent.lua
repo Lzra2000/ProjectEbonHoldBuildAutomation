@@ -4,14 +4,18 @@
 
 EbonBuilds.FAQContent = { PAGES = {
 {
-    title = "What's new: 3.43 (2026-07-20) -- Handler protection: BuildWizard.lua",
+    title = "What's new: 3.44 (2026-07-20) -- Handler protection: Calibration.lua, TomeAtlasView.lua",
     lines = {
         "",
-        "- modules/ui/BuildWizard.lua -- 4 frames now opt into",
-        "EbonBuilds.Debug.ProtectScript at creation (pick button, inspect button,",
-        "archetype card button, build name edit box).",
-        "- Remaining files, largest first: Calibration, TomeAtlasView,",
-        "CharacterView, and others.",
+        "- modules/automation/Calibration.lua -- the popup's drag header now opts",
+        "into EbonBuilds.Debug.ProtectScript (its other 9 SetScript calls were",
+        "already covered indirectly via Theme.lua's factories).",
+        "- modules/ui/TomeAtlasView.lua -- 5 frames now opt into ProtectScript at",
+        "creation (zone row, main search box, picker search box, picker row",
+        "button, refresh-throttle OnUpdate timer).",
+        "- Remaining files, largest first: CharacterView, BuildList, BuildForm,",
+        "EchoTableRows, Filters, PublicBuildsView, ExportImport, EchoPicker,",
+        "AffixView, BonusView, MinimapButton.",
     },
 },
 {
