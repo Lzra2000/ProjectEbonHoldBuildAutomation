@@ -1193,6 +1193,9 @@ end
 local function EnsureEchoRow(index)
     if echoRows[index] then return echoRows[index] end
     local row = CreateFrame("Button", nil, echoChild)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(row, "StatsView.EchoRow")
+    end
     row:SetHeight(34)
     Theme.ApplyCard(row)
     row:RegisterForClicks("LeftButtonUp")
@@ -1976,6 +1979,9 @@ end
 
 local function CreateSummaryMetricCard(parent, titleText, tooltipText)
     local card = CreateFrame("Frame", nil, parent)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(card, "StatsView.SummaryMetricCard")
+    end
     Theme.ApplyCard(card)
 
     local title = card:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
@@ -2016,6 +2022,9 @@ end
 
 local function CreateEarlyEpicCard(parent, level)
     local card = CreateFrame("Frame", nil, parent)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(card, "StatsView.EarlyEpicCard")
+    end
     Theme.ApplyCard(card)
 
     local accent = card:CreateTexture(nil, "ARTWORK")
@@ -2202,6 +2211,9 @@ local function BuildEchoes(parent)
     end
 
     echoScroll = CreateFrame("ScrollFrame", nil, parent)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(echoScroll, "StatsView.EchoScroll")
+    end
     echoScroll:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -5)
     echoScroll:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -18, 24)
     echoChild = CreateFrame("Frame", nil, echoScroll)
@@ -2243,6 +2255,9 @@ end
 
 local function CreateActionMetricCard(parent, action)
     local card = CreateFrame("Frame", nil, parent)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(card, "StatsView.ActionMetricCard")
+    end
     Theme.ApplyCard(card)
 
     local color = ACTION_COLORS[action] or Theme.ACCENT_GOLD
@@ -2284,6 +2299,9 @@ local function CreateActionMetricCard(parent, action)
     coverage:SetTextColor(unpack(Theme.TEXT_MUTED))
 
     local hit = CreateFrame("Button", nil, card)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(hit, "StatsView.CardHitArea")
+    end
     hit:SetAllPoints(card)
     hit:SetScript("OnClick", function()
         if EbonBuilds.SessionHistory and EbonBuilds.SessionHistory.OpenWithFilters then
@@ -2313,6 +2331,9 @@ end
 
 local function CreateQualityDistributionRow(parent, action, rowIndex)
     local row = CreateFrame("Frame", nil, parent)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(row, "StatsView.Row")
+    end
     Theme.ApplyCard(row)
     row:SetHeight(29)
     row._alternate = rowIndex % 2 == 0
@@ -2352,6 +2373,9 @@ local function CreateQualityDistributionRow(parent, action, rowIndex)
     row.segments = {}
     for _, quality in ipairs(QUALITY_ORDER) do
         local segment = CreateFrame("Frame", nil, bar)
+        if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+            EbonBuilds.Debug.ProtectScript(segment, "StatsView.BarSegment")
+        end
         segment:SetHeight(14)
         local texture = segment:CreateTexture(nil, "ARTWORK")
         texture:SetAllPoints(segment)
@@ -2575,6 +2599,9 @@ local function BuildRecommendationsPanel(parent)
     UpdateRecommendationNavigation({ echo = 0, logic = 0 })
 
     recScroll = CreateFrame("ScrollFrame", nil, parent)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(recScroll, "StatsView.RecScroll")
+    end
     recScroll:SetPoint("TOPLEFT", recHeader, "BOTTOMLEFT", 0, -7)
     recScroll:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -18, 4)
     recChild = CreateFrame("Frame", nil, recScroll)
