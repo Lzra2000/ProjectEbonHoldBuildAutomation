@@ -11,6 +11,10 @@ local QUALITY_RGB = EbonBuilds.Quality.RGB
 local StripQualitySuffix = EbonBuilds.Weights.StripQualitySuffix
 local activeSortKey = "name"
 local RIGHT_MARGIN = 4
+local CLASS_BITS = {
+    WARRIOR = 1, PALADIN = 2, HUNTER = 4, ROGUE = 8, PRIEST = 16,
+    DEATHKNIGHT = 32, SHAMAN = 64, MAGE = 128, WARLOCK = 256, DRUID = 1024,
+}
 
 Rows.ROW_HEIGHT     = 60
 
@@ -78,21 +82,34 @@ function Rows.InvalidateCache()
     if EbonBuilds.EchoCatalog then EbonBuilds.EchoCatalog.Invalidate() end
 end
 
-function Rows.BuildAllQualitiesList()
+function Rows.BuildAllQualitiesList(classToken)
     local list = {}
     local catalog = EbonBuilds.EchoCatalog
     if not catalog then return list end
+    local classBit = CLASS_BITS[tostring(classToken or ""):upper()]
     for _, entry in ipairs(catalog.GetSortedList() or {}) do
         for _, variant in ipairs(entry.variants or {}) do
-            list[#list + 1] = {
-                spellId = variant.spellId,
-                name = entry.name,
-                quality = variant.quality,
-                classMask = variant.classMask or 0,
-                groupId = variant.groupId,
-                families = variant.families or {},
-                semantics = variant.semantics,
-            }
+            local classMask = tonumber(variant.classMask) or 0
+            local availability = classBit and catalog.GetAvailability(variant, classToken) or nil
+            local verified = not classBit
+                or availability == EbonBuilds.EchoIdentity.AVAILABLE
+                or availability == EbonBuilds.EchoIdentity.CONFLICTED
+            if verified then
+                local displayName = entry.sourceName or entry.name or variant.sourceName or variant.localizedName
+                list[#list + 1] = {
+                    spellId = variant.spellId,
+                    refKey = entry.refKey or variant.refKey,
+                    name = displayName,
+                    displayName = displayName,
+                    sourceName = entry.sourceName or variant.sourceName,
+                    searchBlob = entry.searchBlob,
+                    quality = variant.quality,
+                    classMask = classMask,
+                    groupId = variant.groupId,
+                    families = variant.families or {},
+                    semantics = variant.semantics,
+                }
+            end
         end
     end
     table.sort(list, function(a, b)

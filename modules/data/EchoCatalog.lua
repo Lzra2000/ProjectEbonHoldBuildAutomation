@@ -25,6 +25,106 @@ local reconcileFailed = false
 local diagnostics = {}
 local reconcileState
 local lifecycleFrame = CreateFrame("Frame")
+local staticGroupByNormalizedName
+
+-- ProjectEbonhold has shipped more than one PerkDatabase layout.  Most builds
+-- expose named fields, while some enhanced/client builds expose compact array
+-- records.  The catalog normalises both layouts before it creates identities.
+local function RuntimeValue(data, ...)
+    if type(data) ~= "table" then return nil end
+    for index = 1, select("#", ...) do
+        local key = select(index, ...)
+        local value = data[key]
+        if value ~= nil then return value end
+    end
+    return nil
+end
+
+local function IsPlaceholderName(value)
+    local normalized = Identity.NormalizeSearch(value)
+    if normalized == "" then return true end
+    if normalized == "unknown" or normalized == "unknown echo" or normalized == "unknown spell"
+        or normalized == "echo" or normalized == "spell" then
+        return true
+    end
+    return normalized:match("^unknown echo%s*#?%d*$") ~= nil
+        or normalized:match("^unknown spell%s*#?%d*$") ~= nil
+end
+
+local function CleanRuntimeName(value)
+    value = Identity.VisibleName(value)
+    if value == "" then return "" end
+    value = Identity.StripClassPrefix(Identity.StripQualitySuffix(value))
+    if IsPlaceholderName(value) then return "" end
+    return value
+end
+
+local function BuildStaticGroupNameIndex()
+    if staticGroupByNormalizedName then return end
+    staticGroupByNormalizedName = {}
+    for groupId, group in pairs(Static.groups or {}) do
+        local normalized = Identity.NormalizeSearch(group and group[1])
+        if normalized ~= "" then
+            local existing = staticGroupByNormalizedName[normalized]
+            if existing == nil then
+                staticGroupByNormalizedName[normalized] = tonumber(groupId)
+            elseif existing ~= tonumber(groupId) then
+                -- A duplicated display name is not safe to use as an identity.
+                staticGroupByNormalizedName[normalized] = false
+            end
+        end
+    end
+end
+
+local function StaticGroupForName(value)
+    local cleaned = CleanRuntimeName(value)
+    if cleaned == "" then return nil end
+    BuildStaticGroupNameIndex()
+    local groupId = staticGroupByNormalizedName[Identity.NormalizeSearch(cleaned)]
+    return type(groupId) == "number" and groupId or nil
+end
+
+local function RuntimeRecord(spellId, data, bundled)
+    local explicitName = RuntimeValue(data, "displayName", "name", "Name", "perkName", "echoName")
+    local comment = RuntimeValue(data, "comment", "Comment", "internalComment", "descriptionName", 7)
+    local groupId = tonumber(RuntimeValue(data, "groupId", "groupID", "GroupID", "group", "GroupId", 5))
+        or (bundled and bundled.groupId)
+
+    -- Some runtime tables omit groupId even though their comment still carries
+    -- the canonical Echo name.  Recover the stable bundled group rather than
+    -- creating one s:<spellId> row for every rank and class variant.
+    if not groupId or groupId <= 0 then
+        groupId = StaticGroupForName(explicitName) or StaticGroupForName(comment)
+    end
+    if groupId and groupId <= 0 then groupId = nil end
+
+    local group = groupId and Static.groups and Static.groups[groupId]
+    local sourceName = group and group[1] or CleanRuntimeName(explicitName)
+    if not sourceName or sourceName == "" then sourceName = CleanRuntimeName(comment) end
+    if not sourceName or sourceName == "" then sourceName = nil end
+
+    local classMask = tonumber(RuntimeValue(data, "classMask", "ClassMask", "classes", "class", 2))
+        or (bundled and bundled.classMask) or 0
+    local quality = tonumber(RuntimeValue(data, "quality", "Quality", "rarity", "perkQuality", 4))
+        or (bundled and bundled.quality) or 0
+    local requiredSpell = tonumber(RuntimeValue(data, "requiredSpell", "RequiredSpell", "required", 6))
+        or (bundled and bundled.requiredSpell) or 0
+    local families = RuntimeValue(data, "families", "Families", 8)
+
+    return {
+        spellId = spellId,
+        groupId = groupId,
+        quality = quality,
+        classMask = classMask,
+        staticClassMask = bundled and bundled.classMask or classMask,
+        requiredSpell = requiredSpell,
+        internalComment = comment,
+        sourceName = sourceName,
+        descriptionHash = bundled and bundled.descriptionHash or (group and group[2]) or 0,
+        families = type(families) == "table" and families or {},
+        runtimePresent = true,
+    }
+end
 
 local function ClearTable(t)
     for key in pairs(t) do t[key] = nil end
@@ -75,7 +175,12 @@ end
 local function ChooseLocalizedName(spellId, fallback)
     local name = GetSpellInfo and GetSpellInfo(spellId)
     name = Identity.VisibleName(name)
-    return name ~= "" and name or Identity.VisibleName(fallback)
+    -- Custom Echo spell records can legitimately return the client placeholder
+    -- "Unknown Echo" while still providing a valid icon.  Never let that
+    -- placeholder replace the canonical bundled/comment name.
+    if not IsPlaceholderName(name) then return name end
+    fallback = Identity.VisibleName(fallback)
+    return not IsPlaceholderName(fallback) and fallback or ""
 end
 
 local function AddVariant(record, sourceKind)
@@ -87,11 +192,10 @@ local function AddVariant(record, sourceKind)
 
     local bundledGroup = groupId and Static.groups and Static.groups[groupId]
     local sourceName = Identity.VisibleName(record.sourceName or (bundledGroup and bundledGroup[1]))
+    if IsPlaceholderName(sourceName) then sourceName = "" end
+    if sourceName == "" then sourceName = CleanRuntimeName(record.internalComment) end
     if sourceName == "" then sourceName = ChooseLocalizedName(spellId, "") end
-    if sourceName == "" then
-        sourceName = Identity.StripClassPrefix(Identity.StripQualitySuffix(record.internalComment))
-    end
-    if sourceName == "" then sourceName = "Echo " .. tostring(spellId) end
+    if sourceName == "" then sourceName = "Echo #" .. tostring(spellId) end
 
     local definition = DefinitionFor(refKey, groupId, sourceName,
         record.descriptionHash or (bundledGroup and bundledGroup[2]))
@@ -278,29 +382,16 @@ local function StartRuntimeReconcile(reason)
             local data = state.database[spellId] or state.database[tostring(spellId)]
             if type(data) == "table" then
                 local bundled = Identity.GetBundledSpell(spellId)
-                local groupId = tonumber(data.groupId) or (bundled and bundled.groupId)
-                local group = groupId and Static.groups and Static.groups[groupId]
-                local sourceName = bundled and bundled.sourceName or (group and group[1])
-                local comment = data.comment or (bundled and bundled.internalComment)
-                local variant = AddVariant({
-                    spellId = spellId, groupId = groupId,
-                    quality = tonumber(data.quality) or (bundled and bundled.quality) or 0,
-                    classMask = tonumber(data.classMask) or 0,
-                    staticClassMask = bundled and bundled.classMask or 0,
-                    requiredSpell = tonumber(data.requiredSpell) or (bundled and bundled.requiredSpell) or 0,
-                    internalComment = comment,
-                    sourceName = sourceName,
-                    descriptionHash = bundled and bundled.descriptionHash or 0,
-                    families = data.families or {}, runtimePresent = true,
-                }, bundled and "MATCHED" or "RUNTIME")
+                local record = RuntimeRecord(spellId, data, bundled)
+                local variant = AddVariant(record, bundled and "MATCHED" or "RUNTIME")
                 if variant then state.runtimeSeen[spellId] = true end
                 state.hash = HashText(state.hash, spellId)
-                state.hash = HashText(state.hash, groupId)
-                state.hash = HashText(state.hash, data.quality)
-                state.hash = HashText(state.hash, data.classMask)
-                state.hash = HashText(state.hash, data.requiredSpell)
-                state.hash = HashText(state.hash, sourceName)
-                state.hash = HashText(state.hash, comment)
+                state.hash = HashText(state.hash, record.groupId)
+                state.hash = HashText(state.hash, record.quality)
+                state.hash = HashText(state.hash, record.classMask)
+                state.hash = HashText(state.hash, record.requiredSpell)
+                state.hash = HashText(state.hash, record.sourceName)
+                state.hash = HashText(state.hash, record.internalComment)
             end
             if started and debugprofilestop and debugprofilestop() - started >= 1.0 then break end
         end

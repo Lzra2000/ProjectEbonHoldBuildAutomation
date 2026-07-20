@@ -310,7 +310,7 @@ local function BuildLockedSlots(parent, x, y)
                 return
             end
             local settings = EbonBuilds.BuildForm.GetEditingSettings()
-            local allList = EbonBuilds.EchoTableRows.BuildAllQualitiesList()
+            local allList = EbonBuilds.EchoTableRows.BuildAllQualitiesList(state.class)
             local filtered = {}
             for _, entry in ipairs(allList) do
                 if not EbonBuilds.Scoring.IsBanned(entry.spellId, settings) then
@@ -326,7 +326,7 @@ local function BuildLockedSlots(parent, x, y)
                 local bc = QUALITY_BORDER_COLORS[quality] or QUALITY_BORDER_COLORS[0]
                 btn._qualityBorder:SetTexture(bc[1], bc[2], bc[3])
                 btn._qualityBorder:Show()
-            end, filtered)
+            end, filtered, state.class)
         end)
         slotButtons[i] = btn
     end
@@ -387,7 +387,7 @@ local function BuildDescriptionField(parent, x, y, height)
             else
                 commentsBox:SetText((commentsBox:GetText() or "") .. link)
             end
-        end)
+        end, nil, state.class)
     end)
     insertBtn:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
