@@ -432,14 +432,22 @@ local function BuildViewFrame(parent)
     zoneSummary:SetJustifyH("LEFT")
 
     -- Row 1: search box, full width.
-    searchBox = CreateFrame("EditBox", nil, f, "InputBoxTemplate")
+    local searchContainer = CreateFrame("Frame", nil, f)
+    searchContainer:SetHeight(20)
+    searchContainer:SetPoint("TOPLEFT", f, "TOPLEFT", 18, -78)
+    searchContainer:SetPoint("RIGHT", f, "RIGHT", -38, 0)
+    EbonBuilds.Theme.ApplyInput(searchContainer)
+    EbonBuilds.Theme.AddSearchIcon(searchContainer)
+
+    searchBox = CreateFrame("EditBox", nil, searchContainer)
     if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
         EbonBuilds.Debug.ProtectScript(searchBox, "TomeAtlasView.SearchBox")
     end
-    searchBox:SetHeight(20)
-    searchBox:SetPoint("TOPLEFT", f, "TOPLEFT", 18, -78)
-    searchBox:SetPoint("RIGHT", f, "RIGHT", -38, 0)
+    searchBox:SetPoint("TOPLEFT", searchContainer, "TOPLEFT", 21, -2)
+    searchBox:SetPoint("BOTTOMRIGHT", searchContainer, "BOTTOMRIGHT", -6, 2)
+    searchBox:SetFont("Fonts\\FRIZQT__.TTF", 11, "")
     searchBox:SetAutoFocus(false)
+    EbonBuilds.Theme.WireEditBox(searchBox, searchContainer)
     local PLACEHOLDER = "Search tome, mob, or zone..."
     local function ShowPlaceholder(self)
         if self:GetText() == "" then
@@ -578,18 +586,27 @@ local function BuildViewFrame(parent)
     picker:EnableMouse(true)
     picker:Hide()
 
-    local pickerSearch = CreateFrame("EditBox", nil, picker, "InputBoxTemplate")
+    local pickerSearchContainer = CreateFrame("Frame", nil, picker)
+    pickerSearchContainer:SetHeight(20)
+    pickerSearchContainer:SetPoint("TOPLEFT", picker, "TOPLEFT", 14, -10)
+    pickerSearchContainer:SetPoint("RIGHT", picker, "RIGHT", -12, 0)
+    EbonBuilds.Theme.ApplyInput(pickerSearchContainer)
+    EbonBuilds.Theme.AddSearchIcon(pickerSearchContainer)
+
+    local pickerSearch = CreateFrame("EditBox", nil, pickerSearchContainer)
     if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
         EbonBuilds.Debug.ProtectScript(pickerSearch, "TomeAtlasView.PickerSearch")
     end
-    pickerSearch:SetHeight(20)
-    pickerSearch:SetPoint("TOPLEFT", picker, "TOPLEFT", 14, -10)
-    pickerSearch:SetPoint("RIGHT", picker, "RIGHT", -12, 0)
+    pickerSearch:SetPoint("TOPLEFT", pickerSearchContainer, "TOPLEFT", 21, -2)
+    pickerSearch:SetPoint("BOTTOMRIGHT", pickerSearchContainer, "BOTTOMRIGHT", -6, 2)
+    pickerSearch:SetFont("Fonts\\FRIZQT__.TTF", 11, "")
+    pickerSearch:SetTextColor(1, 1, 1, 1)
     pickerSearch:SetAutoFocus(false)
     pickerSearch:SetText("")
+    EbonBuilds.Theme.WireEditBox(pickerSearch, pickerSearchContainer)
 
     local pickerScroll = CreateFrame("ScrollFrame", nil, picker)
-    pickerScroll:SetPoint("TOPLEFT", pickerSearch, "BOTTOMLEFT", -4, -6)
+    pickerScroll:SetPoint("TOPLEFT", pickerSearchContainer, "BOTTOMLEFT", -4, -6)
     pickerScroll:SetPoint("BOTTOMRIGHT", picker, "BOTTOMRIGHT", -20, 10)
 
     local pickerChild = CreateFrame("Frame", nil, pickerScroll)

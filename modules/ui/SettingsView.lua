@@ -182,7 +182,7 @@ end
 local function SetSelectedButton(btn, selected, kind)
     if selected then
         Theme.SetButtonAccent(btn, kind or "gold")
-        btn:SetBackdropColor(0.18, 0.16, 0.07, 1)
+        btn:SetBackdropColor(unpack(EbonBuilds.Theme.SELECTED_BG))
     else
         Theme.ClearButtonAccent(btn)
         btn:SetBackdropColor(0.145, 0.145, 0.185, 1)

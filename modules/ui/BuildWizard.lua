@@ -681,7 +681,7 @@ local function SetScoringCardSelected(card, selected)
     if not card then return end
     card._selected = selected and true or false
     if card._selected then
-        card:SetBackdropColor(0.20, 0.17, 0.07, 1)
+        card:SetBackdropColor(unpack(EbonBuilds.Theme.SELECTED_BG))
         card:SetBackdropBorderColor(unpack(Theme.ACCENT_GOLD))
         card.title:SetTextColor(1, 0.90, 0.35, 1)
         card.description:SetTextColor(unpack(Theme.TEXT_PRIMARY))

@@ -21,6 +21,12 @@ T.BORDER_DIM   = { 0.24, 0.24, 0.29, 1.00 }
 T.ACCENT_GOLD  = { 1.00, 0.82, 0.00, 1.00 }
 T.ACCENT_HEX   = "ffd100"
 T.FOCUS        = { 1.00, 0.82, 0.00, 1.00 }
+-- Background tint for a "selected" row/tab/card. Previously hand-typed
+-- separately in Theme.lua, BuildWizard.lua, SessionHistory.lua, and
+-- SettingsView.lua, each slightly different (0.20/0.17/0.07 vs 0.18/0.16/0.07
+-- vs 0.17/0.15/0.07) -- one shared constant so "selected" means the same
+-- shade everywhere.
+T.SELECTED_BG  = { 0.20, 0.17, 0.07, 1.00 }
 T.SUCCESS      = { 0.30, 0.86, 0.38, 1.00 }
 T.WARNING      = { 1.00, 0.66, 0.16, 1.00 }
 T.DANGER       = { 1.00, 0.26, 0.26, 1.00 }
@@ -166,6 +172,22 @@ function T.WireEditBox(box, container)
     end)
 end
 
+-- Small magnifying-glass icon (the same one Blizzard's own search boxes
+-- use, e.g. Friends/Guild roster) anchored to a search box container's left
+-- edge, so every search field in the addon reads as "search" at a glance
+-- instead of some looking like plain text inputs. Returns the icon texture;
+-- callers that indent their edit box to make room should offset text start
+-- by ~16px from the container's left edge.
+function T.AddSearchIcon(container)
+    if not container then return nil end
+    local icon = container:CreateTexture(nil, "OVERLAY")
+    icon:SetTexture("Interface\\Common\\UI-Searchbox-Icon")
+    icon:SetSize(14, 14)
+    icon:SetPoint("LEFT", container, "LEFT", 4, 0)
+    icon:SetVertexColor(T.TEXT_MUTED[1], T.TEXT_MUTED[2], T.TEXT_MUTED[3], 0.85)
+    return icon
+end
+
 -- Thin gold divider line under headers.
 function T.AddHeaderRule(parent, anchorFontString, width)
     local rule = parent:CreateTexture(nil, "ARTWORK")
@@ -279,7 +301,7 @@ function T.ResetButtonVisual(btn)
 
     if btn._tabSelected then
         btn._accentBorder = ACCENT_BORDERS.gold
-        btn:SetBackdropColor(0.20, 0.17, 0.07, 1)
+        btn:SetBackdropColor(unpack(T.SELECTED_BG))
         btn:SetBackdropBorderColor(unpack(ACCENT_BORDERS.gold))
         if label then label:SetTextColor(1, 0.90, 0.35) end
         return
@@ -384,7 +406,7 @@ function T.SetTabSelected(btn, selected)
     btn._tabSelected = selected and true or false
     if selected then
         btn._accentBorder = ACCENT_BORDERS.gold
-        btn:SetBackdropColor(0.20, 0.17, 0.07, 1)
+        btn:SetBackdropColor(unpack(T.SELECTED_BG))
         btn:SetBackdropBorderColor(unpack(ACCENT_BORDERS.gold))
         if btn:GetFontString() then btn:GetFontString():SetTextColor(1, 0.90, 0.35) end
     else

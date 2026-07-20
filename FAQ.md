@@ -264,6 +264,14 @@ The gear score is directional build guidance, not a best-in-slot verdict. Uncach
 
 ## Changelog
 
+### 3.48 (2026-07-20) -- UI consistency pass: unified search boxes and selected-state color
+
+Two small visual inconsistencies found by a repo-wide scan, both fixed centrally instead of file-by-file.
+
+- **Every search box now looks the same.** Affixes and Tome Atlas (both its main and zone-picker search) previously used Blizzard's native gold/parchment `InputBoxTemplate`, which visually clashed with every other search box in the addon (Build List, Echo filters) using the addon's own dark themed input style. All five now share the same look, keyboard behavior, and focus/error states.
+- **A magnifying-glass search icon** (the same one Blizzard's own Friends/Guild roster search boxes use) now marks every search field in the addon -- new `Theme.AddSearchIcon(container)` helper, applied to all five.
+- **The "selected" gold background tint is one constant now** (`Theme.SELECTED_BG`), not five hand-typed copies that had quietly drifted apart (Theme.lua and Build Wizard used `0.20/0.17/0.07`, Settings used `0.18/0.16/0.07`, Session History's run-browser used `0.17/0.15/0.07` -- three visibly different shades of "selected" depending which screen you were on).
+
 ### 3.47 (2026-07-20) -- Handler protection: EchoTableRows.lua, Filters.lua
 
 - `modules/ui/EchoTableRows.lua` -- inline weight edit box and echo table row frame now opt into `EbonBuilds.Debug.ProtectScript`.

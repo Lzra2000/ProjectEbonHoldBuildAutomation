@@ -171,11 +171,22 @@ local function BuildViewFrame(parent)
     -- Row 1: search box, full width. Fixed offset from f (not chained off
     -- sub's rendered height) -- see the Tome Atlas header for why that
     -- matters once text can wrap.
-    searchBox = CreateFrame("EditBox", nil, f, "InputBoxTemplate")
-    searchBox:SetHeight(20)
-    searchBox:SetPoint("TOPLEFT", f, "TOPLEFT", 18, -58)
-    searchBox:SetPoint("RIGHT", f, "RIGHT", -38, 0)
+    local searchContainer = CreateFrame("Frame", nil, f)
+    searchContainer:SetHeight(20)
+    searchContainer:SetPoint("TOPLEFT", f, "TOPLEFT", 18, -58)
+    searchContainer:SetPoint("RIGHT", f, "RIGHT", -38, 0)
+    EbonBuilds.Theme.ApplyInput(searchContainer)
+    EbonBuilds.Theme.AddSearchIcon(searchContainer)
+
+    searchBox = CreateFrame("EditBox", nil, searchContainer)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(searchBox, "AffixView.SearchBox")
+    end
+    searchBox:SetPoint("TOPLEFT", searchContainer, "TOPLEFT", 21, -2)
+    searchBox:SetPoint("BOTTOMRIGHT", searchContainer, "BOTTOMRIGHT", -6, 2)
+    searchBox:SetFont("Fonts\\FRIZQT__.TTF", 11, "")
     searchBox:SetAutoFocus(false)
+    EbonBuilds.Theme.WireEditBox(searchBox, searchContainer)
     local PLACEHOLDER = "Search affix..."
     local function ShowPlaceholder(self)
         if self:GetText() == "" then

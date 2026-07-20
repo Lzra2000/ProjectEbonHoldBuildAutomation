@@ -184,12 +184,13 @@ local function CreateSearchBox(bar)
     container:SetSize(182, 24)
     container:SetPoint("TOPLEFT", bar, "TOPLEFT", 0, 0)
     EbonBuilds.Theme.ApplyInput(container)
+    EbonBuilds.Theme.AddSearchIcon(container)
 
     local edit = CreateFrame("EditBox", nil, container)
     if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
         EbonBuilds.Debug.ProtectScript(edit, "Filters.SearchBox")
     end
-    edit:SetPoint("TOPLEFT", container, "TOPLEFT", 7, -3)
+    edit:SetPoint("TOPLEFT", container, "TOPLEFT", 21, -3)
     edit:SetPoint("BOTTOMRIGHT", container, "BOTTOMRIGHT", -24, 3)
     edit:SetFont("Fonts\\FRIZQT__.TTF", 11, "")
     edit:SetTextColor(1, 1, 1, 1)

@@ -1452,7 +1452,7 @@ end
 local function SetRowVisual(row)
     if not row then return end
     if row._selected then
-        row:SetBackdropColor(0.17, 0.15, 0.07, 0.99)
+        row:SetBackdropColor(EbonBuilds.Theme.SELECTED_BG[1], EbonBuilds.Theme.SELECTED_BG[2], EbonBuilds.Theme.SELECTED_BG[3], 0.99)
         row:SetBackdropBorderColor(unpack(Theme.ACCENT_GOLD))
     elseif row._hovered then
         Theme.SetCardHovered(row, true)
