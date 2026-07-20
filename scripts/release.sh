@@ -55,7 +55,7 @@ sh scripts/build-dist.sh
 
 echo ""
 echo "== Committing and tagging =="
-git add EbonBuilds.toc FAQ.md
+git add EbonBuilds.toc FAQ.md modules/data/FAQContent.lua
 git add -f dist/EbonBuilds.zip
 git commit -q -m "chore(release): bump version to $NEW_VERSION"
 git tag "v$NEW_VERSION" -m "v$NEW_VERSION"
