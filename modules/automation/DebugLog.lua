@@ -11,18 +11,34 @@ EbonBuilds.DebugLog = {}
 local MAX_LINES = 500
 
 local enabled = false
-local lines   = {}
+local lines   = EbonBuilds.RingBuffer.New(MAX_LINES)
 
 function EbonBuilds.DebugLog.IsEnabled()
     return enabled
 end
 
 function EbonBuilds.DebugLog.SetEnabled(on)
-    enabled = on and true or false
+    local newValue = on and true or false
+    local changed = enabled ~= newValue
+    enabled = newValue
+    if EbonBuilds.Database and EbonBuilds.Database.SetCharacterPreference then
+        EbonBuilds.Database.SetCharacterPreference("debugLogEnabled", enabled)
+    elseif EbonBuildsCharDB then
+        EbonBuildsCharDB.debugLogEnabled = enabled
+    end
+    if not changed then return end
     if enabled then
         DEFAULT_CHAT_FRAME:AddMessage("|cffffd100EbonBuilds:|r debug capture ON. Use /ebb debuglog to view/copy.")
     else
         DEFAULT_CHAT_FRAME:AddMessage("|cffffd100EbonBuilds:|r debug capture OFF.")
+    end
+end
+
+function EbonBuilds.DebugLog.Init()
+    if EbonBuilds.Database and EbonBuilds.Database.GetCharacterPreference then
+        enabled = EbonBuilds.Database.GetCharacterPreference("debugLogEnabled")
+    else
+        enabled = EbonBuildsCharDB and EbonBuildsCharDB.debugLogEnabled == true or false
     end
 end
 
@@ -31,17 +47,14 @@ function EbonBuilds.DebugLog.Toggle()
 end
 
 function EbonBuilds.DebugLog.Clear()
-    lines = {}
+    EbonBuilds.RingBuffer.Clear(lines)
 end
 
 -- Appends one line (no color codes -- the buffer is meant to be pasted as
 -- plain text). Cheap no-op while disabled.
 function EbonBuilds.DebugLog.Add(text)
     if not enabled then return end
-    lines[#lines + 1] = date("%H:%M:%S ") .. text
-    if #lines > MAX_LINES then
-        table.remove(lines, 1)
-    end
+    EbonBuilds.RingBuffer.Append(lines, date("%H:%M:%S ") .. text)
 end
 
 function EbonBuilds.DebugLog.AddF(fmt, ...)
@@ -50,10 +63,10 @@ function EbonBuilds.DebugLog.AddF(fmt, ...)
 end
 
 function EbonBuilds.DebugLog.GetText()
-    if #lines == 0 then
+    if EbonBuilds.RingBuffer.Count(lines) == 0 then
         return "(debug log empty -- enable capture with /ebb debug, then trigger a choice screen)"
     end
-    return table.concat(lines, "\n")
+    return table.concat(EbonBuilds.RingBuffer.ToArray(lines), "\n")
 end
 
 ------------------------------------------------------------------------

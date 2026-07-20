@@ -32,12 +32,12 @@ local function GetStore(buildId)
 end
 
 function M.IsEnabled(build)
-    return build and build.manualTrainingEnabled == true
+    return build and EbonBuilds.Build.IsTrainingEnabled(build)
 end
 
 function M.SetEnabled(build, on)
     if not build then return end
-    EbonBuilds.Build.Save(build.id, { manualTrainingEnabled = on and true or false })
+    EbonBuilds.Build.SetTrainingEnabled(build, on and true or false)
 end
 
 function M.Clear(buildId)

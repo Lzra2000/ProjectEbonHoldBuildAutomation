@@ -439,7 +439,7 @@ end
 local function RefreshAutomationStatus()
     local build = EditingBuild()
     if build then
-        local enabled = build.automationEnabled ~= false
+        local enabled = EbonBuilds.Build.IsAutomationEnabled(build)
         statusTitle:SetText(enabled and "AUTOPILOT READY" or "AUTOPILOT PAUSED")
         statusSubtitle:SetText(enabled and "The active build will act automatically on the next Echo screen." or "Rules are configured, but automatic actions are currently disabled.")
         automationToggle:SetText(enabled and "Pause Autopilot" or "Enable Autopilot")
@@ -502,7 +502,8 @@ end
 local function BuildStatusPanel(parent, y)
     local panel = Theme.CreateSection(parent, "Autopilot status", "Live context from the build you are editing.")
     panel:SetPoint("TOPLEFT", parent, "TOPLEFT", 4, y)
-    panel:SetSize(620, 124)
+    panel:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -4, y)
+    panel:SetHeight(124)
 
     statusDot = panel:CreateTexture(nil, "ARTWORK")
     statusDot:SetTexture("Interface\\Buttons\\WHITE8X8")
@@ -525,10 +526,7 @@ local function BuildStatusPanel(parent, y)
     automationToggle:SetScript("OnClick", function()
         local build = EditingBuild()
         if not build then return end
-        build.automationEnabled = not (build.automationEnabled ~= false)
-        local oldId = build.id
-        local saved = EbonBuilds.Build.Save(oldId, { automationEnabled = build.automationEnabled })
-        if saved and saved.id ~= oldId and EbonBuilds.BuildForm.NoteRekey then EbonBuilds.BuildForm.NoteRekey(saved.id) end
+        EbonBuilds.Build.SetAutomationEnabled(build, not EbonBuilds.Build.IsAutomationEnabled(build))
         RefreshAutomationStatus()
         if EbonBuilds.MainWindow and EbonBuilds.MainWindow.RefreshContext then EbonBuilds.MainWindow.RefreshContext() end
     end)
@@ -547,7 +545,8 @@ end
 local function BuildIntentPanel(parent, y)
     local panel = Theme.CreateSection(parent, "Choose your intent", "Start with a dependable strategy, then fine-tune only what matters.")
     panel:SetPoint("TOPLEFT", parent, "TOPLEFT", 4, y)
-    panel:SetSize(620, 128)
+    panel:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -4, y)
+    panel:SetHeight(128)
 
     for i, profile in ipairs(PROFILES) do
         local btn = Theme.CreateButton(panel)
@@ -687,7 +686,8 @@ end
 local function BuildAdvancedPanel(parent, y)
     local panel = Theme.CreateSection(parent, "Advanced controls", "Use these only when your build needs exceptions or a different decision model.")
     panel:SetPoint("TOPLEFT", parent, "TOPLEFT", 4, y)
-    panel:SetSize(620, 390)
+    panel:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -4, y)
+    panel:SetHeight(390)
     advancedPanel = panel
 
     local modelLabel = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
@@ -898,7 +898,7 @@ local function BuildViewFrame(parent)
     scrollFrame:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -22, 8)
 
     scrollChild = CreateFrame("Frame", nil, scrollFrame)
-    scrollChild:SetSize(630, COLLAPSED_HEIGHT)
+    scrollChild:SetSize(610, COLLAPSED_HEIGHT)
     scrollFrame:SetScrollChild(scrollChild)
 
     scrollBar = EbonBuilds.Theme.CreateScrollBar(scrollFrame)
@@ -908,7 +908,10 @@ local function BuildViewFrame(parent)
     scrollBar:SetValue(0)
     scrollBar:SetScript("OnValueChanged", function(_, value) scrollFrame:SetVerticalScroll(value) end)
 
-    scrollFrame:SetScript("OnSizeChanged", RefreshAdvancedVisibility)
+    scrollFrame:SetScript("OnSizeChanged", function(self)
+        scrollChild:SetWidth(math.max(610, self:GetWidth() or 0))
+        RefreshAdvancedVisibility()
+    end)
 
     BuildStatusPanel(scrollChild, -4)
     BuildIntentPanel(scrollChild, -136)
@@ -929,6 +932,7 @@ local function BuildViewFrame(parent)
 
     BuildAdvancedPanel(scrollChild, -572)
     Theme.BindScrollWheel(scrollFrame, scrollBar, 30, scrollChild)
+    scrollChild:SetWidth(math.max(610, scrollFrame:GetWidth() or 0))
     return frame
 end
 

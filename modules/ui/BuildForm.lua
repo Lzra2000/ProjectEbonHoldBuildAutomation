@@ -34,6 +34,8 @@ local state = {
     locked = { nil, nil, nil, nil, nil, nil },
     settings  = nil,
     isPublic  = false,
+    baseRevision = nil,
+    characterSnapshot = nil,
 }
 local function MarkDirty()
     if EbonBuilds.BuildTabs and EbonBuilds.BuildTabs.MarkDirty then
@@ -43,6 +45,9 @@ end
 
 function EbonBuilds.BuildForm.GetEditingClass()
     return state.class
+end
+function EbonBuilds.BuildForm.GetEditingSpec()
+    return state.spec
 end
 function EbonBuilds.BuildForm.GetEditingSettings()
     if not state.settings then
@@ -80,6 +85,19 @@ end
 function EbonBuilds.BuildForm.GetEditingLockedEchoes()
     if not state.mode then return nil end
     return state.locked
+end
+
+function EbonBuilds.BuildForm.GetEditingCharacterSnapshot()
+    return state.characterSnapshot
+end
+
+function EbonBuilds.BuildForm.AdoptCharacterSnapshot(snapshot)
+    local allowed, reason = EbonBuilds.CharacterSnapshot.CanApplyToClass(
+        state.class, snapshot and snapshot.classToken)
+    if not allowed then return nil, reason end
+    state.characterSnapshot = EbonBuilds.CharacterSnapshot.Compact(snapshot)
+    MarkDirty()
+    return state.characterSnapshot
 end
 
 local classButtons = {}
@@ -176,6 +194,10 @@ local function BuildClassGrid(parent, xAnchor, yAnchor)
         btn:SetScript("OnClick", function()
             if state.class == token then return end
             state.class = token
+            if state.characterSnapshot and state.characterSnapshot.classToken
+                and state.characterSnapshot.classToken ~= token then
+                state.characterSnapshot = nil
+            end
             MarkDirty()
             if state.spec > 3 then state.spec = 1 end
             RefreshClassSelection()
@@ -487,8 +509,13 @@ end
 ------------------------------------------------------------------------
 
 local function CollectFromInputs()
-    state.title    = titleBox:GetText() or ""
-    state.comments = commentsBox:GetText() or ""
+    -- Hidden Build-tab widgets may still contain values from a previously
+    -- viewed build. Unmount already copied the visible form into state, so only
+    -- read the widgets while this tab is actually mounted and visible.
+    if viewFrame and viewFrame:IsShown() then
+        state.title    = titleBox:GetText() or ""
+        state.comments = commentsBox:GetText() or ""
+    end
 end
 
 local function OnSave()
@@ -537,7 +564,8 @@ local function OnSave()
         titleBox:SetFocus()
         return
     end
-    local weights = EbonBuildsDB.pendingWeights
+    local weights = EbonBuilds.Runtime.pendingWeights
+    local savedBuild
     if state.mode == "create" then
         local b = EbonBuilds.Build.Create({
             title = state.title, class = state.class, spec = state.spec,
@@ -545,10 +573,13 @@ local function OnSave()
             settings = state.settings,
             isPublic = state.isPublic,
             echoWeights = weights,
+            characterSnapshot = state.characterSnapshot,
         })
         state.mode = "edit"
         state.id   = b.id
+        state.baseRevision = b.revision
         EbonBuilds.Build.SetActive(b.id)
+        savedBuild = b
     else
         local saved = EbonBuilds.Build.Save(state.id, {
             title = state.title, class = state.class, spec = state.spec,
@@ -556,37 +587,46 @@ local function OnSave()
             settings = state.settings,
             isPublic = state.isPublic,
             echoWeights = weights,
+            baseRevision = state.baseRevision,
+            characterSnapshot = state.characterSnapshot,
         })
         -- Saving an imported build forks it under a new id (old id deleted);
         -- adopt it so further saves keep working.
-        if saved then state.id = saved.id end
+        if saved then
+            state.id = saved.id
+            state.baseRevision = saved.revision
+            savedBuild = saved
+        else
+            if EbonBuilds.Toast and EbonBuilds.Toast.Show then
+                EbonBuilds.Toast.Show("This build changed elsewhere. Reopen it before saving your draft.")
+            end
+            return
+        end
     end
-    EbonBuildsDB._isEditingBuild = nil
-    EbonBuildsDB.pendingWeights = nil
-    EbonBuildsDB._wizardPrefill = nil
-    if EbonBuilds.BuildTabs and EbonBuilds.BuildTabs.ClearDirty then EbonBuilds.BuildTabs.ClearDirty() end
+    EbonBuilds.Runtime.wizardPrefill = nil
     if EbonBuilds.BuildList and EbonBuilds.BuildList.Refresh then
         EbonBuilds.BuildList.Refresh()
     end
     if EbonBuilds.BuildTabs and EbonBuilds.BuildTabs.OnBuildSaved then
-        EbonBuilds.BuildTabs.OnBuildSaved()
+        -- Adopt the committed build as the editor's new clean baseline without
+        -- routing away. This also restores a fresh pending-weight draft, which
+        -- is required when the player keeps editing after saving.
+        EbonBuilds.BuildTabs.OnBuildSaved(savedBuild)
     end
     if EbonBuilds.BuildTabs and EbonBuilds.BuildTabs.EnableEchoesTab then
         EbonBuilds.BuildTabs.EnableEchoesTab()
     end
-    local active = EbonBuilds.Build.GetActive()
-    if active then
-        if EbonBuilds.Toast and EbonBuilds.Toast.Show then EbonBuilds.Toast.Show("Build saved: " .. (active.title or "Untitled")) end
-        EbonBuilds.ViewRouter.Show("buildOverview", { build = active })
+    if savedBuild then
+        if EbonBuilds.Toast and EbonBuilds.Toast.Show then EbonBuilds.Toast.Show("Build saved: " .. (savedBuild.title or "Untitled")) end
     end
 end
 
 local LoadFromBuild, ApplyStateToInputs
 
 local function OnCancel()
-    EbonBuildsDB._isEditingBuild = nil
-    EbonBuildsDB.pendingWeights = nil
-    EbonBuildsDB._wizardPrefill = nil
+    EbonBuilds.Runtime.isEditingBuild = nil
+    EbonBuilds.Runtime.pendingWeights = nil
+    EbonBuilds.Runtime.wizardPrefill = nil
     if EbonBuilds.BuildTabs and EbonBuilds.BuildTabs.ClearDirty then EbonBuilds.BuildTabs.ClearDirty() end
 
     -- Revert state and inputs to original build so dirty edits don't survive Cancel
@@ -608,9 +648,9 @@ end
 
 local function OnDelete()
     if not state.id then return end
-    EbonBuildsDB._isEditingBuild = nil
-    EbonBuildsDB.pendingWeights = nil
-    EbonBuildsDB._wizardPrefill = nil
+    EbonBuilds.Runtime.isEditingBuild = nil
+    EbonBuilds.Runtime.pendingWeights = nil
+    EbonBuilds.Runtime.wizardPrefill = nil
     EbonBuilds.Build.Delete(state.id)
     if EbonBuilds.BuildList and EbonBuilds.BuildList.Refresh then
         EbonBuilds.BuildList.Refresh()
@@ -687,9 +727,23 @@ LoadFromBuild = function(build)
     state.comments = build.comments or ""
     state.settings = CloneSettings(build.settings)
     state.isPublic = build.isPublic or false
+    state.baseRevision = tonumber(build.revision) or tonumber(build.version) or 1
+    state.characterSnapshot = EbonBuilds.Build.CloneTable(build.characterSnapshot)
     for i = 1, EbonBuilds.Build.LOCKED_SLOTS do state.locked[i] = build.lockedEchoes and build.lockedEchoes[i] or nil end
-    EbonBuildsDB._isEditingBuild = true
-    EbonBuildsDB.pendingWeights = EbonBuilds.Weights.CloneWeights(build.echoWeights or {})
+    EbonBuilds.Runtime.isEditingBuild = true
+    EbonBuilds.Runtime.pendingWeights = EbonBuilds.Weights.CloneWeights(build.echoWeights or {})
+end
+
+-- Replace the editor's saved baseline after an in-place Save without
+-- unmounting the active tab. Keeping the mount intact preserves filters,
+-- selection, and scroll position on Priorities and the other editor views.
+function EbonBuilds.BuildForm.AcceptSavedBuild(build)
+    if not build then return nil end
+    LoadFromBuild(build)
+    if viewFrame and viewFrame:IsShown() then
+        ApplyStateToInputs()
+    end
+    return build
 end
 
 local function LoadDefaults()
@@ -701,14 +755,16 @@ local function LoadDefaults()
     state.comments = ""
     state.settings = (EbonBuilds.Build.NewBuildSettings and EbonBuilds.Build.NewBuildSettings()) or EbonBuilds.Build.DefaultSettings()
     state.isPublic = false
+    state.baseRevision = nil
+    state.characterSnapshot = nil
     for i = 1, EbonBuilds.Build.LOCKED_SLOTS do state.locked[i] = nil end
-    EbonBuildsDB._isEditingBuild = true
-    EbonBuildsDB.pendingWeights = {}
-    EbonBuildsDB._wizardPrefill = nil
+    EbonBuilds.Runtime.isEditingBuild = true
+    EbonBuilds.Runtime.pendingWeights = {}
+    EbonBuilds.Runtime.wizardPrefill = nil
 end
 
 local function LoadFromWizardPrefill()
-    local pre = EbonBuildsDB._wizardPrefill
+    local pre = EbonBuilds.Runtime.wizardPrefill
     state.mode     = "create"
     state.id       = nil
     state.title    = pre.title or ""
@@ -717,9 +773,11 @@ local function LoadFromWizardPrefill()
     state.comments = pre.comments or ""
     state.settings = pre.settings or ((EbonBuilds.Build.NewBuildSettings and EbonBuilds.Build.NewBuildSettings()) or EbonBuilds.Build.DefaultSettings())
     state.isPublic = pre.isPublic or false
+    state.baseRevision = nil
+    state.characterSnapshot = EbonBuilds.Build.CloneTable(pre.characterSnapshot)
     for i = 1, EbonBuilds.Build.LOCKED_SLOTS do state.locked[i] = (pre.lockedEchoes and pre.lockedEchoes[i]) or nil end
-    EbonBuildsDB._isEditingBuild = true
-    EbonBuildsDB.pendingWeights = EbonBuildsDB.pendingWeights or {}
+    EbonBuilds.Runtime.isEditingBuild = true
+    EbonBuilds.Runtime.pendingWeights = EbonBuilds.Runtime.pendingWeights or {}
 end
 
 ------------------------------------------------------------------------
@@ -728,20 +786,21 @@ end
 
 local function TargetMatchesState(context)
     if context.mode == "edit" and context.build then
-        return state.mode == "edit" and state.id == context.build.id
+        return state.mode == "edit" and state.id == context.build.id and state.class ~= nil
     end
     return false
 end
 
-function EbonBuilds.BuildForm.Mount(container, context)
-    viewFrame:SetParent(container)
-    viewFrame:ClearAllPoints()
-    viewFrame:SetAllPoints(container)
-
+-- Initialize the shared editor draft independently of the Build tab's visual
+-- mount. Character, Priorities, Modifiers, and Autopilot all read this same
+-- draft, so a direct route to any tab must prepare it before that tab mounts.
+-- Keeping this separate from ApplyStateToInputs also prevents hidden widgets
+-- from becoming an accidental initialization dependency.
+function EbonBuilds.BuildForm.Prepare(context)
     context = context or {}
     local keepState = TargetMatchesState(context)
     if not keepState then
-        if context.mode == "create" and context.fromWizard and EbonBuildsDB._wizardPrefill then
+        if context.mode == "create" and context.fromWizard and EbonBuilds.Runtime.wizardPrefill then
             LoadFromWizardPrefill()
         elseif context.mode == "edit" and context.build then
             LoadFromBuild(context.build)
@@ -749,6 +808,15 @@ function EbonBuilds.BuildForm.Mount(container, context)
             LoadDefaults()
         end
     end
+    return state
+end
+
+function EbonBuilds.BuildForm.Mount(container, context)
+    viewFrame:SetParent(container)
+    viewFrame:ClearAllPoints()
+    viewFrame:SetAllPoints(container)
+
+    EbonBuilds.BuildForm.Prepare(context)
 
     ApplyStateToInputs()
     NotifyClassChange()
@@ -756,7 +824,10 @@ function EbonBuilds.BuildForm.Mount(container, context)
 end
 
 function EbonBuilds.BuildForm.Unmount()
-    if viewFrame and titleBox and commentsBox then
+    -- Only a visible form owns authoritative widget text. Direct routing can
+    -- prepare a draft while the Build tab remains hidden; reading stale hidden
+    -- edit boxes here would overwrite that freshly prepared state.
+    if viewFrame and viewFrame:IsShown() and titleBox and commentsBox then
         state.title    = titleBox:GetText() or state.title
         state.comments = commentsBox:GetText() or state.comments
     end

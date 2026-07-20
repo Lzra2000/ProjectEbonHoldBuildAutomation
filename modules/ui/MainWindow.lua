@@ -4,14 +4,102 @@
 
 EbonBuilds.MainWindow = {}
 
-local WINDOW_WIDTH  = 980
-local WINDOW_HEIGHT = 660
-local LEFT_WIDTH    = 230
+local WINDOW_WIDTH       = 980
+local WINDOW_HEIGHT      = 660
+local MIN_WINDOW_WIDTH   = 900
+local MIN_WINDOW_HEIGHT  = 620
+local MIN_LEFT_WIDTH     = 220
+local LEFT_WIDTH         = 230
 local FRAME_NAME    = "EbonBuildsMainWindow"
 local contextLabel
 local pageLabel, dirtyLabel, automationPill, classAccent
 local currentPageTitle = "Overview"
 local currentDirty = false
+
+local function SafeScale(requested, logicalWidth, logicalHeight, screenWidth, screenHeight)
+    requested = math.max(0.9, math.min(1.2, tonumber(requested) or 1))
+    screenWidth = tonumber(screenWidth)
+        or UIParent and UIParent.GetWidth and UIParent:GetWidth()
+        or GetScreenWidth and GetScreenWidth()
+    screenHeight = tonumber(screenHeight)
+        or UIParent and UIParent.GetHeight and UIParent:GetHeight()
+        or GetScreenHeight and GetScreenHeight()
+    if not screenWidth or not screenHeight or screenWidth <= 0 or screenHeight <= 0 then return requested end
+    local fit = math.min((screenWidth - 24) / logicalWidth, (screenHeight - 24) / logicalHeight)
+    return math.max(0.5, math.min(requested, fit))
+end
+
+-- Preserve the selected scale whenever the screen can hold a supported
+-- logical viewport. Instead of shrinking the entire 980 x 660 tree when a
+-- high scale barely misses the screen, trim only the excess logical width and
+-- height. Anchored children then receive real OnSizeChanged events and reflow
+-- without being recreated.
+local function ResolveShellLayout(requested, screenWidth, screenHeight)
+    requested = math.max(0.9, math.min(1.2, tonumber(requested) or 1))
+    screenWidth = tonumber(screenWidth)
+        or UIParent and UIParent.GetWidth and UIParent:GetWidth()
+        or GetScreenWidth and GetScreenWidth()
+    screenHeight = tonumber(screenHeight)
+        or UIParent and UIParent.GetHeight and UIParent:GetHeight()
+        or GetScreenHeight and GetScreenHeight()
+    if not screenWidth or not screenHeight or screenWidth <= 0 or screenHeight <= 0 then
+        return {
+            width = WINDOW_WIDTH,
+            height = WINDOW_HEIGHT,
+            sidebar = LEFT_WIDTH,
+            scale = requested,
+            compact = false,
+        }
+    end
+
+    local availableWidth = math.max(1, screenWidth - 24)
+    local availableHeight = math.max(1, screenHeight - 24)
+    local logicalWidth = math.floor(math.min(WINDOW_WIDTH, availableWidth / requested))
+    local logicalHeight = math.floor(math.min(WINDOW_HEIGHT, availableHeight / requested))
+    local applied = requested
+
+    if logicalWidth < MIN_WINDOW_WIDTH or logicalHeight < MIN_WINDOW_HEIGHT then
+        logicalWidth = MIN_WINDOW_WIDTH
+        logicalHeight = MIN_WINDOW_HEIGHT
+        applied = SafeScale(requested, logicalWidth, logicalHeight, screenWidth, screenHeight)
+    end
+
+    local widthProgress = math.max(0, math.min(1,
+        (logicalWidth - MIN_WINDOW_WIDTH) / (WINDOW_WIDTH - MIN_WINDOW_WIDTH)))
+    local sidebar = math.floor(MIN_LEFT_WIDTH + (LEFT_WIDTH - MIN_LEFT_WIDTH) * widthProgress + 0.5)
+    return {
+        width = logicalWidth,
+        height = logicalHeight,
+        sidebar = sidebar,
+        scale = applied,
+        compact = logicalWidth < WINDOW_WIDTH or logicalHeight < WINDOW_HEIGHT,
+    }
+end
+
+local function ApplyShellLayout(frame, requested)
+    if not frame then return end
+    local layout = ResolveShellLayout(requested)
+    frame._requestedScale = math.max(0.9, math.min(1.2, tonumber(requested) or 1))
+    frame._responsiveLayout = layout
+    frame:SetSize(layout.width, layout.height)
+    if frame._left then frame._left:SetWidth(layout.sidebar) end
+    if EbonBuilds.Theme and EbonBuilds.Theme.SetAppliedScale then
+        EbonBuilds.Theme.SetAppliedScale(layout.scale)
+    end
+    frame:SetScale(layout.scale)
+    if EbonBuilds.BuildList and EbonBuilds.BuildList.RefreshLayout then
+        EbonBuilds.BuildList.RefreshLayout()
+    end
+    if EbonBuilds.BuildTabs and EbonBuilds.BuildTabs.RefreshLayout then
+        EbonBuilds.BuildTabs.RefreshLayout()
+    end
+    if EbonBuilds.Filters and EbonBuilds.Filters.RefreshLayout then
+        EbonBuilds.Filters.RefreshLayout()
+    end
+    if EbonBuilds.EchoTable and EbonBuilds.EchoTable.RefreshLayout then
+        EbonBuilds.EchoTable.RefreshLayout()
+    end
+end
 
 local function ApplyBackdrop(frame)
     EbonBuilds.Theme.ApplyWindow(frame)
@@ -30,6 +118,10 @@ local function CreateTitleBar(frame)
 
     pageLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     pageLabel:SetPoint("LEFT", version, "RIGHT", 18, 0)
+    pageLabel:SetWidth(280)
+    pageLabel:SetJustifyH("LEFT")
+    if pageLabel.SetNonSpaceWrap then pageLabel:SetNonSpaceWrap(false) end
+    if pageLabel.SetWordWrap then pageLabel:SetWordWrap(false) end
     pageLabel:SetText("/  Overview")
     pageLabel:SetTextColor(unpack(EbonBuilds.Theme.ACCENT_GOLD))
 
@@ -81,6 +173,10 @@ local function CreateTitleBar(frame)
         local cx, cy = frame:GetCenter()
         if cx and cy then EbonBuildsDB.windowPos = { x = cx, y = cy } end
     end)
+end
+
+function EbonBuilds.MainWindow._ResolveShellLayoutForTest(requested, screenWidth, screenHeight)
+    return ResolveShellLayout(requested, screenWidth, screenHeight)
 end
 
 local function CreateCloseButton(frame)
@@ -154,6 +250,7 @@ local function BuildSettingsPopup(ownerFrame)
     popup:SetToplevel(true)
     popup:SetMovable(true)
     popup:SetClampedToScreen(true)
+    popup:SetScale(SafeScale(EbonBuildsDB.globalSettings and EbonBuildsDB.globalSettings.uiScale, 640, 520))
     popup:EnableMouse(true)
     EbonBuilds.Theme.ApplyWindow(popup)
     popup:Hide()
@@ -173,6 +270,7 @@ local function BuildSettingsPopup(ownerFrame)
         local gs = EbonBuildsDB.globalSettings
         if tonumber(gs.evalDelay) == nil then gs.evalDelay = 2 end
         if tonumber(gs.toastDuration) == nil then gs.toastDuration = 3 end
+        if tonumber(gs.uiScale) == nil then gs.uiScale = 1 end
         if not gs.settingsCategory then gs.settingsCategory = "general" end
         return gs
     end
@@ -199,6 +297,7 @@ local function BuildSettingsPopup(ownerFrame)
             clickTrace = Bool(source.clickTrace),
             gearTooltip = Bool(source.gearTooltip),
             locale = source.locale or "enUS",
+            uiScale = tonumber(source.uiScale) or 1,
         }
     end
 
@@ -213,6 +312,7 @@ local function BuildSettingsPopup(ownerFrame)
             clickTrace = ReadModuleToggle(EbonBuilds.ClickTrace),
             gearTooltip = ReadModuleToggle(EbonBuilds.GearTooltip),
             locale = (EbonBuilds.Locale and EbonBuilds.Locale.GetActiveLocale and EbonBuilds.Locale.GetActiveLocale()) or gs.localeOverride or "enUS",
+            uiScale = math.max(0.9, math.min(1.2, tonumber(gs.uiScale) or 1)),
         }
     end
 
@@ -231,6 +331,7 @@ local function BuildSettingsPopup(ownerFrame)
         if Bool(draft.clickTrace) ~= Bool(baseline.clickTrace) then count = count + 1 end
         if Bool(draft.gearTooltip) ~= Bool(baseline.gearTooltip) then count = count + 1 end
         if tostring(draft.locale or "") ~= tostring(baseline.locale or "") then count = count + 1 end
+        if not SameNumber(draft.uiScale, baseline.uiScale) then count = count + 1 end
         return count
     end
 
@@ -362,6 +463,16 @@ local function BuildSettingsPopup(ownerFrame)
         end
     end
 
+    local function RefreshScaleButtons()
+        for _, button in ipairs(controls.scaleButtons or {}) do
+            if draft and SameNumber(button._scaleValue, draft.uiScale) then
+                EbonBuilds.Theme.SetButtonAccent(button, "gold")
+            else
+                EbonBuilds.Theme.ClearButtonAccent(button)
+            end
+        end
+    end
+
     local function RefreshControlsFromDraft()
         if not draft then return end
         loadingDraft = true
@@ -373,6 +484,7 @@ local function BuildSettingsPopup(ownerFrame)
         if controls.clickTraceCB then controls.clickTraceCB:SetChecked(draft.clickTrace) end
         if controls.gearTooltipCB then controls.gearTooltipCB:SetChecked(draft.gearTooltip) end
         RefreshLocaleButtons()
+        RefreshScaleButtons()
         loadingDraft = false
         RefreshDirtyState()
     end
@@ -585,7 +697,7 @@ local function BuildSettingsPopup(ownerFrame)
             -296, "gearTooltip")
     end)
 
-    BuildCategory("interface", 180, function(panel)
+    BuildCategory("interface", 238, function(panel)
         AddSectionTitle(panel, "LANGUAGE", -2)
         local note = panel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
         note:SetPoint("TOPLEFT", panel, "TOPLEFT", 2, -26)
@@ -610,6 +722,27 @@ local function BuildSettingsPopup(ownerFrame)
                 RefreshDirtyState()
             end)
             controls.languageButtons[#controls.languageButtons + 1] = button
+        end
+
+
+        local scaleTitle = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        scaleTitle:SetPoint("TOPLEFT", panel, "TOPLEFT", 2, -134)
+        scaleTitle:SetText("INTERFACE SCALE")
+        scaleTitle:SetTextColor(unpack(EbonBuilds.Theme.ACCENT_GOLD))
+        controls.scaleButtons = {}
+        local presets = { { 0.9, "90%" }, { 1.0, "100%" }, { 1.1, "110%" }, { 1.2, "120%" } }
+        for index, preset in ipairs(presets) do
+            local button = EbonBuilds.Theme.CreateButton(panel)
+            button:SetSize(92, 24)
+            button:SetPoint("TOPLEFT", panel, "TOPLEFT", 2 + (index - 1) * 100, -158)
+            button:SetText(preset[2])
+            button._scaleValue = preset[1]
+            button:SetScript("OnClick", function()
+                if draft then draft.uiScale = preset[1] end
+                RefreshScaleButtons()
+                RefreshDirtyState()
+            end)
+            controls.scaleButtons[#controls.scaleButtons + 1] = button
         end
     end)
 
@@ -761,6 +894,14 @@ local function BuildSettingsPopup(ownerFrame)
         local gs = EnsureSettingsDefaults()
         gs.evalDelay = draft.evalDelay
         gs.toastDuration = draft.toastDuration
+        gs.uiScale = math.max(0.9, math.min(1.2, tonumber(draft.uiScale) or 1))
+        EbonBuildsDB.ui = EbonBuildsDB.ui or {}
+        EbonBuildsDB.ui.scalePreset = gs.uiScale
+        ApplyShellLayout(ownerFrame, gs.uiScale)
+        popup:SetScale(SafeScale(gs.uiScale, 640, 520))
+        if EbonBuilds.EchoTable and EbonBuilds.EchoTable.RefreshScaleLabels then
+            EbonBuilds.EchoTable.RefreshScaleLabels()
+        end
         if EbonBuilds.AutoSell and EbonBuilds.AutoSell.SetEnabled then EbonBuilds.AutoSell.SetEnabled(draft.autoSell) end
         if EbonBuilds.BagAffixDots and EbonBuilds.BagAffixDots.SetEnabled then EbonBuilds.BagAffixDots.SetEnabled(draft.bagDots) end
         if EbonBuilds.DebugLog and EbonBuilds.DebugLog.SetEnabled then EbonBuilds.DebugLog.SetEnabled(draft.debugLog) end
@@ -868,14 +1009,15 @@ local function CreateLeftColumn(frame)
     local col = CreateFrame("Frame", nil, frame)
     col:SetPoint("TOPLEFT",    frame, "TOPLEFT",    12, -44)
     col:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 12,  12)
-    col:SetWidth(LEFT_WIDTH)
+    local layout = frame._responsiveLayout
+    col:SetWidth(layout and layout.sidebar or LEFT_WIDTH)
     EbonBuilds.Theme.ApplySidebar(col)
     return col
 end
 
-local function CreateRightPanel(frame)
+local function CreateRightPanel(frame, left)
     local panel = CreateFrame("Frame", nil, frame)
-    panel:SetPoint("TOPLEFT",     frame, "TOPLEFT",     12 + LEFT_WIDTH + 8, -44)
+    panel:SetPoint("TOPLEFT",     left,  "TOPRIGHT",     8, 0)
     panel:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -12, 12)
     EbonBuilds.Theme.ApplyPanel(panel)
     return panel
@@ -883,12 +1025,13 @@ end
 
 local function BuildFrame()
     local frame = CreateFrame("Frame", FRAME_NAME, UIParent)
-    frame:SetWidth(WINDOW_WIDTH)
-    frame:SetHeight(WINDOW_HEIGHT)
     frame:SetMovable(true)
     frame:SetFrameStrata("DIALOG")
     frame:SetToplevel(true)
     frame:SetClampedToScreen(true)
+    local savedScale = EbonBuildsDB.globalSettings and tonumber(EbonBuildsDB.globalSettings.uiScale)
+        or EbonBuildsDB.ui and tonumber(EbonBuildsDB.ui.scalePreset) or 1
+    ApplyShellLayout(frame, savedScale)
 
     -- Restore saved position, or default to center.
     local pos = EbonBuildsDB.windowPos
@@ -949,7 +1092,7 @@ function EbonBuilds.MainWindow.RefreshContext()
     contextLabel:SetTextColor(r, g, b, 1)
     if classAccent then classAccent:SetVertexColor(r, g, b, 1) end
 
-    local enabled = build.automationEnabled ~= false
+    local enabled = EbonBuilds.Build.IsAutomationEnabled(build)
     if automationPill and automationPill.label then
         automationPill.label:SetText(enabled and "AUTOPILOT ON" or "AUTOPILOT OFF")
         local c = enabled and EbonBuilds.Theme.SUCCESS or EbonBuilds.Theme.WARNING
@@ -963,11 +1106,25 @@ end
 function EbonBuilds.MainWindow.Init()
     local frame = BuildFrame()
     local left  = CreateLeftColumn(frame)
-    local right = CreateRightPanel(frame)
+    local right = CreateRightPanel(frame, left)
 
     EbonBuilds.MainWindow._frame = frame
     EbonBuilds.MainWindow._left  = left
     EbonBuilds.MainWindow._right = right
+    ApplyShellLayout(frame, frame._requestedScale)
+
+    -- Resolution and game UI-scale changes can alter UIParent without changing
+    -- the saved addon preset. Re-resolve the same preset on the next scheduler
+    -- pass so every anchored view receives one coherent resize.
+    if UIParent and UIParent.HookScript and not EbonBuilds.MainWindow._screenSizeHooked then
+        UIParent:HookScript("OnSizeChanged", function()
+            EbonBuilds.Scheduler.After("mainWindow.responsiveLayout", 0, function()
+                local live = EbonBuilds.MainWindow._frame
+                if live then ApplyShellLayout(live, live._requestedScale or 1) end
+            end, EbonBuilds.Scheduler.INTERACTIVE, true)
+        end)
+        EbonBuilds.MainWindow._screenSizeHooked = true
+    end
 
     EbonBuilds.ViewRouter.SetContainer(right)
     frame:SetScript("OnShow", EbonBuilds.MainWindow.RefreshContext)
@@ -1047,4 +1204,3 @@ function EbonBuilds.MainWindow.Toggle()
         frame:Show()
     end
 end
-

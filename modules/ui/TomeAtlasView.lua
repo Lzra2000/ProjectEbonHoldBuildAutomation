@@ -341,7 +341,7 @@ local function ZoneSummaryText()
     for i = 1, math.min(3, #ranked) do
         parts[#parts + 1] = string.format("%s |cffffd100(%d)|r", ranked[i].z, ranked[i].n)
     end
-    return "|cff1eff00Best farming:|r " .. table.concat(parts, "|cff888888,|r ")
+    return "|cff1eff00Best known coverage:|r " .. table.concat(parts, "|cff888888,|r ")
 end
 
 local function Render()

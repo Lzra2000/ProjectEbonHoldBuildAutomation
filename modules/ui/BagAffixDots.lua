@@ -21,6 +21,11 @@ local dotVersion = 0
 
 function EbonBuilds.BagAffixDots.SetEnabled(on)
     enabled = on and true or false
+    if EbonBuilds.Database and EbonBuilds.Database.SetCharacterPreference then
+        EbonBuilds.Database.SetCharacterPreference("bagAffixDotsEnabled", enabled)
+    elseif EbonBuildsCharDB then
+        EbonBuildsCharDB.bagAffixDotsEnabled = enabled
+    end
     dotVersion = dotVersion + 1
     EbonBuilds.BagAffixDots.RefreshAll()
 end
@@ -105,8 +110,10 @@ function EbonBuilds.BagAffixDots.RefreshAll()
 end
 
 function EbonBuilds.BagAffixDots.Init()
-    if EbonBuildsCharDB.bagAffixDotsEnabled ~= nil then
-        enabled = EbonBuildsCharDB.bagAffixDotsEnabled
+    if EbonBuilds.Database and EbonBuilds.Database.GetCharacterPreference then
+        enabled = EbonBuilds.Database.GetCharacterPreference("bagAffixDotsEnabled")
+    elseif EbonBuildsCharDB and EbonBuildsCharDB.bagAffixDotsEnabled ~= nil then
+        enabled = EbonBuildsCharDB.bagAffixDotsEnabled == true
     end
     if ContainerFrame_Update then
         hooksecurefunc("ContainerFrame_Update", UpdateFrame)

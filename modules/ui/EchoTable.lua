@@ -7,13 +7,8 @@ EbonBuilds.EchoTable = {}
 local PADDING       = 10
 local TITLE_HEIGHT  = 30
 local HEADER_HEIGHT = 28
-local ROW_HEIGHT    = EbonBuilds.EchoTableRows.ROW_HEIGHT
-local COL_ICON      = EbonBuilds.EchoTableRows.COL_ICON
-local COL_QUALITY   = EbonBuilds.EchoTableRows.COL_QUALITY
-local COL_PROTECT   = EbonBuilds.EchoTableRows.COL_PROTECT
-local COL_POLICY    = EbonBuilds.EchoTableRows.COL_POLICY
-local RANK_COL_W    = EbonBuilds.EchoTableRows.RANK_COL_WIDTH
-local RANK_TOTAL    = EbonBuilds.EchoTableRows.RANK_TOTAL
+local Rows          = EbonBuilds.EchoTableRows
+local ROW_HEIGHT    = Rows.ROW_HEIGHT
 local QUALITY_ORDER = EbonBuilds.Quality.ORDER or {}
 local RIGHT_MARGIN  = 4
 
@@ -51,10 +46,12 @@ local echoList, filteredList = {}, {}
 local rowPool = {}
 local scrollFrame, scrollChild, scrollBar
 local headerButtons = {}
+local headerFrames = { ranks = {} }
+local headerBg
 local sortState = { key = "name", desc = false }
 local UpdateScrollRange, RefreshRows
-local resortFrame, resortPending = nil, false
-local policyRefreshFrame, policyRefreshPending = nil, false
+local resortPending = false
+local policyRefreshPending = false
 
 
 local function ScoreForRank(weights, settings, entry, quality)
@@ -160,7 +157,7 @@ end
 
 local function CancelPendingResort()
     resortPending = false
-    if resortFrame then resortFrame:Hide() end
+    EbonBuilds.Scheduler.Cancel("echoTable.resort")
 end
 
 local function ResortVisibleList()
@@ -170,17 +167,12 @@ local function ResortVisibleList()
     RefreshRows()
 end
 
-local function EnsureResortFrame()
-    if resortFrame then return resortFrame end
-    resortFrame = CreateFrame("Frame")
-    resortFrame:Hide()
-    resortFrame:SetScript("OnUpdate", function(self)
-        self:Hide()
+local function ScheduleResort()
+    EbonBuilds.Scheduler.After("echoTable.resort", 0, function()
         if not resortPending then return end
         resortPending = false
         ResortVisibleList()
-    end)
-    return resortFrame
+    end, EbonBuilds.Scheduler.INTERACTIVE, true)
 end
 
 -- Small test hook for regression coverage. It sorts the supplied list with
@@ -220,7 +212,13 @@ local function UpdateHeaderVisuals()
     if not headerButtons then return end
     for key, btn in pairs(headerButtons) do
         if btn and btn.SetText then
-            btn:SetText(HeaderLabel(btn._baseLabel or "", key))
+            local label = btn._baseLabel or ""
+            local configuredScale = tonumber(EbonBuildsDB and EbonBuildsDB.globalSettings
+                and EbonBuildsDB.globalSettings.uiScale) or 1
+            if (configuredScale < 0.95 or Rows.IsCompactLayout()) and btn._compactLabel then
+                label = btn._compactLabel
+            end
+            btn:SetText(HeaderLabel(label, key))
             if EbonBuilds.Theme and EbonBuilds.Theme.SetTabSelected then
                 EbonBuilds.Theme.SetTabSelected(btn, sortState.key == key)
             end
@@ -276,36 +274,70 @@ local function CreateStaticHeader(parent, text)
     return frame
 end
 
+local function LayoutHeaders(parent)
+    if not parent or not headerFrames.protect then return end
+    local rankTotal = Rows.RANK_TOTAL
+
+    headerFrames.protect:SetWidth(Rows.COL_PROTECT)
+    headerFrames.protect:ClearAllPoints()
+    headerFrames.protect:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -(RIGHT_MARGIN + rankTotal), -3)
+
+    headerFrames.policy:SetWidth(Rows.COL_POLICY)
+    headerFrames.policy:ClearAllPoints()
+    headerFrames.policy:SetPoint("TOPRIGHT", parent, "TOPRIGHT",
+        -(RIGHT_MARGIN + rankTotal + Rows.COL_PROTECT), -3)
+
+    headerFrames.quality:SetWidth(Rows.COL_QUALITY)
+    headerFrames.quality:ClearAllPoints()
+    headerFrames.quality:SetPoint("TOPRIGHT", parent, "TOPRIGHT",
+        -(RIGHT_MARGIN + rankTotal + Rows.COL_PROTECT + Rows.COL_POLICY), -3)
+
+    for orderIndex, quality in ipairs(QUALITY_ORDER) do
+        local btn = headerFrames.ranks[quality]
+        if btn then
+            local rightOffset = RIGHT_MARGIN + (#QUALITY_ORDER - orderIndex) * Rows.RANK_COL_WIDTH
+            btn:SetWidth(Rows.RANK_COL_WIDTH)
+            btn:ClearAllPoints()
+            btn:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -rightOffset, -3)
+        end
+    end
+
+    headerFrames.name:ClearAllPoints()
+    headerFrames.name:SetPoint("TOPLEFT", parent, "TOPLEFT", 2, -3)
+    headerFrames.name:SetPoint("TOPRIGHT", headerFrames.quality, "TOPLEFT", -2, 0)
+end
+
 local function CreateHeaders(parent)
     headerButtons = {}
+    headerFrames = { ranks = {} }
 
     -- Build the fixed right-side columns from the same widths and offsets used
     -- by EchoTableRows. This keeps the header bar pixel-aligned with every row.
     local protectHdr = CreateStaticHeader(parent, "Protect")
-    protectHdr:SetWidth(COL_PROTECT)
-    protectHdr:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -(RIGHT_MARGIN + RANK_TOTAL), -3)
+    headerFrames.protect = protectHdr
 
     local policyHdr = CreateStaticHeader(parent, "Policy")
-    policyHdr:SetWidth(COL_POLICY)
-    policyHdr:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -(RIGHT_MARGIN + RANK_TOTAL + COL_PROTECT), -3)
+    headerFrames.policy = policyHdr
 
     local qualityHdr = CreateHeaderButton(parent, "quality", "Quality", true)
-    qualityHdr:SetWidth(COL_QUALITY)
-    qualityHdr:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -(RIGHT_MARGIN + RANK_TOTAL + COL_PROTECT + COL_POLICY), -3)
+    headerFrames.quality = qualityHdr
 
     for orderIndex, quality in ipairs(QUALITY_ORDER) do
         local key = "rank:" .. quality
         local label = string.upper(EbonBuilds.Quality.LABELS[quality] or tostring(quality))
-        local rightOffset = RIGHT_MARGIN + (#QUALITY_ORDER - orderIndex) * RANK_COL_W
         local btn = CreateHeaderButton(parent, key, label, true)
-        btn:SetWidth(RANK_COL_W)
-        btn:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -rightOffset, -3)
+        btn._compactLabel = ({ [3] = "EPIC", [2] = "RARE", [1] = "UNC.", [0] = "COM." })[quality]
+        headerFrames.ranks[quality] = btn
     end
 
     local nameHdr = CreateHeaderButton(parent, "name", "Echo", false)
-    nameHdr:SetPoint("TOPLEFT", parent, "TOPLEFT", 2, -3)
-    nameHdr:SetPoint("TOPRIGHT", qualityHdr, "TOPLEFT", -2, 0)
+    headerFrames.name = nameHdr
 
+    LayoutHeaders(parent)
+    UpdateHeaderVisuals()
+end
+
+function EbonBuilds.EchoTable.RefreshScaleLabels()
     UpdateHeaderVisuals()
 end
 
@@ -352,10 +384,20 @@ local function SyncChildWidth(sf, child)
     if width and width > 0 then child:SetWidth(width) end
 end
 
+local function ApplyColumnLayout()
+    if not scrollFrame then return end
+    local compact = Rows.UseCompactLayoutForWidth(scrollFrame:GetWidth())
+    local changed = Rows.SetCompactLayout(compact)
+    if headerBg then LayoutHeaders(headerBg) end
+    for _, row in ipairs(rowPool) do Rows.ApplyRowLayout(row) end
+    if changed then UpdateHeaderVisuals() end
+end
+
 local function WireScrollBar(sf, bar)
     bar:SetScript("OnValueChanged", RefreshRows)
     EbonBuilds.Theme.BindSliderWheel(sf, bar, ROW_HEIGHT, scrollChild)
     sf:SetScript("OnSizeChanged", function()
+        ApplyColumnLayout()
         SyncChildWidth(sf, scrollChild)
         UpdateScrollRange()
         RefreshRows()
@@ -401,26 +443,21 @@ end
 function EbonBuilds.EchoTable.NotifyWeightChanged()
     if not scrollFrame or not SortDependsOnScore() then return end
     resortPending = true
-    EnsureResortFrame():Show()
+    ScheduleResort()
 end
 
-local function EnsurePolicyRefreshFrame()
-    if policyRefreshFrame then return policyRefreshFrame end
-    policyRefreshFrame = CreateFrame("Frame")
-    policyRefreshFrame:Hide()
-    policyRefreshFrame:SetScript("OnUpdate", function(self)
-        self:Hide()
+local function SchedulePolicyRefresh()
+    EbonBuilds.Scheduler.After("echoTable.policyRefresh", 0, function()
         if not policyRefreshPending then return end
         policyRefreshPending = false
         EbonBuilds.EchoTable.RefreshCurrentView(false)
-    end)
-    return policyRefreshFrame
+    end, EbonBuilds.Scheduler.INTERACTIVE, true)
 end
 
 function EbonBuilds.EchoTable.NotifyPolicyChanged()
     if not scrollFrame then return end
     policyRefreshPending = true
-    EnsurePolicyRefreshFrame():Show()
+    SchedulePolicyRefresh()
 end
 
 function EbonBuilds.EchoTable.ApplyPolicyToFiltered(policy)
@@ -473,7 +510,7 @@ function EbonBuilds.EchoTable.Init(parent)
 
     local left = PADDING
     local top = -(TITLE_HEIGHT + PADDING) - FILTER_BAR_OFFSET
-    local headerBg = CreateFrame("Frame", nil, parent)
+    headerBg = CreateFrame("Frame", nil, parent)
     headerBg:SetPoint("TOPLEFT", parent, "TOPLEFT", left, top + 6)
     headerBg:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -PADDING - 20, top + 6)
     headerBg:SetHeight(HEADER_HEIGHT)
@@ -483,6 +520,7 @@ function EbonBuilds.EchoTable.Init(parent)
     scrollFrame, scrollChild = CreateScrollFrame(parent, left, top - HEADER_HEIGHT)
     scrollBar = CreateScrollBar(scrollFrame)
     WireScrollBar(scrollFrame, scrollBar)
+    ApplyColumnLayout()
 
     scrollFrame:SetScript("OnShow", function()
         CancelPendingResort()
@@ -517,6 +555,15 @@ function EbonBuilds.EchoTable.Init(parent)
         EbonBuilds.BuildForm.OnClassChanged(Rebuild)
     end
 
+    SyncChildWidth(scrollFrame, scrollChild)
+    UpdateScrollRange()
+    RefreshRows()
+end
+
+
+function EbonBuilds.EchoTable.RefreshLayout()
+    if not scrollFrame then return end
+    ApplyColumnLayout()
     SyncChildWidth(scrollFrame, scrollChild)
     UpdateScrollRange()
     RefreshRows()

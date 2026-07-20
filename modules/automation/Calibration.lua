@@ -25,6 +25,7 @@
 EbonBuilds.Calibration = {}
 
 local MAX_SAMPLES = 2000
+local MAX_STRATEGY_STREAMS = 12
 local MIN_SAMPLES_FOR_SUGGESTION = 30
 local calibrationRevision = 0
 local appearanceRevision = 0
@@ -42,10 +43,49 @@ local function BumpAppearanceRevision()
     appearanceSnapshotCache = {}
 end
 
-local function GetStore()
+local function StrategyScope()
+    local build = EbonBuilds.Build and EbonBuilds.Build.GetActive and EbonBuilds.Build.GetActive()
+    if not build then return "unscoped", nil end
+    return table.concat({ tostring(build.id), tostring(build.strategyRevision or 1),
+        tostring(build.strategyHash or EbonBuilds.Build.StrategyChecksum(build)) }, ":"), build
+end
+
+local function GetStrategyStream()
     EbonBuildsCharDB.calibration = EbonBuildsCharDB.calibration or {}
-    EbonBuildsCharDB.calibration.samples = EbonBuildsCharDB.calibration.samples or {}
-    return EbonBuildsCharDB.calibration.samples
+    local calibration = EbonBuildsCharDB.calibration
+    calibration.streams = calibration.streams or {}
+    local key, build = StrategyScope()
+    local stream = calibration.streams[key]
+    if not stream then
+        stream = { buildId = build and build.id, strategyRevision = build and build.strategyRevision or nil,
+            strategyHash = build and build.strategyHash or nil }
+        -- Legacy arrays had no scope. Preserve them once under the strategy
+        -- active during migration rather than mixing them into every build.
+        if calibration.samples then stream.samples = calibration.samples; calibration.samples = nil end
+        if calibration.bestSamples then stream.bestSamples = calibration.bestSamples; calibration.bestSamples = nil end
+        if calibration.samplesSinceLastTune then
+            stream.samplesSinceLastTune = calibration.samplesSinceLastTune
+            calibration.samplesSinceLastTune = nil
+        end
+        calibration.streams[key] = stream
+    end
+    stream.samples = EbonBuilds.RingBuffer.Ensure(stream.samples, MAX_SAMPLES)
+    stream.bestSamples = EbonBuilds.RingBuffer.Ensure(stream.bestSamples, MAX_SAMPLES)
+    stream.lastSeenAt = time()
+
+    local streams = {}
+    for streamKey, value in pairs(calibration.streams) do
+        streams[#streams + 1] = { key = streamKey, seen = tonumber(value.lastSeenAt) or 0 }
+    end
+    if #streams > MAX_STRATEGY_STREAMS then
+        table.sort(streams, function(a, b) return a.seen > b.seen end)
+        for index = MAX_STRATEGY_STREAMS + 1, #streams do calibration.streams[streams[index].key] = nil end
+    end
+    return stream, key
+end
+
+local function GetStore()
+    return GetStrategyStream().samples
 end
 
 -- Separate store: one sample per EVALUATION (not per offered echo) of the
@@ -56,9 +96,12 @@ end
 -- charges, normalizing pacing out is what makes samples from different
 -- points in a run comparable to each other at all.
 local function GetBestStore()
-    EbonBuildsCharDB.calibration = EbonBuildsCharDB.calibration or {}
-    EbonBuildsCharDB.calibration.bestSamples = EbonBuildsCharDB.calibration.bestSamples or {}
-    return EbonBuildsCharDB.calibration.bestSamples
+    return GetStrategyStream().bestSamples
+end
+
+function EbonBuilds.Calibration.GetScope()
+    local _, key = GetStrategyStream()
+    return key
 end
 
 -- Called once per evaluation, with the best offered echo's score (as a
@@ -66,10 +109,7 @@ end
 function EbonBuilds.Calibration.RecordBestSample(normalizedPct)
     if not normalizedPct or normalizedPct < 0 then return end
     local store = GetBestStore()
-    store[#store + 1] = normalizedPct
-    if #store > MAX_SAMPLES then
-        table.remove(store, 1)
-    end
+    EbonBuilds.RingBuffer.Append(store, normalizedPct)
     BumpCalibrationRevision()
 end
 
@@ -80,25 +120,27 @@ end
 function EbonBuilds.Calibration.RecordSample(pct)
     if not pct or pct < 0 then return end
     local store = GetStore()
-    store[#store + 1] = pct
-    if #store > MAX_SAMPLES then
-        table.remove(store, 1)
-    end
+    EbonBuilds.RingBuffer.Append(store, pct)
     BumpCalibrationRevision()
 end
 
 function EbonBuilds.Calibration.SampleCount()
-    return #GetStore()
+    return EbonBuilds.RingBuffer.Count(GetStore())
 end
 
 function EbonBuilds.Calibration.BestSampleCount()
-    return #GetBestStore()
+    return EbonBuilds.RingBuffer.Count(GetBestStore())
 end
 
 function EbonBuilds.Calibration.Clear()
-    EbonBuildsCharDB.calibration = EbonBuildsCharDB.calibration or {}
-    EbonBuildsCharDB.calibration.samples = {}
-    EbonBuildsCharDB.calibration.bestSamples = {}
+    local stream, scope = GetStrategyStream()
+    stream.samples = EbonBuilds.RingBuffer.New(MAX_SAMPLES)
+    stream.bestSamples = EbonBuilds.RingBuffer.New(MAX_SAMPLES)
+    stream.samplesSinceLastTune = 0
+    local proposal = EbonBuildsCharDB.calibration.pendingReview
+    if proposal and (not proposal.scope or proposal.scope == scope) then
+        EbonBuildsCharDB.calibration.pendingReview = nil
+    end
     BumpCalibrationRevision()
 end
 
@@ -116,6 +158,7 @@ end
 ------------------------------------------------------------------------
 
 local MAX_TRUSTED_APPEARANCE_EVALS = 5000  -- reject a single peer claiming more evaluations than this
+local MAX_APPEARANCE_PEERS          = 50
 local APPEARANCE_BROADCAST_BATCH   = 8
 local APPEARANCE_BROADCAST_INTERVAL = 180  -- seconds
 
@@ -176,11 +219,15 @@ local function GetAppearanceCommunityStore()
 end
 
 function EbonBuilds.Calibration.IsAppearanceSharingEnabled()
-    return EbonBuildsCharDB.appearanceSharingEnabled == true
+    local consent = EbonBuildsCharDB.consent
+    return consent and (tonumber(consent.performanceVersion) or 0) >= 1 and consent.communityAppearanceSharing == true
 end
 
 function EbonBuilds.Calibration.SetAppearanceSharingEnabled(on)
-    EbonBuildsCharDB.appearanceSharingEnabled = on and true or false
+    EbonBuildsCharDB.consent = EbonBuildsCharDB.consent or {}
+    EbonBuildsCharDB.consent.performanceVersion = 1
+    EbonBuildsCharDB.consent.communityAppearanceSharing = on and true or false
+    EbonBuildsCharDB.appearanceSharingEnabled = nil
 end
 
 -- Called once per evaluation, regardless of what happens after.
@@ -214,6 +261,7 @@ function EbonBuilds.Calibration.MergeAppearanceContribution(sender, class, total
     local normalizePlayer = EbonBuilds.Build and EbonBuilds.Build._NormalizePlayerName
         or function(v) return tostring(v or ""):lower():match("^([^-]+)") end
     if normalizePlayer(sender) == normalizePlayer(UnitName("player")) then return end
+    sender = normalizePlayer(sender)
     local build = EbonBuilds.Build and EbonBuilds.Build.GetActive and EbonBuilds.Build.GetActive()
     if not build or build.class ~= class then return end
     totalEvals = tonumber(totalEvals)
@@ -231,6 +279,15 @@ function EbonBuilds.Calibration.MergeAppearanceContribution(sender, class, total
     local store = GetAppearanceCommunityStore()
     store[sender] = store[sender] or {}
     store[sender][class] = { totalEvals = totalEvals, counts = cleanCounts }
+    store[sender]._lastSeenAt = time()
+    local peers = {}
+    for peer, contribution in pairs(store) do
+        peers[#peers + 1] = { peer = peer, seen = tonumber(contribution._lastSeenAt) or 0 }
+    end
+    if #peers > MAX_APPEARANCE_PEERS then
+        table.sort(peers, function(a, b) return a.seen > b.seen end)
+        for index = MAX_APPEARANCE_PEERS + 1, #peers do store[peers[index].peer] = nil end
+    end
     BumpAppearanceRevision()
 end
 
@@ -382,18 +439,13 @@ function EbonBuilds.Calibration.SyncAppearanceNow()
 end
 
 ------------------------------------------------------------------------
--- Continuous auto-tune (opt-in)
+-- Tuning proposal preparation (opt-in)
 --
--- Off by default. When enabled, thresholds don't just get SUGGESTED --
--- every TUNE_INTERVAL_SAMPLES newly-collected samples, each supported
--- metric takes one gradual step (TUNE_STEP fraction of the gap) toward
--- its suggested value and saves to the active build automatically.
--- Gradual and rate-limited on purpose: jumping straight to a suggestion
--- computed from a small, noisy recent batch would overreact and could
--- oscillate; small repeated steps converge toward the real distribution
--- as more data accumulates and self-correct if the distribution shifts
--- (new build, different content, etc.) without ever making a single
--- drastic change to live automation behavior.
+-- Off by default. Every TUNE_INTERVAL_SAMPLES newly-collected samples,
+-- prepares a small proposal (TUNE_STEP fraction of the gap) for explicit
+-- review. It never mutates the live build in the background. Samples and
+-- rate limiting are scoped to the active build's strategy revision so a
+-- different build or reweight cannot contaminate the evidence stream.
 ------------------------------------------------------------------------
 
 local TUNE_STEP = 0.25             -- close 25% of the gap per adjustment
@@ -407,7 +459,8 @@ end
 function EbonBuilds.Calibration.SetAutoTuneEnabled(on)
     EbonBuildsCharDB.calibration = EbonBuildsCharDB.calibration or {}
     EbonBuildsCharDB.calibration.autoTuneEnabled = on and true or false
-    EbonBuildsCharDB.calibration.samplesSinceLastTune = 0
+    local stream = GetStrategyStream()
+    stream.samplesSinceLastTune = 0
 end
 
 -- Value at the given percentile (0-100) of an already-sorted list.
@@ -433,6 +486,7 @@ end
 -- (triggers over the threshold, target = % you want it to catch).
 local function BuildSuggestion(currentPctOfPeak, targetFraction, direction, store)
     store = store or GetStore()
+    if EbonBuilds.RingBuffer.Is(store) then store = EbonBuilds.RingBuffer.ToArray(store) end
     local result = {
         sampleCount = #store,
         currentPctOfPeak = currentPctOfPeak,
@@ -574,9 +628,10 @@ end
 
 function EbonBuilds.Calibration.MaybeAutoTune()
     if not EbonBuilds.Calibration.IsAutoTuneEnabled() then return end
-    EbonBuildsCharDB.calibration.samplesSinceLastTune = (EbonBuildsCharDB.calibration.samplesSinceLastTune or 0) + 1
-    if EbonBuildsCharDB.calibration.samplesSinceLastTune < TUNE_INTERVAL_SAMPLES then return end
-    EbonBuildsCharDB.calibration.samplesSinceLastTune = 0
+    local stream, scope = GetStrategyStream()
+    stream.samplesSinceLastTune = (stream.samplesSinceLastTune or 0) + 1
+    if stream.samplesSinceLastTune < TUNE_INTERVAL_SAMPLES then return end
+    stream.samplesSinceLastTune = 0
 
     local build = EbonBuilds.Build.GetActive()
     if not build then return end
@@ -603,9 +658,8 @@ function EbonBuilds.Calibration.MaybeAutoTune()
         if okR then changed[#changed + 1] = ("Reroll " .. valR .. "%") end
     end
 
-    -- Weight suggestions: a separate opt-in on top of Continuous Auto-Tune
-    -- itself, since applying these automatically is a bigger intervention
-    -- than nudging a threshold -- reuses the exact same suggestion
+    -- Weight suggestions are a separate opt-in because their evidence is
+    -- noisier than threshold evidence. This reuses the exact same suggestion
     -- functions the manual "read the report" path uses, so there's only
     -- one place either kind of suggestion is computed.
     local weightsChanged = {}
@@ -688,21 +742,70 @@ function EbonBuilds.Calibration.MaybeAutoTune()
 
     if #changed == 0 then return end
 
-    local saveData = { settings = settings }
-    if newWeights and #weightsChanged > 0 then saveData.echoWeights = newWeights end
-    local saved = EbonBuilds.Build.Save(build.id, saveData)
-    if not saved then return end
-
     local summary = table.concat(changed, ", ")
+    EbonBuildsCharDB.calibration.pendingReview = {
+        buildId = build.id,
+        baseRevision = tonumber(build.revision) or 1,
+        scope = scope,
+        createdAt = time(),
+        settings = settings,
+        echoWeights = newWeights and #weightsChanged > 0 and newWeights or nil,
+        summary = summary,
+    }
     if EbonBuilds.Toast then
-        EbonBuilds.Toast.Show("Auto-tuned: " .. summary)
+        EbonBuilds.Toast.Show("Tuning proposal ready: " .. summary .. ". Review before applying.")
     end
     if EbonBuilds.DebugLog and EbonBuilds.DebugLog.IsEnabled() then
-        EbonBuilds.DebugLog.AddF("-> AUTO-TUNE: %s", summary)
+        EbonBuilds.DebugLog.AddF("-> TUNING PROPOSAL: %s", summary)
         if #weightsChanged > 0 then
             EbonBuilds.DebugLog.AddF("-> AUTO-TUNE weights: %s", table.concat(weightsChanged, ", "))
         end
     end
+end
+
+function EbonBuilds.Calibration.GetPendingReview()
+    local calibration = EbonBuildsCharDB.calibration
+    local proposal = calibration and calibration.pendingReview
+    if not proposal then return nil, "NONE" end
+    local build = EbonBuilds.Build.GetActive()
+    if not build or proposal.buildId ~= build.id then return proposal, "OTHER_BUILD" end
+    if tonumber(proposal.baseRevision) ~= (tonumber(build.revision) or 1) then
+        return proposal, "STALE"
+    end
+    if proposal.scope and proposal.scope ~= EbonBuilds.Calibration.GetScope() then
+        return proposal, "STALE"
+    end
+    return proposal, "READY"
+end
+
+function EbonBuilds.Calibration.DismissPendingReview()
+    if EbonBuildsCharDB.calibration then
+        EbonBuildsCharDB.calibration.pendingReview = nil
+    end
+    return true
+end
+
+function EbonBuilds.Calibration.ApplyPendingReview()
+    local proposal, status = EbonBuilds.Calibration.GetPendingReview()
+    if status ~= "READY" then
+        return false, status == "OTHER_BUILD" and "Proposal belongs to another active build"
+            or status == "STALE" and "Proposal is stale because the build changed"
+            or "No tuning proposal is ready"
+    end
+    local saved, reason = EbonBuilds.Build.Save(proposal.buildId, {
+        settings = proposal.settings,
+        echoWeights = proposal.echoWeights,
+        baseRevision = proposal.baseRevision,
+    })
+    if not saved then
+        return false, reason == "CONFLICT" and "Proposal is stale because the build changed"
+            or "Unable to apply tuning proposal"
+    end
+    EbonBuildsCharDB.calibration.pendingReview = nil
+    if EbonBuilds.EventHub then
+        EbonBuilds.EventHub.Bump("TUNING_PROPOSAL_APPLIED", saved.id, saved.revision)
+    end
+    return true, saved
 end
 
 ------------------------------------------------------------------------
@@ -714,11 +817,11 @@ local function ApplySuggestion(field, value)
     if not build then return false end
     local settings = EbonBuilds.Build.CloneSettings(build.settings or EbonBuilds.Build.DefaultSettings())
     settings[field] = math.floor(value + 0.5)
-    local saved = EbonBuilds.Build.Save(build.id, { settings = settings })
+    local saved = EbonBuilds.Build.Save(build.id, { settings = settings, baseRevision = build.revision })
     return saved ~= nil
 end
 
-local frame, countLabel, modeWarning
+local frame, countLabel, modeWarning, proposalLabel, proposalApplyBtn, proposalDismissBtn
 local banishRow, rerollRow, freezeRow
 
 local function BuildRow(parent, yOffset, label)
@@ -779,7 +882,7 @@ end
 
 local function BuildWindow()
     local f = CreateFrame("Frame", "EbonBuildsTuningAdvisorWindow", UIParent)
-    f:SetSize(560, 560)
+    f:SetSize(560, 610)
     f:SetPoint("CENTER", UIParent, "CENTER")
     f:SetFrameStrata("FULLSCREEN_DIALOG")
     f:SetToplevel(true)
@@ -824,12 +927,12 @@ local function BuildWindow()
     rerollRow = BuildRow(f, -220, "Reroll")
     freezeRow = BuildRow(f, -280, "Freeze")
 
-    local autoTuneCB = EbonBuilds.Theme.CreateCheckbox(f, "Continuous auto-tune")
+    local autoTuneCB = EbonBuilds.Theme.CreateCheckbox(f, "Prepare tuning proposals")
     autoTuneCB:SetPoint("TOPLEFT", freezeRow.suggestion, "BOTTOMLEFT", -4, -10)
     autoTuneCB:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:AddLine("Continuous auto-tune", 1, 1, 1)
-        GameTooltip:AddLine("Off by default. When on, thresholds nudge themselves toward their suggested value automatically -- a small step (25% of the gap) every ~20 newly-recorded offers, not an instant jump. You'll get a toast every time it actually changes something. Rate-limited and gradual on purpose, so it can't overreact to a short noisy streak or make one drastic change to live automation behavior.", 0.8, 0.8, 0.8, true)
+        GameTooltip:AddLine("Prepare tuning proposals", 1, 1, 1)
+        GameTooltip:AddLine("Off by default. Every ~20 new offers, prepares a small evidence-based proposal and tells you it is ready. It never changes the live build automatically; use the Apply controls after reviewing the evidence.", 0.8, 0.8, 0.8, true)
         GameTooltip:Show()
     end)
     autoTuneCB:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -874,14 +977,14 @@ local function BuildWindow()
         EbonBuilds.Calibration.SetAppearanceSharingEnabled(self:GetChecked() and true or false)
     end)
 
-    local weightCB = EbonBuilds.Theme.CreateCheckbox(f, "Auto-apply weight suggestions")
+    local weightCB = EbonBuilds.Theme.CreateCheckbox(f, "Include weights in proposals")
     weightCB:SetPoint("TOPLEFT", appearCB, "BOTTOMLEFT", 0, -6)
     weightCB:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:AddLine("Auto-apply weight suggestions", 1, 1, 1)
-        GameTooltip:AddLine("Off by default. Requires Continuous auto-tune above to also be on -- this piggybacks on the same periodic cycle. When on, the DPS-based and Manual Training weight suggestions (see Export (AI)) get applied automatically instead of staying a report you check manually.", 0.8, 0.8, 0.8, true)
+        GameTooltip:AddLine("Include weights in proposals", 1, 1, 1)
+        GameTooltip:AddLine("Off by default. Includes DPS-based and Manual Training weight changes in the staged tuning proposal. Nothing is applied automatically.", 0.8, 0.8, 0.8, true)
         GameTooltip:AddLine(" ", 1, 1, 1)
-        GameTooltip:AddLine("Weight changes are a bigger, more visible intervention than a threshold nudge, and the underlying data is noisier -- this is why it's a separate opt-in on top of Continuous auto-tune. DPS and Manual Training deltas are combined first; opposite signals cancel instead of one silently overwriting the other. Rank-specific training updates only that rank, while family-level signals preserve the rank table and nudge every available rank.", 0.8, 0.8, 0.8, true)
+        GameTooltip:AddLine("Weight evidence is noisier than offer-distribution evidence, so it stays a separate opt-in. DPS and Manual Training deltas are combined first; opposite signals cancel. Rank-specific training affects only that rank.", 0.8, 0.8, 0.8, true)
         GameTooltip:Show()
     end)
     weightCB:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -895,7 +998,7 @@ local function BuildWindow()
     clearBtn:SetText("Clear Collected Data")
     clearBtn:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:AddLine("Wipes recorded samples, including appearance-rate data. Worth doing after a major reweight, since old samples reflect the previous weighting.", 0.8, 0.8, 0.8, true)
+        GameTooltip:AddLine("Wipes score samples for the active strategy revision and all local appearance-rate data. Older strategy streams remain isolated and bounded. Worth doing when you want a clean current baseline.", 0.8, 0.8, 0.8, true)
         GameTooltip:Show()
     end)
     clearBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -938,6 +1041,35 @@ local function BuildWindow()
     countLabel:SetPoint("RIGHT", f, "RIGHT", -16, 0)
     countLabel:SetJustifyH("LEFT")
 
+    proposalLabel = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    proposalLabel:SetPoint("TOPLEFT", countLabel, "BOTTOMLEFT", 0, -12)
+    proposalLabel:SetWidth(330)
+    proposalLabel:SetJustifyH("LEFT")
+
+    proposalApplyBtn = EbonBuilds.Theme.CreateButton(f)
+    proposalApplyBtn:SetSize(88, 22)
+    proposalApplyBtn:SetPoint("TOPLEFT", proposalLabel, "TOPRIGHT", 8, 2)
+    proposalApplyBtn:SetText("Apply")
+    proposalApplyBtn:SetScript("OnClick", function()
+        local ok, result = EbonBuilds.Calibration.ApplyPendingReview()
+        if ok then
+            EbonBuilds.Toast.Show("Tuning proposal applied as a new strategy revision")
+        else
+            EbonBuilds.Toast.Show(result)
+        end
+        EbonBuilds.Calibration.RefreshWindow()
+    end)
+
+    proposalDismissBtn = EbonBuilds.Theme.CreateButton(f, "danger")
+    proposalDismissBtn:SetSize(88, 22)
+    proposalDismissBtn:SetPoint("LEFT", proposalApplyBtn, "RIGHT", 6, 0)
+    proposalDismissBtn:SetText("Discard")
+    proposalDismissBtn:SetScript("OnClick", function()
+        EbonBuilds.Calibration.DismissPendingReview()
+        EbonBuilds.Toast.Show("Tuning proposal discarded")
+        EbonBuilds.Calibration.RefreshWindow()
+    end)
+
     f._autoTuneCB = autoTuneCB
     f._perfCB = perfCB
     f._appearCB = appearCB
@@ -968,6 +1100,9 @@ function EbonBuilds.Calibration.RefreshWindow()
         ClearRow(rerollRow)
         ClearRow(freezeRow)
         countLabel:SetText("")
+        proposalLabel:SetText("")
+        proposalApplyBtn:Hide()
+        proposalDismissBtn:Hide()
         return
     end
     local settings = build.settings or EbonBuilds.Build.DefaultSettings()
@@ -991,6 +1126,21 @@ function EbonBuilds.Calibration.RefreshWindow()
         end
     end
     countLabel:SetText(countText)
+
+    local proposal, proposalStatus = EbonBuilds.Calibration.GetPendingReview()
+    if proposalStatus == "READY" then
+        proposalLabel:SetText("|cffffd100Proposal ready:|r " .. (proposal.summary or "review suggested changes"))
+        proposalApplyBtn:Show()
+        proposalDismissBtn:Show()
+    elseif proposal then
+        proposalLabel:SetText("|cffff7f50Stale proposal:|r the active build or strategy changed. Discard it and collect fresh evidence.")
+        proposalApplyBtn:Hide()
+        proposalDismissBtn:Show()
+    else
+        proposalLabel:SetText("No staged proposal. Manual threshold recommendations above remain available.")
+        proposalApplyBtn:Hide()
+        proposalDismissBtn:Hide()
+    end
 end
 
 function EbonBuilds.Calibration.ShowWindow()
@@ -1006,11 +1156,7 @@ end
 -- already-collected counts).
 ------------------------------------------------------------------------
 
-local tickerFrame
 function EbonBuilds.Calibration.Init()
-    if tickerFrame then return end
-    tickerFrame = CreateFrame("Frame")
-    tickerFrame:SetScript("OnUpdate", function(self, dt)
-        EbonBuilds.Calibration.MaybeBroadcastAppearance(dt)
-    end)
+    EbonBuilds.Scheduler.Every("calibration.appearanceBroadcast", 1,
+        EbonBuilds.Calibration.MaybeBroadcastAppearance, EbonBuilds.Scheduler.BACKGROUND, true)
 end

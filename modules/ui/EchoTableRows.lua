@@ -12,16 +12,43 @@ local StripQualitySuffix = EbonBuilds.Weights.StripQualitySuffix
 local activeSortKey = "name"
 local RIGHT_MARGIN = 4
 
-Rows.COL_ICON       = 40
--- Keep the fixed action/value columns compact so the Echo column has enough
--- room for readable names. Long names wrap to two lines instead of being
--- shortened with an ellipsis.
-Rows.COL_QUALITY    = 70
-Rows.COL_PROTECT    = 84
-Rows.COL_POLICY     = 104
-Rows.RANK_COL_WIDTH = 56
 Rows.ROW_HEIGHT     = 60
-Rows.RANK_TOTAL     = #QUALITY_ORDER * Rows.RANK_COL_WIDTH
+
+local STANDARD_COLUMNS = {
+    icon = 40, quality = 70, protect = 84, policy = 104, rank = 56, protectButton = 80,
+}
+local COMPACT_COLUMNS = {
+    icon = 38, quality = 64, protect = 76, policy = 92, rank = 52, protectButton = 72,
+}
+local compactColumns = false
+
+local function InstallColumnMetrics(metrics)
+    Rows.COL_ICON = metrics.icon
+    Rows.COL_QUALITY = metrics.quality
+    Rows.COL_PROTECT = metrics.protect
+    Rows.COL_POLICY = metrics.policy
+    Rows.RANK_COL_WIDTH = metrics.rank
+    Rows.PROTECT_BUTTON_WIDTH = metrics.protectButton
+    Rows.RANK_TOTAL = #QUALITY_ORDER * Rows.RANK_COL_WIDTH
+end
+
+InstallColumnMetrics(STANDARD_COLUMNS)
+
+function Rows.SetCompactLayout(compact)
+    compact = compact and true or false
+    local changed = compactColumns ~= compact
+    compactColumns = compact
+    InstallColumnMetrics(compact and COMPACT_COLUMNS or STANDARD_COLUMNS)
+    return changed
+end
+
+function Rows.IsCompactLayout()
+    return compactColumns
+end
+
+function Rows.UseCompactLayoutForWidth(width)
+    return (tonumber(width) or 0) < 660
+end
 
 function Rows.SetActiveSortKey(key)
     activeSortKey = key or "name"
@@ -373,8 +400,9 @@ local function CreateProtectToggle(row)
     -- A single intent-labelled toggle replaces the old checkbox-like control.
     -- The button says what it does rather than exposing implementation terms.
     local btn = EbonBuilds.Theme.CreateButton(row)
-    btn:SetSize(80, 24)
-    btn:SetPoint("RIGHT", row, "RIGHT", -(RIGHT_MARGIN + Rows.RANK_TOTAL + (Rows.COL_PROTECT - 80) / 2), 2)
+    local buttonWidth = Rows.PROTECT_BUTTON_WIDTH
+    btn:SetSize(buttonWidth, 24)
+    btn:SetPoint("RIGHT", row, "RIGHT", -(RIGHT_MARGIN + Rows.RANK_TOTAL + (Rows.COL_PROTECT - buttonWidth) / 2), 2)
 
     function btn:SetChecked(checked)
         self._checked = checked and true or false
@@ -593,6 +621,7 @@ end
 local function CreateRankCell(row, quality, orderIndex)
     local cell = CreateFrame("Frame", nil, row)
     cell:SetSize(Rows.RANK_COL_WIDTH, Rows.ROW_HEIGHT)
+    cell._orderIndex = orderIndex
     local rightOffset = 4 + (#QUALITY_ORDER - orderIndex) * Rows.RANK_COL_WIDTH
     cell:SetPoint("RIGHT", row, "RIGHT", -rightOffset, 0)
 
@@ -610,12 +639,13 @@ local function CreateRankCell(row, quality, orderIndex)
     sortTint:Hide()
 
     local container = CreateFrame("Frame", nil, cell)
-    container:SetSize(50, 22)
+    local containerWidth = math.min(50, Rows.RANK_COL_WIDTH - 4)
+    container:SetSize(containerWidth, 22)
     container:SetPoint("TOP", cell, "TOP", 0, -6)
     EbonBuilds.Theme.ApplyInput(container)
 
     local box = CreateFrame("EditBox", nil, container)
-    box:SetSize(46, 18)
+    box:SetSize(containerWidth - 4, 18)
     box:SetPoint("CENTER")
     box:SetFont("Fonts\\FRIZQT__.TTF", 11, "")
     box:SetTextColor(1, 1, 1, 1)
@@ -648,6 +678,52 @@ local function CreateRankCell(row, quality, orderIndex)
     cell.sortTint = sortTint
     cell.unavailableBg = unavailableBg
     return cell
+end
+
+function Rows.ApplyRowLayout(row)
+    if not row then return end
+    if row.iconFrame then row.iconFrame:SetWidth(Rows.COL_ICON) end
+
+    if row.nameLabel and row.iconFrame then
+        row.nameLabel:ClearAllPoints()
+        row.nameLabel:SetPoint("TOPLEFT", row.iconFrame, "TOPRIGHT", 8, -5)
+        row.nameLabel:SetPoint("RIGHT", row, "RIGHT",
+            -(RIGHT_MARGIN + Rows.RANK_TOTAL + Rows.COL_PROTECT + Rows.COL_POLICY + Rows.COL_QUALITY + 8), 0)
+    end
+
+    if row.qualityBadge then
+        row.qualityBadge:SetSize(Rows.COL_QUALITY - 10, 22)
+        row.qualityBadge:ClearAllPoints()
+        row.qualityBadge:SetPoint("RIGHT", row, "RIGHT",
+            -(RIGHT_MARGIN + Rows.RANK_TOTAL + Rows.COL_PROTECT + Rows.COL_POLICY + 5), 2)
+    end
+
+    if row.policyDropdown then
+        row.policyDropdown:SetWidth(Rows.COL_POLICY - 8)
+        row.policyDropdown:ClearAllPoints()
+        row.policyDropdown:SetPoint("RIGHT", row, "RIGHT",
+            -(RIGHT_MARGIN + Rows.RANK_TOTAL + Rows.COL_PROTECT + 4), 2)
+    end
+
+    if row.protectToggle then
+        local buttonWidth = Rows.PROTECT_BUTTON_WIDTH
+        row.protectToggle:SetWidth(buttonWidth)
+        row.protectToggle:ClearAllPoints()
+        row.protectToggle:SetPoint("RIGHT", row, "RIGHT",
+            -(RIGHT_MARGIN + Rows.RANK_TOTAL + (Rows.COL_PROTECT - buttonWidth) / 2), 2)
+    end
+
+    for _, cell in pairs(row.rankCells or {}) do
+        local orderIndex = cell._orderIndex or 1
+        local rightOffset = RIGHT_MARGIN + (#QUALITY_ORDER - orderIndex) * Rows.RANK_COL_WIDTH
+        cell:SetSize(Rows.RANK_COL_WIDTH, Rows.ROW_HEIGHT)
+        cell:ClearAllPoints()
+        cell:SetPoint("RIGHT", row, "RIGHT", -rightOffset, 0)
+        local containerWidth = math.min(50, Rows.RANK_COL_WIDTH - 4)
+        if cell.editContainer then cell.editContainer:SetWidth(containerWidth) end
+        if cell.editBox then cell.editBox:SetWidth(containerWidth - 4) end
+        if cell.scoreLabel then cell.scoreLabel:SetWidth(Rows.RANK_COL_WIDTH) end
+    end
 end
 
 ------------------------------------------------------------------------
@@ -710,6 +786,8 @@ function Rows.CreateRow(parent, index)
     for indexInOrder, quality in ipairs(QUALITY_ORDER) do
         row.rankCells[quality] = CreateRankCell(row, quality, indexInOrder)
     end
+
+    Rows.ApplyRowLayout(row)
 
     row:Hide()
     return row

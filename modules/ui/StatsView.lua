@@ -48,6 +48,10 @@ local ECHO_COLUMNS = {
     { key = "dps",        label = "Avg DPS",       x = 480, w = 92,  valueType = "number", defaultDesc = true  },
     { key = "samples",    label = "Signal / data", x = 574, w = 96,  valueType = "number", defaultDesc = true  },
 }
+for _, column in ipairs(ECHO_COLUMNS) do
+    column._baseX = column.x
+    column._baseW = column.w
+end
 local ECHO_COLUMN_BY_KEY = {}
 for _, column in ipairs(ECHO_COLUMNS) do ECHO_COLUMN_BY_KEY[column.key] = column end
 
@@ -1151,6 +1155,32 @@ local function UpdateEchoHeaders()
     end
 end
 
+local function LayoutEchoColumns(width)
+    width = math.max(560, tonumber(width) or 0)
+    local scale = math.min(1, width / 674)
+    for _, def in ipairs(ECHO_COLUMNS) do
+        def.x = math.floor(def._baseX * scale + 0.5)
+        def.w = math.max(46, math.floor(def._baseW * scale + 0.5))
+        local header = echoHeaderButtons[def.key]
+        if header then
+            header:ClearAllPoints()
+            header:SetPoint("LEFT", header:GetParent(), "LEFT", def.x, 0)
+            header:SetWidth(def.w)
+        end
+    end
+    for _, row in ipairs(echoRows) do
+        for _, def in ipairs(ECHO_COLUMNS) do
+            local key = def.key == "samples" and "confidence" or def.key
+            local label = row._labels and row._labels[key]
+            if label then
+                label:ClearAllPoints()
+                label:SetPoint("LEFT", row, "LEFT", def.x + 4, 0)
+                label:SetWidth(math.max(40, def.w - 6))
+            end
+        end
+    end
+end
+
 local function ApplyEchoRowBaseStyle(row)
     if row._alternate then
         row:SetBackdropColor(0.105, 0.105, 0.132, 0.985)
@@ -1174,21 +1204,14 @@ local function EnsureEchoRow(index)
     stripe:SetWidth(3)
     row._stripe = stripe
 
-    local cols = {
-        name = { x = 10, w = 180, align = "LEFT" },
-        weight = { x = 198, w = 54, align = "RIGHT" },
-        score = { x = 260, w = 54, align = "RIGHT" },
-        appearance = { x = 322, w = 76, align = "RIGHT" },
-        picks = { x = 406, w = 70, align = "RIGHT" },
-        dps = { x = 484, w = 86, align = "RIGHT" },
-        confidence = { x = 578, w = 92, align = "LEFT" },
-    }
     row._labels = {}
-    for key, col in pairs(cols) do
+    for _, def in ipairs(ECHO_COLUMNS) do
+        local key = def.key == "samples" and "confidence" or def.key
+        local align = (key == "name" or key == "confidence") and "LEFT" or "RIGHT"
         local fs = row:CreateFontString(nil, "OVERLAY", key == "name" and "GameFontNormalSmall" or "GameFontHighlightSmall")
-        fs:SetPoint("LEFT", row, "LEFT", col.x, 0)
-        fs:SetWidth(col.w)
-        fs:SetJustifyH(col.align)
+        fs:SetPoint("LEFT", row, "LEFT", def.x + 4, 0)
+        fs:SetWidth(math.max(40, def.w - 6))
+        fs:SetJustifyH(align)
         row._labels[key] = fs
     end
     row:SetScript("OnClick", function(self)
@@ -2075,6 +2098,7 @@ local function BuildSummary(parent)
         local card = CreateSummaryMetricCard(parent, definition.title, definition.tooltip)
         card:SetPoint("TOPLEFT", parent, "TOPLEFT", 6 + (i - 1) * 170, -24)
         card:SetSize(162, 78)
+        card._summaryOrder = i
         summaryCards[definition.key] = card
     end
 
@@ -2086,8 +2110,34 @@ local function BuildSummary(parent)
         local card = CreateEarlyEpicCard(early, level)
         card:SetPoint("TOPLEFT", early, "TOPLEFT", 12 + (level - 1) * 218, -47)
         card:SetSize(210, 60)
+        card._summaryOrder = level
         earlyEpicCards[level] = card
     end
+
+
+    local function LayoutSummaryCards()
+        local parentWidth = math.max(560, parent:GetWidth() or 0)
+        local metricGap = 8
+        local metricWidth = math.floor((parentWidth - 12 - metricGap * 3) / 4)
+        for _, card in pairs(summaryCards) do
+            local order = card._summaryOrder or 1
+            card:ClearAllPoints()
+            card:SetPoint("TOPLEFT", parent, "TOPLEFT", 6 + (order - 1) * (metricWidth + metricGap), -24)
+            card:SetWidth(metricWidth)
+        end
+
+        local earlyWidth = math.max(540, early:GetWidth() or (parentWidth - 12))
+        local earlyGap = 8
+        local cardWidth = math.floor((earlyWidth - 24 - earlyGap * 2) / 3)
+        for level, card in ipairs(earlyEpicCards) do
+            card:ClearAllPoints()
+            card:SetPoint("TOPLEFT", early, "TOPLEFT", 12 + (level - 1) * (cardWidth + earlyGap), -47)
+            card:SetWidth(cardWidth)
+        end
+    end
+    parent:SetScript("OnSizeChanged", LayoutSummaryCards)
+    early:HookScript("OnSizeChanged", LayoutSummaryCards)
+    LayoutSummaryCards()
 
     local run = Theme.CreateSection(parent, "Latest run", "The newest run associated with this build, compared with the build's full recorded average.")
     run:SetPoint("TOPLEFT", early, "BOTTOMLEFT", 0, -12)
@@ -2155,7 +2205,7 @@ local function BuildEchoes(parent)
     echoScroll:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -5)
     echoScroll:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -18, 24)
     echoChild = CreateFrame("Frame", nil, echoScroll)
-    echoChild:SetSize(680, 1)
+    echoChild:SetSize(560, 1)
     echoScroll:SetScrollChild(echoChild)
     echoBar = Theme.CreateScrollBar(parent)
     echoBar:SetPoint("TOPRIGHT", echoScroll, "TOPRIGHT", 15, -2)
@@ -2164,13 +2214,15 @@ local function BuildEchoes(parent)
     echoBar:SetScript("OnValueChanged", function(_, value) echoScroll:SetVerticalScroll(value) end)
     Theme.BindScrollWheel(echoScroll, echoBar, 36, echoChild)
     echoScroll:SetScript("OnSizeChanged", function(self)
-        local width = math.max(680, self:GetWidth())
+        local width = math.max(560, self:GetWidth() or 0)
         if echoChild._statsWidth == width then return end
         echoChild._statsWidth = width
         echoChild:SetWidth(width)
+        LayoutEchoColumns(width)
         renderedTokens.echoes = nil
         if activeView == "echoes" and statsCache then RefreshActivePanel("echoes", true) end
     end)
+    LayoutEchoColumns(math.max(560, echoScroll:GetWidth() or 0))
     echoCountText = parent:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     echoCountText:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", 8, 7)
     echoCountText:SetTextColor(unpack(Theme.TEXT_MUTED))
@@ -2526,7 +2578,7 @@ local function BuildRecommendationsPanel(parent)
     recScroll:SetPoint("TOPLEFT", recHeader, "BOTTOMLEFT", 0, -7)
     recScroll:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -18, 4)
     recChild = CreateFrame("Frame", nil, recScroll)
-    recChild:SetSize(680, 1)
+    recChild:SetSize(560, 1)
     recScroll:SetScrollChild(recChild)
     recBar = Theme.CreateScrollBar(parent)
     recBar:SetPoint("TOPRIGHT", recScroll, "TOPRIGHT", 15, -2)
@@ -2534,7 +2586,7 @@ local function BuildRecommendationsPanel(parent)
     recBar:SetValueStep(48)
     recBar:SetScript("OnValueChanged", function(_, value) recScroll:SetVerticalScroll(value) end)
     Theme.BindScrollWheel(recScroll, recBar, 48, recChild)
-    recScroll:SetScript("OnSizeChanged", function(self) recChild:SetWidth(math.max(640, self:GetWidth())) end)
+    recScroll:SetScript("OnSizeChanged", function(self) recChild:SetWidth(math.max(560, self:GetWidth() or 0)) end)
     recEmpty = Theme.CreateEmptyState(recScroll, "No Echo-priority changes recommended", "Current Echo weights are consistent with the available evidence.")
 end
 

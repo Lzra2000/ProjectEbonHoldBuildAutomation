@@ -60,7 +60,7 @@ local watcherFrame
 local function FinishPending(talents, err)
     local cb = pending and pending.callback
     pending = nil
-    if watcherFrame then watcherFrame:Hide() end
+    EbonBuilds.Scheduler.Cancel("talents.inspectTimeout")
     if ClearInspectPlayer then pcall(ClearInspectPlayer) end
     if cb then cb(talents, err) end
 end
@@ -68,14 +68,6 @@ end
 local function EnsureWatcher()
     if watcherFrame then return end
     watcherFrame = CreateFrame("Frame")
-    watcherFrame:Hide()
-    watcherFrame:SetScript("OnUpdate", function(self, dt)
-        if not pending then self:Hide(); return end
-        pending.elapsed = pending.elapsed + dt
-        if pending.elapsed > INSPECT_TIMEOUT then
-            FinishPending(nil, "timeout")
-        end
-    end)
     watcherFrame:RegisterEvent("INSPECT_TALENT_READY")
     watcherFrame:SetScript("OnEvent", function()
         if not pending then return end
@@ -108,11 +100,12 @@ function EbonBuilds.Talents.ScanUnit(unit, callback)
     EnsureWatcher()
     local _, classToken = UnitClass(unit)
     pending = { unit = unit, class = classToken, callback = callback, elapsed = 0 }
-    watcherFrame:Show()
+    EbonBuilds.Scheduler.After("talents.inspectTimeout", INSPECT_TIMEOUT, function()
+        if pending then FinishPending(nil, "timeout") end
+    end, EbonBuilds.Scheduler.BACKGROUND, true)
     NotifyInspect(unit)
 end
 
 ------------------------------------------------------------------------
 -- Display helpers
 ------------------------------------------------------------------------
-

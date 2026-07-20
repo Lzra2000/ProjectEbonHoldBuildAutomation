@@ -11,8 +11,6 @@ local EPIC_QUALITY = 3
 local MAX_RUN_SELECTIONS = 79
 
 local maxLevel     = 0   -- highest level seen in the active session
-local pollFrame    = nil
-local pollElapsed  = 0
 
 local function NotifyHistoryChanged()
     if EbonBuilds.SessionHistory and EbonBuilds.SessionHistory.OnHistoryChanged then
@@ -52,15 +50,20 @@ local function CreateSession()
     local sessions = EbonBuildsDB.sessions
     local id = tostring(time()) .. "-" .. tostring(#sessions + 1)
 
-    local session = {
+	local build = EbonBuilds.Build.GetActive()
+	local session = {
         id            = id,
         characterName = UnitName("player"),
+        characterKey  = EbonBuilds.Database.CharacterKey(),
         className     = GetClassName(),
         startTime     = time(),
         endTime       = nil,
         soulAshes     = 0,
         buildId       = GetActiveBuildId(),
         buildTitle    = GetActiveBuildTitle(),
+        buildRevision = build and (tonumber(build.revision) or tonumber(build.version) or 1) or nil,
+        strategyRevision = build and (tonumber(build.strategyRevision) or 1) or nil,
+        strategyHash  = build and (build.strategyHash or EbonBuilds.Build.StrategyChecksum(build)) or nil,
         startLevel    = UnitLevel("player"),
         logs          = {},
         completed     = false,
@@ -85,6 +88,7 @@ local function CreateSession()
     end
 
     NotifyHistoryChanged()
+    if EbonBuilds.EventHub then EbonBuilds.EventHub.Bump("RUN_STARTED", session.id, session.buildId) end
     return session
 end
 
@@ -142,11 +146,7 @@ local function OnPlayerLevelUp(newLevel)
     TrackMaxLevel(newLevel)
 end
 
-local function OnPollUpdate(self, dt)
-    pollElapsed = pollElapsed + dt
-    if pollElapsed < POLL_INTERVAL then return end
-    pollElapsed = 0
-
+local function PollLevel()
     local level = UnitLevel("player")
 
     -- Level reset detection: player went from >1 back to 1
@@ -327,18 +327,43 @@ function EbonBuilds.Session.EndCurrentSession()
     if completed and not session.completionTime then session.completionTime = session.endTime end
 
     -- Per-build run counters for the Stats tab (were never written before).
-    local build = EbonBuilds.Build.GetActive()
+    local build = session.buildId and EbonBuilds.Build.Get(session.buildId) or nil
     if build and build.stats then
         if completed then
             build.stats.runsCompleted = (build.stats.runsCompleted or 0) + 1
         else
             build.stats.runsReset = (build.stats.runsReset or 0) + 1
         end
+        if completed and not session.mixedStrategy
+            and (tonumber(build.strategyRevision) or 1) == (tonumber(session.strategyRevision) or 1) then
+            build.validated = true -- legacy field: a completed local run exists for this strategy revision
+        end
     end
+
+    if EbonBuilds.Aggregates then EbonBuilds.Aggregates.OnRunEnded(session) end
 
     EbonBuildsDB.currentSessionIndex = nil
     maxLevel = 0
+    if EbonBuilds.Database then EbonBuilds.Database.SchedulePrune() end
+    if EbonBuilds.EventHub then EbonBuilds.EventHub.Bump("RUN_ENDED", session.id, session.buildId) end
     NotifyHistoryChanged()
+end
+
+function EbonBuilds.Session.MarkStrategyChanged(build, oldHash, newHash)
+    local session = EbonBuilds.Session.GetActiveSession()
+    if not session or not build or session.buildId ~= build.id or #(session.logs or {}) == 0 then return false end
+    if oldHash == newHash then return false end
+    session.mixedStrategy = true
+    session.strategyChanges = session.strategyChanges or {}
+    session.strategyChanges[#session.strategyChanges + 1] = {
+        timestamp = time(),
+        fromHash = oldHash,
+        toHash = newHash,
+        toRevision = tonumber(build.strategyRevision) or 1,
+    }
+    session.analyticsRevision = (tonumber(session.analyticsRevision) or 0) + 1
+    if EbonBuilds.EventHub then EbonBuilds.EventHub.Bump("RUN_STRATEGY_CHANGED", session.id, build.id) end
+    return true
 end
 
 function EbonBuilds.Session.LogAction(scored, action, targetIndex, source)
@@ -450,6 +475,7 @@ function EbonBuilds.Session.LogAction(scored, action, targetIndex, source)
         end
     end
     session.analyticsRevision = (tonumber(session.analyticsRevision) or 0) + 1
+    if EbonBuilds.EventHub then EbonBuilds.EventHub.Bump("RUN_EVENT_RECORDED", session.id, build and build.id or nil) end
     if EbonBuilds.StatsView and EbonBuilds.StatsView.OnSessionAnalyticsChanged then
         EbonBuilds.StatsView.OnSessionAnalyticsChanged(build and build.id or nil)
     end
@@ -517,7 +543,7 @@ function EbonBuilds.Session.Init()
         end
     end)
 
-    -- Polling frame for level reset detection without loading screen
-    pollFrame = CreateFrame("Frame", nil, UIParent)
-    pollFrame:SetScript("OnUpdate", OnPollUpdate)
+    -- Shared scheduler polling for reset detection without a loading screen.
+    EbonBuilds.Scheduler.Every("session.levelReset", POLL_INTERVAL, PollLevel,
+        EbonBuilds.Scheduler.BACKGROUND, true)
 end
