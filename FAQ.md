@@ -6,6 +6,12 @@
 
 ## FAQ
 
+
+### How does the grouped Echo priority selector work?
+Build Wizard Step 3 now separates Echoes into functional groups instead of showing one oversized list. The left navigation includes Recommended, Included, Modified, build-changing, Damage, Survival, Resources, Control, Utility, Equipment, Other, and diagnostic views. Search defaults to **All groups**, while the active group and subgroup remain available for focused browsing.
+
+Each Echo has an independent **Priority** and **Use** control. Enabling Use on a Neutral Echo assigns the Useful preset automatically, giving it a real positive weight. Disabling Use always resets the Echo to **Neutral +0**. Selecting **Avoid** is policy-only: its weight remains 0 and the build receives the canonical **Never Pick** policy for that Echo. Priority rows are virtualized and recycled, preserving smooth scrolling and consistent visual state.
+
 ### How do I generate an Echo Wish List (EWL)?
 Open the build's **Overview** and click **Export EWL**, or use `/ebb ewl` for the active build. The addon creates a standard `EWL1:<CLASS>:` import string.
 

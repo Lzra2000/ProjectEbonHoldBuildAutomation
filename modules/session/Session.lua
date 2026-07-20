@@ -396,14 +396,15 @@ function EbonBuilds.Session.LogAction(scored, action, targetIndex, source)
     local settings = build and build.settings or EbonBuilds.Build.DefaultSettings()
     local choices = {}
     for _, s in ipairs(scored) do
-        local canonical = s.spellId and EbonBuilds.Weights.CanonicalName(s.spellId) or s.name
-        local baseWeight = EbonBuilds.Weights.Get(canonical, s.quality) or 0
+        local refKey = s.spellId and EbonBuilds.EchoCatalog.GetRefForSpell(s.spellId) or nil
+        local baseWeight = s.spellId and EbonBuilds.Weights.GetForSpell(build, s.spellId, s.quality) or 0
         choices[#choices + 1] = {
             index         = s.index,
             name          = s.name,
             score         = s.score,
             quality       = s.quality,
             spellId       = s.spellId,
+            refKey        = refKey,
             baseWeight    = baseWeight,
             modifierDelta = (s.score or 0) - baseWeight,
             families      = s.data and s.data.families or nil,

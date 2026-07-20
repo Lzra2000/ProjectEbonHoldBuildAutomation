@@ -1,64 +1,80 @@
 -- EbonBuilds: modules/ui/EchoPicker.lua
--- Responsibility: accessible modal Echo picker. Shows a searchable list of
--- Echoes and invokes a callback with the selected spell, quality, and name.
+-- Class-scoped, alias-aware Echo picker with a fixed recycled row pool.
 
 EbonBuilds.EchoPicker = {}
 
-local ROW_HEIGHT = 34
+local Picker = EbonBuilds.EchoPicker
+local Theme = EbonBuilds.Theme
+local VirtualList = EbonBuilds.VirtualList
+local ROW_HEIGHT = 38
+local ROW_POOL = 12
 local FALLBACK_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
 
-local frame, searchBox, searchContainer, searchPlaceholder, clearSearchButton
-local scrollFrame, scrollChild, scrollBar, titleText, resultText, emptyText, helpText
-local allEntries = {}
-local filtered = {}
-local rowPool = {}
-local onPick
-local searchText = ""
+local frame, searchBox, searchPlaceholder, clearSearchButton
+local viewport, scrollBar, resultText, emptyState, classContextText
+local allEntries, filtered, rowPool = {}, {}, {}
+local onPick, searchText, scrollOffset = nil, "", 0
+local activeClass
 
-------------------------------------------------------------------------
--- Data
-------------------------------------------------------------------------
+local function ClassLabel(classToken)
+    local labels = {
+        WARRIOR = "Warrior", PALADIN = "Paladin", HUNTER = "Hunter", ROGUE = "Rogue", PRIEST = "Priest",
+        DEATHKNIGHT = "Death Knight", SHAMAN = "Shaman", MAGE = "Mage", WARLOCK = "Warlock", DRUID = "Druid",
+    }
+    return labels[tostring(classToken or ""):upper()] or tostring(classToken or "")
+end
 
-local function BuildEntries()
-    local best = EbonBuilds.EchoTableRows.BuildBestByName()
+local function StrictEntries(classToken)
     local list = {}
-    for name, entry in pairs(best) do
-        list[#list + 1] = {
-            spellId = entry.spellId,
-            name = name,
-            quality = entry.quality,
-        }
+    if not EbonBuilds.EchoProjection then return list end
+    for _, entry in ipairs(EbonBuilds.EchoProjection.GetAvailable(classToken) or {}) do
+        local spellId, quality = EbonBuilds.EchoProjection.GetBestVariant(classToken, entry.refKey)
+        if spellId then
+            list[#list + 1] = {
+                refKey = entry.refKey,
+                spellId = spellId,
+                quality = quality or entry.quality or 0,
+                name = entry.displayName or entry.sourceName or entry.name,
+                displayName = entry.displayName or entry.sourceName or entry.name,
+                sourceName = entry.sourceName,
+                searchBlob = entry.searchBlob,
+                disambiguator = entry.disambiguator,
+                semantics = entry.semantics,
+                classMask = entry.classMask,
+                groupId = entry.groupId,
+            }
+        end
     end
     table.sort(list, function(a, b)
-        if (a.quality or 0) ~= (b.quality or 0) then return (a.quality or 0) > (b.quality or 0) end
-        return a.name < b.name
+        local an = EbonBuilds.EchoIdentity.NormalizeSearch(a.displayName)
+        local bn = EbonBuilds.EchoIdentity.NormalizeSearch(b.displayName)
+        if an ~= bn then return an < bn end
+        return tostring(a.refKey) < tostring(b.refKey)
     end)
     return list
 end
 
+local function SearchEntry(entry, query)
+    if query == "" then return true end
+    return string.find(entry.searchBlob or EbonBuilds.EchoIdentity.NormalizeSearch(entry.displayName), query, 1, true) ~= nil
+end
+
 local function ApplySearch()
-    filtered = {}
-    if searchText == "" then
-        for i = 1, #allEntries do filtered[i] = allEntries[i] end
-        return
-    end
+    local query = EbonBuilds.EchoIdentity.NormalizeSearch(searchText)
+    for i = #filtered, 1, -1 do filtered[i] = nil end
     for i = 1, #allEntries do
         local entry = allEntries[i]
-        if (entry.name or ""):lower():find(searchText, 1, true) then
-            filtered[#filtered + 1] = entry
-        end
+        if SearchEntry(entry, query) then filtered[#filtered + 1] = entry end
     end
+    scrollOffset = 0
 end
 
 local function Pick(entry)
     if not entry then return end
-    if onPick then onPick(entry.spellId, entry.quality, entry.name) end
+    local callback = onPick
     frame:Hide()
+    if callback then callback(entry.spellId, entry.quality, entry.displayName, entry.refKey) end
 end
-
-------------------------------------------------------------------------
--- Search state
-------------------------------------------------------------------------
 
 local function UpdateSearchChrome()
     if not searchBox then return end
@@ -71,285 +87,221 @@ local function UpdateSearchChrome()
     end
 end
 
-local function ClearSearch(keepFocus)
-    if not searchBox then return end
-    searchBox:SetText("")
-    searchText = ""
-    ApplySearch()
-    if not keepFocus then searchBox:ClearFocus() end
-    UpdateSearchChrome()
+local function ResetRow(row)
+    row._entry = nil
+    row:Hide()
 end
-
-------------------------------------------------------------------------
--- Row pool / rendering
-------------------------------------------------------------------------
 
 local function CreateRow(parent)
     local row = CreateFrame("Button", nil, parent)
-    row:SetHeight(ROW_HEIGHT)
-
-    local background = row:CreateTexture(nil, "BACKGROUND")
-    background:SetPoint("TOPLEFT", row, "TOPLEFT", 1, -1)
-    background:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", -1, 1)
-    background:SetTexture("Interface\\Buttons\\WHITE8X8")
-    row._background = background
-
-    local accent = row:CreateTexture(nil, "ARTWORK")
-    accent:SetPoint("TOPLEFT", row, "TOPLEFT", 1, -1)
-    accent:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 1, 1)
-    accent:SetWidth(3)
-    accent:SetTexture("Interface\\Buttons\\WHITE8X8")
-    row._accent = accent
+    row:SetHeight(ROW_HEIGHT - 2)
+    Theme.ApplyPanel(row)
 
     local icon = row:CreateTexture(nil, "ARTWORK")
-    icon:SetSize(26, 26)
-    icon:SetPoint("LEFT", row, "LEFT", 8, 0)
+    icon:SetSize(28, 28)
+    icon:SetPoint("LEFT", row, "LEFT", 7, 0)
     icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     row._icon = icon
 
     local label = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    label:SetPoint("LEFT", icon, "RIGHT", 8, 0)
-    label:SetPoint("RIGHT", row, "RIGHT", -90, 0)
+    label:SetPoint("TOPLEFT", icon, "TOPRIGHT", 8, -1)
+    label:SetPoint("RIGHT", row, "RIGHT", -96, 0)
     label:SetJustifyH("LEFT")
-    label:SetTextColor(unpack(EbonBuilds.Theme.TEXT_PRIMARY))
     row._label = label
+
+    local meta = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    meta:SetPoint("BOTTOMLEFT", icon, "BOTTOMRIGHT", 8, 1)
+    meta:SetPoint("RIGHT", row, "RIGHT", -96, 0)
+    meta:SetJustifyH("LEFT")
+    row._meta = meta
 
     local rank = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     rank:SetPoint("RIGHT", row, "RIGHT", -10, 0)
-    rank:SetWidth(72)
+    rank:SetWidth(76)
     rank:SetJustifyH("RIGHT")
     row._rank = rank
 
     row:SetScript("OnEnter", function(self)
-        self._background:SetVertexColor(0.16, 0.16, 0.21, 1)
+        local entry = self._entry
+        if not entry then return end
+        Theme.SetCardHovered(self, true)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:AddLine(self._entry and self._entry.name or "Echo", 1, 0.82, 0)
-        GameTooltip:AddLine("Click to select this Echo.", 0.82, 0.82, 0.86, true)
+        GameTooltip:ClearLines()
+        local used = false
+        if entry.spellId and GameTooltip.SetHyperlink then
+            local ok = pcall(GameTooltip.SetHyperlink, GameTooltip, "spell:" .. tostring(entry.spellId))
+            used = ok and (not GameTooltip.NumLines or GameTooltip:NumLines() > 0)
+        end
+        if not used then
+            GameTooltip:ClearLines()
+            GameTooltip:AddLine(entry.displayName or "Echo", 1, 0.82, 0)
+            local description = EbonBuilds.EchoCatalog.GetDescription(entry.spellId, 500, 1)
+            if description and description ~= "" then GameTooltip:AddLine(description, 1, 1, 1, true) end
+        end
+        if entry.disambiguator then GameTooltip:AddLine(entry.disambiguator, 0.65, 0.78, 1, true) end
+        GameTooltip:AddLine(" ")
+        GameTooltip:AddLine("Available to " .. ClassLabel(activeClass) .. ". Click to select.", 0.75, 0.75, 0.8, true)
         GameTooltip:Show()
     end)
-    row:SetScript("OnLeave", function(self)
-        local alpha = self._even and 0.92 or 0.78
-        self._background:SetVertexColor(0.075, 0.075, 0.10, alpha)
-        GameTooltip:Hide()
-    end)
+    row:SetScript("OnLeave", function(self) Theme.SetCardHovered(self, false); GameTooltip:Hide() end)
     row:SetScript("OnClick", function(self) Pick(self._entry) end)
-    if scrollFrame and scrollBar then
-        EbonBuilds.Theme.BindScrollWheel(scrollFrame, scrollBar, ROW_HEIGHT, row)
-    end
     return row
 end
 
-local function PopulateRow(row, index, entry)
-    row:ClearAllPoints()
-    row:SetPoint("LEFT", scrollChild, "LEFT", 0, 0)
-    row:SetPoint("RIGHT", scrollChild, "RIGHT", 0, 0)
-    row:SetPoint("TOP", scrollChild, "TOP", 0, -(index - 1) * ROW_HEIGHT)
-    row._entry = entry
-    row._even = index % 2 == 0
-
-    row._icon:SetTexture(select(3, GetSpellInfo(entry.spellId)) or FALLBACK_ICON)
-    row._label:SetText(entry.name or "Unknown Echo")
-
-    local quality = entry.quality or 0
-    local rankLabel = EbonBuilds.Quality.LABELS[quality] or ("Rank " .. tostring(quality))
-    local r, g, b = EbonBuilds.Quality.GetRGB(quality)
-    row._rank:SetText(rankLabel)
-    row._rank:SetTextColor(r, g, b, 1)
-    row._accent:SetVertexColor(r, g, b, 1)
-    row._background:SetVertexColor(0.075, 0.075, 0.10, row._even and 0.92 or 0.78)
-    row:Show()
-end
-
 local function Render()
-    for i = 1, #filtered do
-        if not rowPool[i] then rowPool[i] = CreateRow(scrollChild) end
-        PopulateRow(rowPool[i], i, filtered[i])
-    end
-    for i = #filtered + 1, #rowPool do rowPool[i]:Hide() end
-    local contentHeight = math.max(1, #filtered * ROW_HEIGHT)
-    scrollChild:SetHeight(contentHeight)
-    if scrollBar and scrollFrame then
-        local maxScroll = math.max(0, contentHeight - (scrollFrame:GetHeight() or 0))
-        scrollBar:SetMinMaxValues(0, maxScroll)
-        if scrollBar:GetValue() > maxScroll then scrollBar:SetValue(maxScroll) end
-    end
+    if not viewport then return end
+    local visibleRows = VirtualList.VisibleCount(viewport:GetHeight(), ROW_HEIGHT, ROW_POOL)
+    local requested = math.floor(tonumber(scrollBar:GetValue()) or scrollOffset)
+    local maxOffset
+    scrollOffset, maxOffset = VirtualList.ClampOffset(#filtered, visibleRows, requested)
+    scrollBar:SetMinMaxValues(0, maxOffset)
+    if scrollBar:GetValue() ~= scrollOffset then scrollBar:SetValue(scrollOffset) end
 
-    if resultText then
-        if #filtered == #allEntries then
-            resultText:SetText(#allEntries .. " Echoes")
+    for i = 1, ROW_POOL do
+        local row = rowPool[i]
+        local entry = i <= visibleRows and filtered[scrollOffset + i] or nil
+        if entry then
+            row._entry = entry
+            row:ClearAllPoints()
+            row:SetPoint("TOPLEFT", viewport, "TOPLEFT", 0, -(i - 1) * ROW_HEIGHT)
+            row:SetPoint("RIGHT", viewport, "RIGHT", -18, 0)
+            row._icon:SetTexture(select(3, GetSpellInfo(entry.spellId)) or FALLBACK_ICON)
+            local r, g, b = EbonBuilds.Quality.GetRGB(entry.quality or 0)
+            row._label:SetText(entry.displayName or "Unknown Echo")
+            row._label:SetTextColor(r, g, b, 1)
+            row._meta:SetText(entry.disambiguator or (EbonBuilds.EchoCatalog.GetSemanticSummary(entry.spellId, 2) or "Unclassified"))
+            row._rank:SetText(EbonBuilds.Quality.LABELS[entry.quality or 0] or ("Rank " .. tostring(entry.quality or 0)))
+            row._rank:SetTextColor(r, g, b, 1)
+            row:Show()
         else
-            resultText:SetText(string.format("%d of %d Echoes", #filtered, #allEntries))
+            ResetRow(row)
         end
     end
-    if emptyText then
-        if #filtered == 0 then emptyText:Show() else emptyText:Hide() end
-    end
+
+    resultText:SetText(string.format("%d of %d verified %s Echoes", #filtered, #allEntries, ClassLabel(activeClass)))
+    if #filtered == 0 then emptyState:Show() else emptyState:Hide() end
 end
 
-------------------------------------------------------------------------
--- Frame construction
-------------------------------------------------------------------------
-
-local function CreateSearchBox(parent)
-    local container = CreateFrame("Frame", nil, parent)
-    container:SetHeight(28)
-    container:SetPoint("TOPLEFT", parent, "TOPLEFT", 18, -66)
-    container:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -18, -66)
-    EbonBuilds.Theme.ApplyInput(container)
-    searchContainer = container
-
-    local box = CreateFrame("EditBox", nil, container)
-    box:SetPoint("TOPLEFT", container, "TOPLEFT", 8, -4)
-    box:SetPoint("BOTTOMRIGHT", container, "BOTTOMRIGHT", -30, 4)
-    box:SetFont("Fonts\\FRIZQT__.TTF", 11, "")
-    box:SetTextColor(1, 1, 1, 1)
-    box:SetAutoFocus(false)
-    box:SetMaxLetters(60)
-    EbonBuilds.Theme.WireEditBox(box, container)
-
-    local placeholder = container:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    placeholder:SetPoint("LEFT", box, "LEFT", 0, 0)
-    placeholder:SetText("Search Echoes by name...")
-    placeholder:SetTextColor(unpack(EbonBuilds.Theme.TEXT_MUTED))
-    searchPlaceholder = placeholder
-
-    local clear = CreateFrame("Button", nil, container)
-    clear:SetSize(22, 22)
-    clear:SetPoint("RIGHT", container, "RIGHT", -3, 0)
-    local glyph = clear:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    glyph:SetPoint("CENTER")
-    glyph:SetText("x")
-    glyph:SetTextColor(unpack(EbonBuilds.Theme.TEXT_MUTED))
-    clear:SetScript("OnEnter", function() glyph:SetTextColor(unpack(EbonBuilds.Theme.ACCENT_GOLD)) end)
-    clear:SetScript("OnLeave", function() glyph:SetTextColor(unpack(EbonBuilds.Theme.TEXT_MUTED)) end)
-    clear:SetScript("OnClick", function() ClearSearch(true); box:SetFocus() end)
-    EbonBuilds.Theme.AttachTooltip(clear, "Clear search", "Show the complete Echo list.")
-    clearSearchButton = clear
-
-    box:SetScript("OnTextChanged", function(self)
-        searchText = (self:GetText() or ""):lower()
-        ApplySearch()
-        Render()
-        UpdateSearchChrome()
-    end)
-    box:SetScript("OnEditFocusGained", UpdateSearchChrome)
-    box:SetScript("OnEditFocusLost", UpdateSearchChrome)
-    box:SetScript("OnEnterPressed", function()
-        if filtered[1] then Pick(filtered[1]) end
-    end)
-    box:SetScript("OnEscapePressed", function(self)
-        if (self:GetText() or "") ~= "" then
-            ClearSearch(true)
-        else
-            self:ClearFocus()
-            frame:Hide()
-        end
-    end)
-
+local function ClearSearch(keepFocus)
+    searchBox:SetText("")
+    searchText = ""
+    ApplySearch()
+    scrollBar:SetValue(0)
+    Render()
+    if keepFocus then searchBox:SetFocus() else searchBox:ClearFocus() end
     UpdateSearchChrome()
-    return box
 end
 
 local function BuildFrame()
     local f = CreateFrame("Frame", "EbonBuildsEchoPicker", UIParent)
-    f:SetSize(440, 540)
-    f:SetPoint("CENTER", UIParent, "CENTER")
+    f:SetSize(460, 540)
+    f:SetPoint("CENTER")
     f:SetFrameStrata("FULLSCREEN_DIALOG")
     f:SetToplevel(true)
     f:EnableMouse(true)
     f:SetClampedToScreen(true)
-    EbonBuilds.Theme.ApplyWindow(f)
+    Theme.ApplyWindow(f)
 
     local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     title:SetPoint("TOPLEFT", f, "TOPLEFT", 18, -16)
     title:SetText("Choose an Echo")
-    title:SetTextColor(unpack(EbonBuilds.Theme.TEXT_PRIMARY))
-    titleText = title
+    classContextText = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    classContextText:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
+    Theme.CreateCloseButton(f)
 
-    local subtitle = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    subtitle:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
-    subtitle:SetText("Search, then click an Echo. Press Enter to choose the first result.")
-    subtitle:SetTextColor(unpack(EbonBuilds.Theme.TEXT_MUTED))
+    local searchContainer = CreateFrame("Frame", nil, f)
+    searchContainer:SetHeight(28)
+    searchContainer:SetPoint("TOPLEFT", f, "TOPLEFT", 18, -66)
+    searchContainer:SetPoint("TOPRIGHT", f, "TOPRIGHT", -18, -66)
+    Theme.ApplyInput(searchContainer)
 
-    local close = EbonBuilds.Theme.CreateCloseButton(f)
-    EbonBuilds.Theme.AttachTooltip(close, "Close", "Close without changing the selected Echo.")
+    searchBox = CreateFrame("EditBox", nil, searchContainer)
+    searchBox:SetPoint("TOPLEFT", searchContainer, "TOPLEFT", 8, -4)
+    searchBox:SetPoint("BOTTOMRIGHT", searchContainer, "BOTTOMRIGHT", -30, 4)
+    searchBox:SetFontObject("ChatFontNormal")
+    searchBox:SetAutoFocus(false)
+    searchBox:SetMaxLetters(80)
+    Theme.WireEditBox(searchBox, searchContainer)
+    searchPlaceholder = searchContainer:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    searchPlaceholder:SetPoint("LEFT", searchBox, "LEFT", 0, 0)
 
-    searchBox = CreateSearchBox(f)
+    clearSearchButton = CreateFrame("Button", nil, searchContainer)
+    clearSearchButton:SetSize(22, 22)
+    clearSearchButton:SetPoint("RIGHT", searchContainer, "RIGHT", -3, 0)
+    local glyph = clearSearchButton:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    glyph:SetPoint("CENTER"); glyph:SetText("x")
+    clearSearchButton:SetScript("OnClick", function() ClearSearch(true) end)
 
     resultText = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     resultText:SetPoint("TOPLEFT", searchContainer, "BOTTOMLEFT", 0, -8)
-    resultText:SetTextColor(unpack(EbonBuilds.Theme.TEXT_MUTED))
-
-    helpText = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    helpText:SetPoint("TOPRIGHT", searchContainer, "BOTTOMRIGHT", 0, -8)
-    helpText:SetText("Enter: select first  |  Esc: clear or close")
-    helpText:SetTextColor(unpack(EbonBuilds.Theme.TEXT_MUTED))
 
     local listPanel = CreateFrame("Frame", nil, f)
     listPanel:SetPoint("TOPLEFT", f, "TOPLEFT", 18, -116)
     listPanel:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -18, 18)
-    EbonBuilds.Theme.ApplyPanel(listPanel)
+    Theme.ApplyPanel(listPanel)
+    viewport = CreateFrame("Frame", nil, listPanel)
+    viewport:SetPoint("TOPLEFT", listPanel, "TOPLEFT", 7, -7)
+    viewport:SetPoint("BOTTOMRIGHT", listPanel, "BOTTOMRIGHT", -7, 7)
+    scrollBar = Theme.CreateScrollBar(viewport)
+    scrollBar:SetPoint("TOPRIGHT", viewport, "TOPRIGHT", 0, 0)
+    scrollBar:SetPoint("BOTTOMRIGHT", viewport, "BOTTOMRIGHT", 0, 0)
+    scrollBar:SetValueStep(1)
+    scrollBar:SetScript("OnValueChanged", function(_, value) scrollOffset = math.floor((tonumber(value) or 0) + 0.5); Render() end)
 
-    scrollFrame = CreateFrame("ScrollFrame", "EbonBuildsEchoPickerSF", listPanel)
-    scrollFrame:SetPoint("TOPLEFT", listPanel, "TOPLEFT", 7, -7)
-    scrollFrame:SetPoint("BOTTOMRIGHT", listPanel, "BOTTOMRIGHT", -22, 7)
-    scrollChild = CreateFrame("Frame", nil, scrollFrame)
-    scrollChild:SetWidth(376)
-    scrollChild:SetHeight(1)
-    scrollFrame:SetScrollChild(scrollChild)
+    for i = 1, ROW_POOL do rowPool[i] = CreateRow(viewport) end
+    Theme.BindSliderWheel(viewport, scrollBar, 1, unpack(rowPool))
+    viewport:HookScript("OnSizeChanged", Render)
 
-    scrollBar = EbonBuilds.Theme.CreateScrollBar(listPanel)
-    scrollBar:SetPoint("TOPRIGHT", scrollFrame, "TOPRIGHT", 17, -2)
-    scrollBar:SetPoint("BOTTOMRIGHT", scrollFrame, "BOTTOMRIGHT", 17, 2)
-    scrollBar:SetValueStep(ROW_HEIGHT)
-    scrollBar:SetScript("OnValueChanged", function(_, value)
-        scrollFrame:SetVerticalScroll(value)
+    emptyState = Theme.CreateEmptyState(viewport, "No matching Echoes", "Try the player-facing name or a legacy alias.")
+    emptyState:Hide()
+
+    searchBox:SetScript("OnTextChanged", function(self)
+        searchText = self:GetText() or ""
+        ApplySearch(); scrollBar:SetValue(0); Render(); UpdateSearchChrome()
     end)
-    EbonBuilds.Theme.BindScrollWheel(scrollFrame, scrollBar, ROW_HEIGHT, scrollChild)
-
-    emptyText = listPanel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    emptyText:SetPoint("CENTER", listPanel, "CENTER", 0, 10)
-    emptyText:SetText("No Echoes match your search.\nTry a shorter or different name.")
-    emptyText:SetJustifyH("CENTER")
-    emptyText:SetTextColor(unpack(EbonBuilds.Theme.TEXT_MUTED))
-    emptyText:Hide()
-
-    _G.UISpecialFrames = _G.UISpecialFrames or {}
-    tinsert(_G.UISpecialFrames, "EbonBuildsEchoPicker")
-
-    f:SetScript("OnHide", function()
-        if searchBox then searchBox:ClearFocus() end
-        onPick = nil
+    searchBox:SetScript("OnEditFocusGained", UpdateSearchChrome)
+    searchBox:SetScript("OnEditFocusLost", UpdateSearchChrome)
+    searchBox:SetScript("OnEnterPressed", function() if filtered[1] then Pick(filtered[1]) end end)
+    searchBox:SetScript("OnEscapePressed", function(self)
+        if self:GetText() ~= "" then ClearSearch(true) else self:ClearFocus(); f:Hide() end
     end)
 
+    UISpecialFrames = UISpecialFrames or {}
+    table.insert(UISpecialFrames, "EbonBuildsEchoPicker")
+    f:SetScript("OnHide", function() searchBox:ClearFocus(); onPick = nil end)
     f:Hide()
     return f
 end
 
-------------------------------------------------------------------------
--- Public
-------------------------------------------------------------------------
+function Picker.DataForClass(classToken)
+    return StrictEntries(classToken)
+end
 
-function EbonBuilds.EchoPicker.Show(callback, dataSource)
+function Picker.Show(callback, dataSource, classToken)
     if not frame then frame = BuildFrame() end
-    if type(dataSource) == "table" then
-        allEntries = dataSource
-    elseif dataSource then
-        allEntries = EbonBuilds.EchoTableRows.BuildAllQualitiesList()
-    else
-        allEntries = BuildEntries()
-    end
+    activeClass = tostring(classToken or activeClass or EbonBuilds.Build.PlayerClassToken()):upper()
+    allEntries = type(dataSource) == "table" and dataSource or StrictEntries(activeClass)
     onPick = callback
+    classContextText:SetText("Only verified " .. ClassLabel(activeClass) .. " Echoes are shown.")
+    searchPlaceholder:SetText("Search " .. ClassLabel(activeClass) .. " Echoes or aliases...")
     searchBox:SetText("")
-    searchText = ""
-    ApplySearch()
-    if scrollBar then scrollBar:SetValue(0) end
-    Render()
-    frame:Show()
-    searchBox:SetFocus()
-    UpdateSearchChrome()
+    searchText, scrollOffset = "", 0
+    ApplySearch(); scrollBar:SetValue(0); Render(); UpdateSearchChrome()
+    frame:Show(); searchBox:SetFocus()
 end
 
-function EbonBuilds.EchoPicker.Hide()
-    if frame then frame:Hide() end
+function Picker.ShowForLock(callback, dataSource, classToken)
+    classToken = classToken or activeClass or EbonBuilds.Build.PlayerClassToken()
+    Picker.Show(function(spellId, quality, name, refKey)
+        if callback then callback(spellId, quality, name, refKey) end
+    end, type(dataSource) == "table" and dataSource or StrictEntries(classToken), classToken)
 end
+
+function Picker.ShowForPriority(callback, dataSource, classToken)
+    classToken = classToken or activeClass or EbonBuilds.Build.PlayerClassToken()
+    Picker.Show(function(spellId, quality, name, refKey)
+        if callback then callback(refKey or name, spellId, quality, name) end
+    end, type(dataSource) == "table" and dataSource or StrictEntries(classToken), classToken)
+end
+
+function Picker.Hide() if frame then frame:Hide() end end

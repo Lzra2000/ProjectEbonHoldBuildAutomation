@@ -60,91 +60,45 @@ end
 
 local function BuildBestByName()
     local best = {}
-    for spellId, data in pairs(ProjectEbonhold.PerkDatabase) do
-        local raw = data.comment
-        if raw and raw ~= "" then
-            local name = StripQualitySuffix(raw)
-            local existing = best[name]
-            local mask = data.classMask or 0
-            if not existing then
-                existing = {
-                    spellId = spellId,
-                    quality = data.quality,
-                    qualities = {},
-                    families = data.families or {},
-                    classMask = mask,
-                    spellIds = {},
-                    groupIds = {},
-                }
-                best[name] = existing
-            else
-                existing.classMask = bit.bor(existing.classMask or 0, mask)
-                if data.quality > existing.quality then
-                    existing.spellId = spellId
-                    existing.quality = data.quality
-                    existing.families = data.families or {}
-                end
-            end
-            existing.qualities[data.quality] = true
-            existing.spellIds[data.quality] = spellId
-            if data.groupId then existing.groupIds[data.groupId] = true end
-        end
+    local catalog = EbonBuilds.EchoCatalog
+    if not catalog then return best end
+    for _, entry in ipairs(catalog.GetSortedList() or {}) do
+        best[entry.refKey or entry.name] = entry
     end
     return best
 end
 
 Rows.BuildBestByName = BuildBestByName
 
-local cachedSortedList, cachedDbCount
-
-local function CountDb()
-    local n = 0
-    for _ in pairs(ProjectEbonhold.PerkDatabase) do n = n + 1 end
-    return n
-end
-
 function Rows.BuildSortedList()
-    local count = CountDb()
-    if cachedSortedList and cachedDbCount == count then return cachedSortedList end
-
-    local list = {}
-    for name, entry in pairs(BuildBestByName()) do
-        list[#list + 1] = {
-            spellId = entry.spellId,
-            name = name,
-            quality = entry.quality,
-            qualities = entry.qualities,
-            families = entry.families,
-            classMask = entry.classMask or 0,
-            spellIds = entry.spellIds,
-            groupIds = entry.groupIds,
-        }
-    end
-    table.sort(list, function(a, b) return a.name < b.name end)
-    cachedSortedList, cachedDbCount = list, count
-    return list
+    return EbonBuilds.EchoCatalog and EbonBuilds.EchoCatalog.GetSortedList() or {}
 end
 
 function Rows.InvalidateCache()
-    cachedSortedList, cachedDbCount = nil, nil
+    if EbonBuilds.EchoCatalog then EbonBuilds.EchoCatalog.Invalidate() end
 end
 
 function Rows.BuildAllQualitiesList()
     local list = {}
-    for spellId, data in pairs(ProjectEbonhold.PerkDatabase) do
-        local raw = data.comment
-        if raw and raw ~= "" then
+    local catalog = EbonBuilds.EchoCatalog
+    if not catalog then return list end
+    for _, entry in ipairs(catalog.GetSortedList() or {}) do
+        for _, variant in ipairs(entry.variants or {}) do
             list[#list + 1] = {
-                spellId = spellId,
-                name = StripQualitySuffix(raw),
-                quality = data.quality,
-                classMask = data.classMask or 0,
+                spellId = variant.spellId,
+                name = entry.name,
+                quality = variant.quality,
+                classMask = variant.classMask or 0,
+                groupId = variant.groupId,
+                families = variant.families or {},
+                semantics = variant.semantics,
             }
         end
     end
     table.sort(list, function(a, b)
         if a.name ~= b.name then return a.name < b.name end
-        return a.quality > b.quality
+        if a.quality ~= b.quality then return a.quality > b.quality end
+        return a.spellId < b.spellId
     end)
     return list
 end
@@ -191,7 +145,7 @@ local function MaxTotalScore(entry)
     local any = false
     for _, quality in ipairs(QUALITY_ORDER) do
         if entry.qualities and entry.qualities[quality] then
-            local weight = EbonBuilds.Weights.Get(entry.name, quality) or 0
+            local weight = EbonBuilds.Weights.GetForRef(EbonBuilds.Build.GetActive(), entry.refKey, quality) or 0
             local score = EbonBuilds.Scoring.ScorePerQuality(entry, weight, settings, quality)
             if maxScore == nil or score > maxScore then maxScore = score end
             any = true
@@ -199,7 +153,7 @@ local function MaxTotalScore(entry)
     end
     if not any then
         local quality = entry.quality or 0
-        local weight = EbonBuilds.Weights.Get(entry.name, quality) or 0
+        local weight = EbonBuilds.Weights.GetForRef(EbonBuilds.Build.GetActive(), entry.refKey, quality) or 0
         maxScore = EbonBuilds.Scoring.ScorePerQuality(entry, weight, settings, quality)
     end
     return maxScore or 0
@@ -236,7 +190,7 @@ local function UpdateScores(row, entry)
             elseif spellId and EbonBuilds.Scoring.IsBanned(spellId, settings) then
                 cell.scoreLabel:SetText("|cff" .. QUALITY_COLORS[quality] .. "Banned|r")
             else
-                local weight = EbonBuilds.Weights.Get(entry.name, quality)
+                local weight = EbonBuilds.Weights.GetForRef(EbonBuilds.Build.GetActive(), entry.refKey, quality)
                 local score = EbonBuilds.Scoring.ScorePerQuality(entry, weight, settings, quality)
                 cell.scoreLabel:SetText(string.format("|cff%sScore %d|r", QUALITY_COLORS[quality], score))
             end
@@ -270,9 +224,14 @@ local function WireIconTooltip(iconFrame)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         GameTooltip:ClearLines()
         if spellName then GameTooltip:AddLine(spellName, 1, 0.82, 0) end
-        if utils and utils.GetSpellDescription then
-            local description = utils.GetSpellDescription(self.spellId, 500, 1)
-            if description and description ~= "" then GameTooltip:AddLine(description, 1, 1, 1, true) end
+        local description = EbonBuilds.EchoCatalog and EbonBuilds.EchoCatalog.GetDescription(self.spellId, 500, 1)
+        if not description and utils and utils.GetSpellDescription then
+            description = utils.GetSpellDescription(self.spellId, 500, 1)
+        end
+        if description and description ~= "" then GameTooltip:AddLine(description, 1, 1, 1, true) end
+        if EbonBuilds.EchoSemantics then
+            GameTooltip:AddLine(" ")
+            EbonBuilds.EchoSemantics.AddTooltip(self.spellId)
         end
         if spellName and EbonBuilds.Calibration and EbonBuilds.Calibration.GetAppearanceStats then
             local appearanceName = EbonBuilds.Weights.CanonicalName(self.spellId) or spellName
@@ -312,8 +271,8 @@ local function UpdatePolicyVisual(row, entry, selectedNames)
     if not row.policyDropdown or not entry then return end
     local api = EbonBuilds.EchoPolicy
     local settings = GetSettings()
-    local policy = api and api.Get(settings, entry.name) or "normal"
-    local selected = api and api.IsSelected(entry.name, selectedNames) or false
+    local policy = api and api.Get(settings, entry.refKey or entry.name) or "normal"
+    local selected = api and api.IsSelected(entry.refKey or entry.name, selectedNames) or false
     local definition = PolicyDefinition(policy)
     row.policyDropdown:SetText(definition.shortLabel or definition.label)
     if row.policyDropdown._label then row.policyDropdown._label:SetTextColor(unpack(definition.color or EbonBuilds.Theme.TEXT_PRIMARY)) end
@@ -334,8 +293,8 @@ local function CreatePolicyDropdown(row)
         local entry = row._entry
         if not api or not entry then return {} end
         local settings = GetSettings()
-        local current = api.Get(settings, entry.name)
-        local selected = api.IsSelected(entry.name)
+        local current = api.Get(settings, entry.refKey or entry.name)
+        local selected = api.IsSelected(entry.refKey or entry.name)
         local items = {}
         for _, policy in ipairs(api.ORDER or {}) do
             local policyKey = policy
@@ -350,7 +309,7 @@ local function CreatePolicyDropdown(row)
                     local liveEntry = row._entry
                     if not liveEntry then return end
                     local liveSettings = GetSettings()
-                    api.Set(liveSettings, liveEntry.name, policyKey)
+                    api.Set(liveSettings, liveEntry.refKey or liveEntry.name, policyKey)
                     if api.IsBanishPolicy(policyKey) then
                         liveSettings.echoWhitelist = liveSettings.echoWhitelist or {}
                         liveSettings.echoWhitelist[liveEntry.name] = nil
@@ -373,7 +332,7 @@ local function CreatePolicyDropdown(row)
             local api = EbonBuilds.EchoPolicy
             if not entry or not api then return end
             local policy = api.Get(GetSettings(), entry.name)
-            local selected = api.IsSelected(entry.name)
+            local selected = api.IsSelected(entry.refKey or entry.name)
             local definition = api.Definition(policy)
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
             GameTooltip:AddLine(definition.label, 1, 0.82, 0)
@@ -427,9 +386,9 @@ local function CreateProtectToggle(row)
             settings.echoWhitelist[entry.name] = true
             RemoveBanConflicts(settings, entry)
             if EbonBuilds.EchoPolicy then
-                local policy = EbonBuilds.EchoPolicy.Get(settings, entry.name)
+                local policy = EbonBuilds.EchoPolicy.Get(settings, entry.refKey or entry.name)
                 if EbonBuilds.EchoPolicy.IsBanishPolicy(policy) then
-                    EbonBuilds.EchoPolicy.Set(settings, entry.name, EbonBuilds.EchoPolicy.NORMAL)
+                    EbonBuilds.EchoPolicy.Set(settings, entry.refKey or entry.name, EbonBuilds.EchoPolicy.NORMAL)
                 end
             end
         else
@@ -493,9 +452,14 @@ local function ApplyWeight(box)
         return false, validationError
     end
 
-    local previous = EbonBuilds.Weights.Get(box.echoName, box.quality)
+    local previous = (box.echoRefKey and EbonBuilds.Weights.GetForRef(EbonBuilds.Build.GetActive(), box.echoRefKey, box.quality) or EbonBuilds.Weights.Get(box.echoName, box.quality))
     if previous ~= parsed then
-        local ok, err = EbonBuilds.Weights.Set(box.echoName, parsed, box.quality)
+        local ok, err
+        if box.echoRefKey then
+            ok, err = EbonBuilds.Weights.SetForRef(EbonBuilds.Build.GetActive(), box.echoRefKey, parsed, box.quality)
+        else
+            ok, err = EbonBuilds.Weights.Set(box.echoName, parsed, box.quality)
+        end
         if not ok then
             SetError(box, err or "Invalid value.")
             return false, err
@@ -542,7 +506,7 @@ local function RevertInvalidBeforeRecycle(row, nextEntry)
     local oldName, oldQuality = box.echoName, box.quality
     local ok = ApplyWeight(box)
     if not ok then
-        box:SetText(tostring(EbonBuilds.Weights.Get(oldName, oldQuality)))
+        box:SetText(tostring((box.echoRefKey and EbonBuilds.Weights.GetForRef(EbonBuilds.Build.GetActive(), box.echoRefKey, oldQuality) or EbonBuilds.Weights.Get(oldName, oldQuality))))
         ClearError(box)
         if EbonBuilds.Toast and EbonBuilds.Toast.Show then
             EbonBuilds.Toast.Show("Invalid Echo value was not applied")
@@ -574,7 +538,7 @@ local function WireWeightBox(box)
         self:HighlightText()
     end)
     box:SetScript("OnEscapePressed", function(self)
-        self:SetText(tostring(EbonBuilds.Weights.Get(self.echoName, self.quality)))
+        self:SetText(tostring((self.echoRefKey and EbonBuilds.Weights.GetForRef(EbonBuilds.Build.GetActive(), self.echoRefKey, self.quality) or EbonBuilds.Weights.Get(self.echoName, self.quality))))
         self._error = nil
         activeEditBox = nil
         self:ClearFocus()
@@ -823,13 +787,14 @@ function Rows.Populate(row, yOffset, entry, selectedNames)
             if activeSortKey == ("rank:" .. quality) then cell.sortTint:Show() else cell.sortTint:Hide() end
         end
         cell.editBox.echoName = entry.name
+        cell.editBox.echoRefKey = entry.refKey
         cell.editBox._error = nil
         if available then
             cell.editContainer:Show()
             cell.scoreLabel:Show()
             cell.unavailable:Hide()
             if cell.unavailableBg then cell.unavailableBg:Hide() end
-            cell.editBox:SetText(tostring(EbonBuilds.Weights.Get(entry.name, quality)))
+            cell.editBox:SetText(tostring(EbonBuilds.Weights.GetForRef(EbonBuilds.Build.GetActive(), entry.refKey, quality)))
             RestoreBorder(cell.editBox)
         else
             cell.editContainer:Hide()

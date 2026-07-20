@@ -83,10 +83,12 @@ local function ApplyShellLayout(frame, requested)
     frame._responsiveLayout = layout
     frame:SetSize(layout.width, layout.height)
     if frame._left then frame._left:SetWidth(layout.sidebar) end
+    -- Set the frame scale first so Theme.SetAppliedScale can inspect each
+    -- control's final effective scale before choosing the safe edge width.
+    frame:SetScale(layout.scale)
     if EbonBuilds.Theme and EbonBuilds.Theme.SetAppliedScale then
         EbonBuilds.Theme.SetAppliedScale(layout.scale)
     end
-    frame:SetScale(layout.scale)
     if EbonBuilds.BuildList and EbonBuilds.BuildList.RefreshLayout then
         EbonBuilds.BuildList.RefreshLayout()
     end

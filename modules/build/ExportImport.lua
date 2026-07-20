@@ -263,7 +263,7 @@ end
 -- Export / Import logic
 ------------------------------------------------------------------------
 
-local EXPORT_VERSION = 3
+local EXPORT_VERSION = 4
 
 local function ClampText(value, limit, fallback)
 	value = type(value) == "string" and value or fallback or ""
@@ -287,11 +287,19 @@ local function IsSafeTree(root, maxDepth, maxNodes)
 end
 
 local function BuildExportData(build)
-	local filteredWeights = {}
+	if EbonBuilds.EchoReferenceMigration then EbonBuilds.EchoReferenceMigration.Ensure(build) end
+	local filteredWeights, filteredRefWeights = {}, {}
 	if build.echoWeights then
 		for name, weight in pairs(build.echoWeights) do
 			if EbonBuilds.Weights.HasNonZero(weight) then
 				filteredWeights[name] = EbonBuilds.Weights.NormalizeEntry(weight)
+			end
+		end
+	end
+	if build.echoWeightsByRef then
+		for refKey, weight in pairs(build.echoWeightsByRef) do
+			if type(refKey) == "string" and refKey:match("^[gs]:%d+$") and EbonBuilds.Weights.HasNonZero(weight) then
+				filteredRefWeights[refKey] = EbonBuilds.Weights.NormalizeEntry(weight)
 			end
 		end
 	end
@@ -304,6 +312,12 @@ local function BuildExportData(build)
 		comments = build.comments,
 		lockedEchoes = build.lockedEchoes or { nil, nil, nil, nil, nil, nil },
 		echoWeights = filteredWeights,
+		echoWeightsByRef = filteredRefWeights,
+		echoRefs = build.echoRefs,
+		echoSchema = build.echoSchema,
+		echoCatalogFingerprint = build.echoCatalogFingerprint,
+		unresolvedEchoWeights = build.unresolvedEchoWeights,
+		wizardMeta = build.wizardMeta,
 		settings = build.settings,
 		isPublic = build.isPublic or false,
 		validated = build.validated or false,
@@ -379,6 +393,23 @@ function EbonBuilds.ExportImport.DecodeBuild(b64String)
 		end
 		echoWeights = EbonBuilds.Weights.NormalizeWeights(clean)
 	end
+	local echoWeightsByRef = nil
+	if type(data.echoWeightsByRef) == "table" and next(data.echoWeightsByRef) then
+		local clean, count = {}, 0
+		for refKey, entry in pairs(data.echoWeightsByRef) do
+			if type(refKey) ~= "string" or not refKey:match("^[gs]:%d+$") or #refKey > 40 then return nil end
+			count = count + 1
+			if count > MAX_WEIGHT_ENTRIES then return nil end
+			if type(entry) ~= "table" and type(entry) ~= "number" and type(entry) ~= "string" then return nil end
+			local normalized = EbonBuilds.Weights.NormalizeEntry(entry)
+			for _, rank in ipairs(EbonBuilds.Quality.ORDER or {}) do
+				if EbonBuilds.Weights.Validate(normalized[rank]) == nil then return nil end
+			end
+			clean[refKey] = normalized
+		end
+		echoWeightsByRef = EbonBuilds.Weights.NormalizeRefWeights(clean)
+	end
+
 	local settings = type(data.settings) == "table" and data.settings or EbonBuilds.Build.DefaultSettings()
 	if type(settings.echoPolicies) == "table" then
 		local policyCount = 0
@@ -393,6 +424,16 @@ function EbonBuilds.ExportImport.DecodeBuild(b64String)
 		DEATHKNIGHT = true, SHAMAN = true, MAGE = true, WARLOCK = true, DRUID = true }
 	local class = type(data.class) == "string" and data.class:upper() or EbonBuilds.Build.PlayerClassToken()
 	if not validClasses[class] then return nil end
+	-- Reject known cross-class exact locks. Unknown legacy spell IDs remain
+	-- importable for diagnostics, but a spell the active catalog can prove is
+	-- unavailable to the build class must never become an active lock.
+	for slot = 1, EbonBuilds.Build.LOCKED_SLOTS do
+		local spellId = locked[slot]
+		if spellId and EbonBuilds.EchoCatalog and EbonBuilds.EchoCatalog.GetBySpellId(spellId)
+			and EbonBuilds.EchoProjection and not EbonBuilds.EchoProjection.ResolveSpell(class, spellId) then
+			return nil
+		end
+	end
 
 	local build = EbonBuilds.Build.NewObject({
 		title       = ClampText(data.title, 80, "Imported Build"),
@@ -401,6 +442,12 @@ function EbonBuilds.ExportImport.DecodeBuild(b64String)
 		comments    = ClampText(data.comments, 4000, ""),
 		lockedEchoes = locked,
 		echoWeights = echoWeights,
+		echoWeightsByRef = echoWeightsByRef,
+		echoRefs = type(data.echoRefs) == "table" and data.echoRefs or nil,
+		echoSchema = tonumber(data.echoSchema) or (echoWeightsByRef and 2 or nil),
+		echoCatalogFingerprint = type(data.echoCatalogFingerprint) == "string" and data.echoCatalogFingerprint:sub(1, 120) or nil,
+		unresolvedEchoWeights = type(data.unresolvedEchoWeights) == "table" and data.unresolvedEchoWeights or nil,
+		wizardMeta = type(data.wizardMeta) == "table" and data.wizardMeta or nil,
 		settings    = settings,
 		isPublic    = data.isPublic or false,
 		validated   = data.validated or false,

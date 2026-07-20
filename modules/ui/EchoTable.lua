@@ -467,8 +467,8 @@ function EbonBuilds.EchoTable.ApplyPolicyToFiltered(policy)
     local count = 0
     local changed = false
     for _, entry in ipairs(filteredList or {}) do
-        if api.Get(settings, entry.name) ~= policy then
-            api.Set(settings, entry.name, policy)
+        if api.Get(settings, entry.refKey or entry.name) ~= policy then
+            api.Set(settings, entry.refKey or entry.name, policy)
             count = count + 1
             changed = true
         end

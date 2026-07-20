@@ -68,6 +68,23 @@ end
 
 P.CanonicalName = CanonicalName
 
+local function ReferenceKey(value)
+    if value == nil then return nil end
+    if type(value) == "table" then
+        if value.refKey and tostring(value.refKey):match("^[gs]:%d+$") then return tostring(value.refKey) end
+        value = value.spellId or value.id or value.name or value.comment
+    end
+    local text = tostring(value)
+    if text:match("^[gs]:%d+$") then return text end
+    if type(value) == "number" or text:match("^%d+$") then
+        return EbonBuilds.EchoCatalog and EbonBuilds.EchoCatalog.GetRefForSpell(tonumber(value)) or nil
+    end
+    local refs = EbonBuilds.EchoCatalog and EbonBuilds.EchoCatalog.FindRefs(text) or {}
+    return #refs == 1 and refs[1] or nil
+end
+
+P.ReferenceKey = ReferenceKey
+
 function P.IsValid(policy)
     return VALID[policy] and true or false
 end
@@ -81,12 +98,15 @@ function P.Normalize(settings)
     local source = type(settings.echoPolicies) == "table" and settings.echoPolicies or {}
     local clean = {}
     for rawName, rawPolicy in pairs(source) do
+        local refKey = ReferenceKey(rawName)
         local name = CanonicalName(rawName)
+        local key = refKey or name
         local policy = tostring(rawPolicy or "")
-        if name and VALID[policy] and policy ~= P.NORMAL then
-            clean[name] = policy
+        if key and VALID[policy] and policy ~= P.NORMAL then
+            clean[key] = policy
             if P.IsBanishPolicy(policy) and type(settings.echoWhitelist) == "table" then
-                settings.echoWhitelist[name] = nil
+                settings.echoWhitelist[key] = nil
+                if name then settings.echoWhitelist[name] = nil end
             end
         end
     end
@@ -97,18 +117,47 @@ end
 function P.Get(settings, value)
     if type(settings) ~= "table" then return P.NORMAL end
     local policies = type(settings.echoPolicies) == "table" and settings.echoPolicies or {}
+    local literal = type(value) == "string" and value or nil
+    local refKey = ReferenceKey(value)
     local name = CanonicalName(value)
-    local policy = name and policies[name]
+    local policy = (literal and policies[literal]) or (refKey and policies[refKey]) or (name and policies[name])
     return VALID[policy] and policy or P.NORMAL
+end
+
+-- Writes a policy under an already validated canonical Echo reference. This
+-- bypasses catalogue/name resolution and is used by the Build Wizard, which
+-- already owns stable g:/s: refKeys. It prevents an Avoid policy from being
+-- lost when spell metadata is unavailable during build creation.
+function P.SetRef(settings, refKey, policy)
+    if type(settings) ~= "table" then return false end
+    refKey = tostring(refKey or "")
+    if not refKey:match("^[gs]:%d+$") then return false end
+    policy = VALID[policy] and policy or P.NORMAL
+    settings.echoPolicies = type(settings.echoPolicies) == "table" and settings.echoPolicies or {}
+    if policy == P.NORMAL then settings.echoPolicies[refKey] = nil
+    else settings.echoPolicies[refKey] = policy end
+    return true
+end
+
+function P.EnsureNeverPick(settings, refKey)
+    return P.SetRef(settings, refKey, P.NEVER_PICK)
 end
 
 function P.Set(settings, value, policy)
     if type(settings) ~= "table" then return false end
+    local refKey = ReferenceKey(value)
     local name = CanonicalName(value)
-    if not name then return false end
+    local key = refKey or name
+    if not key then return false end
     policy = VALID[policy] and policy or P.NORMAL
     settings.echoPolicies = type(settings.echoPolicies) == "table" and settings.echoPolicies or {}
-    if policy == P.NORMAL then settings.echoPolicies[name] = nil else settings.echoPolicies[name] = policy end
+    if policy == P.NORMAL then
+        settings.echoPolicies[key] = nil
+        if refKey and name then settings.echoPolicies[name] = nil end
+    else
+        settings.echoPolicies[key] = policy
+        if refKey and name then settings.echoPolicies[name] = nil end
+    end
     return true
 end
 
@@ -138,6 +187,8 @@ local function MarkSelected(set, value)
     else
         name = CanonicalName(value)
     end
+    local refKey = ReferenceKey(value)
+    if refKey then set[refKey] = true end
     if name then set[name] = true end
 end
 
@@ -170,9 +221,10 @@ function P.SelectedNames()
 end
 
 function P.IsSelected(value, selectedNames)
+    local refKey = ReferenceKey(value)
     local name = CanonicalName(value)
     selectedNames = selectedNames or P.SelectedNames()
-    return name and selectedNames[name] and true or false
+    return (refKey and selectedNames[refKey]) or (name and selectedNames[name]) or false
 end
 
 function P.Resolve(policy, selected)

@@ -149,7 +149,7 @@ local function ScoreChoice(choice, settings)
     -- Weights are keyed by the DB comment (e.g. "Warrior - Voidsteel
     -- Bulwark"), NOT the spell name -- for class-specific echoes those
     -- differ, and a spell-name lookup silently returned 0.
-    local weight = EbonBuilds.Weights.Get(EbonBuilds.Weights.CanonicalName(spellId), choice.quality) or 0
+    local weight = EbonBuilds.Weights.GetForSpell(EbonBuilds.Build.GetActive(), spellId, choice.quality) or 0
     -- Novelty only applies if the player has never picked this echo (by name,
     -- across all quality tiers). Once picked, all qualities lose the bonus.
     local granted = ProjectEbonhold.PerkService.GetGrantedPerks()
@@ -205,7 +205,7 @@ local function ScoreLockedEcho(lockedId, settings)
         families  = data.families,
         classMask = data.classMask,
     }
-    local w = EbonBuilds.Weights.Get(EbonBuilds.Weights.CanonicalName(lockedId), data.quality or 0) or 0
+    local w = EbonBuilds.Weights.GetForSpell(EbonBuilds.Build.GetActive(), lockedId, data.quality or 0) or 0
     return EbonBuilds.Scoring.Score(entry, w, settings)
 end
 
@@ -450,7 +450,7 @@ function EbonBuilds.Automation.Evaluate()
             for _, s in ipairs(scored) do
                 EbonBuilds.DebugLog.AddF("  [%d] %s q=%d score=%.0f w=%d%s%s%s",
                     s.index, s.name, s.quality or 0, s.score or 0,
-                    EbonBuilds.Weights.Get(EbonBuilds.Weights.CanonicalName(s.spellId), s.quality) or 0,
+                    EbonBuilds.Weights.GetForSpell(build, s.spellId, s.quality) or 0,
                     s.isFrozen and " FROZEN" or "",
                     s.isCarried and " CARRIED" or "",
                     locallyFrozenIndices[s.index] and " localFrozen" or "")
