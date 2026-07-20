@@ -264,6 +264,11 @@ The gear score is directional build guidance, not a best-in-slot verdict. Uncach
 
 ## Changelog
 
+### 3.41 (2026-07-20) -- Handler protection: BuildWizardPriorityStep.lua
+
+- `modules/ui/BuildWizardPriorityStep.lua` -- 5 frames now opt into `EbonBuilds.Debug.ProtectScript` at creation (dismiss overlay, grouped-priority popup, per-row inspect and evidence buttons, search box).
+- Remaining files, largest first: MainWindow, BuildWizard, Calibration, TomeAtlasView, CharacterView, and others.
+
 ### 3.40 (2026-07-20) -- Handler protection: SettingsView.lua
 
 - `modules/ui/SettingsView.lua` -- 5 frames now opt into `EbonBuilds.Debug.ProtectScript` at creation (two threshold/row sliders, an edit box, the ban-list icon button, and the settings scroll frame).

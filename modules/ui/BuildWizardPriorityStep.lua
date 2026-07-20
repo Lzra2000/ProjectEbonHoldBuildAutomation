@@ -642,6 +642,9 @@ local function CreatePriorityPopup(component)
     -- Full-screen click catcher sits below the popup, so clicks outside close
     -- it while the popup and its option buttons remain fully interactive.
     local dismiss = CreateFrame("Button", "EbonBuildsGroupedPriorityDismiss", UIParent)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(dismiss, "BuildWizardPriorityStep.Dismiss")
+    end
     dismiss:SetAllPoints(UIParent)
     dismiss:SetFrameStrata("FULLSCREEN_DIALOG")
     dismiss:SetFrameLevel(999)
@@ -652,6 +655,9 @@ local function CreatePriorityPopup(component)
     dismiss:Hide()
 
     local popup = CreateFrame("Frame", "EbonBuildsGroupedPriorityPopup", UIParent)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(popup, "BuildWizardPriorityStep.Popup")
+    end
     popup:SetFrameStrata("FULLSCREEN_DIALOG")
     popup:SetFrameLevel(1001)
     popup:SetToplevel(true)
@@ -714,6 +720,9 @@ local function CreateRow(component, parent)
     row.ownerComponent = component
 
     local inspect = CreateFrame("Button", nil, row)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(inspect, "BuildWizardPriorityStep.InspectButton")
+    end
     inspect:SetPoint("TOPLEFT", row, "TOPLEFT", 1, -1)
     inspect:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", -258, 1)
     inspect.ownerRow = row
@@ -728,6 +737,9 @@ local function CreateRow(component, parent)
     meta:SetPoint("RIGHT", inspect, "RIGHT", -3, 0)
 
     local evidence = CreateFrame("Button", nil, row)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(evidence, "BuildWizardPriorityStep.EvidenceButton")
+    end
     evidence:SetSize(EVIDENCE_WIDTH, 24)
     evidence:SetPoint("RIGHT", row, "RIGHT", -149, 0)
     evidence.ownerRow = row
@@ -962,6 +974,9 @@ function PriorityStep.Create(parent, options)
     component.description = description
 
     local search = CreateFrame("EditBox", nil, main)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(search, "BuildWizardPriorityStep.Search")
+    end
     search:SetSize(180, 24)
     search:SetPoint("TOPLEFT", main, "TOPLEFT", 0, -56)
     search:SetAutoFocus(false)
