@@ -264,6 +264,11 @@ The gear score is directional build guidance, not a best-in-slot verdict. Uncach
 
 ## Changelog
 
+### 3.50 (2026-07-20) -- Handler protection: MinimapButton.lua
+
+- `modules/ui/MinimapButton.lua` -- the minimap button itself now opts into `EbonBuilds.Debug.ProtectScript`.
+- Remaining files: PublicBuildsView, ExportImport, EchoPicker, AffixView (handler protection specifically -- its search box was already fixed in 3.48), BonusView.
+
 ### 3.49 (2026-07-20) -- Auto-Sell keep-list & category filters; two new Bag Dots colors
 
 **Auto-Sell** (Settings -> Convenience & Diagnostics) can now be tuned instead of being all-or-nothing:

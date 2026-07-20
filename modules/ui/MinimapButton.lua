@@ -27,6 +27,9 @@ end
 
 local function CreateButton()
     local button = CreateFrame("Button", BUTTON_NAME, Minimap)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(button, "MinimapButton.Button")
+    end
     button:SetWidth(32)
     button:SetHeight(32)
     button:SetFrameStrata("MEDIUM")
