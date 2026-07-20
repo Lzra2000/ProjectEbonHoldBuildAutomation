@@ -1,6 +1,6 @@
 ## Interface: 30300
 ## Title: EbonBuilds
-## Version: 3.38
+## Version: 3.39
 ## OptionalDeps: ProjectEbonhold, ProjectEbonholdEnhanced, EchoWishlist
 ## SavedVariables: EbonBuildsDB
 ## SavedVariablesPerCharacter: EbonBuildsCharDB
