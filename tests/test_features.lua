@@ -98,6 +98,8 @@ dofile("modules/build/Scoring.lua")
 dofile("modules/build/ExportImport.lua")
 dofile("modules/build/EWL.lua")
 dofile("modules/automation/Calibration.lua")
+dofile("core/RingBuffer.lua")
+dofile("modules/automation/EchoSamples.lua")
 dofile("modules/automation/EchoPerformance.lua")
 dofile("modules/automation/Automation.lua")
 dofile("modules/automation/ManualTraining.lua")
@@ -745,8 +747,8 @@ do
     local originalCatalog = EbonBuilds.EchoTableRows.BuildBestByName
     EbonBuilds.EchoTableRows.BuildBestByName = function()
         return {
-            ["Scorching Wounds"] = { quality = 2, qualities = { [0] = true, [1] = true, [2] = true }, classMask = 128 },
-            ["Arcane Bond"] = { quality = 2, qualities = { [2] = true }, classMask = 128 },
+            ["Scorching Wounds"] = { quality = 2, qualities = { [0] = true, [1] = true, [2] = true }, classMask = 128, families = { "Caster" } },
+            ["Arcane Bond"] = { quality = 2, qualities = { [2] = true }, classMask = 128, families = { "Caster" } },
         }
     end
     local build = EbonBuilds.Build.GetActive()
@@ -754,11 +756,12 @@ do
         ["Scorching Wounds"] = { [0] = 0, [1] = 5, [2] = 10 },
         ["Arcane Bond"] = { [2] = 10 },
     }
-    EbonBuildsCharDB.echoPerformance = {
-        ["Scorching Wounds"] = { sum = 1000, count = 10 },
-        ["Arcane Bond"] = { sum = 2400, count = 12 },
-    }
-    EbonBuildsCharDB.echoPerformanceCommunity = {}
+    -- Redesign: suggestions consume with/without deltas from whole-set
+    -- samples, not the removed per-echo averages -- so the fixture is
+    -- runs where each echo's presence differs, both sides reliable.
+    EbonBuilds.EchoSamples.Clear()
+    for _ = 1, 12 do EbonBuilds.EchoSamples.Record({ "Scorching Wounds" }, 100) end
+    for _ = 1, 12 do EbonBuilds.EchoSamples.Record({ "Arcane Bond" }, 200) end
     local suggestions = EbonBuilds.EchoPerformance.SuggestWeightAdjustments(build)
     check(#suggestions > 0, "DPS data can produce suggestions with rank tables")
     check(suggestions[1].applyAllRanks == true and suggestions[1].quality == nil,
@@ -848,21 +851,27 @@ do
     for i = 1, 5 do build.echoWeights["Caster" .. i] = 100 end
     for i = 1, 5 do build.echoWeights["Multi" .. i] = 100 end
 
-    EbonBuilds.EchoPerformance.Clear()
-    EbonBuildsCharDB.echoPerformance = {}
-    for i = 1, 5 do EbonBuildsCharDB.echoPerformance["Tank" .. i] = { sum = (2000 + i * 5) * 10, count = 10 } end
-    for i = 1, 5 do EbonBuildsCharDB.echoPerformance["Caster" .. i] = { sum = (1000 + i * 5) * 10, count = 10 } end
-    for i = 1, 5 do EbonBuildsCharDB.echoPerformance["Multi" .. i] = { sum = (5000 + i * 5) * 10, count = 10 } end
-    EbonBuildsCharDB.echoPerformanceCommunity = {}
+    -- Redesign fixture: whole-set samples. Caster echoes appear in
+    -- low-DPS runs, Tank/Multi in high ones -- with/without deltas make
+    -- the Caster tier negative.
+    EbonBuilds.EchoSamples.Clear()
+    -- Per-echo DPS variance is deliberate: identical deltas would trip
+    -- the co-active-cluster filter, which correctly refuses to judge
+    -- echoes it cannot tell apart -- real data always varies.
+    for i = 1, 5 do for _ = 1, 12 do EbonBuilds.EchoSamples.Record({ "Caster" .. i }, 1000 + i * 17) end end
+    for i = 1, 5 do for _ = 1, 12 do EbonBuilds.EchoSamples.Record({ "Tank" .. i }, 2000 + i * 17) end end
+    for i = 1, 5 do for _ = 1, 12 do EbonBuilds.EchoSamples.Record({ "Multi" .. i }, 5000 + i * 17) end end
 
     local familySuggestions = EbonBuilds.EchoPerformance.SuggestFamilyBonusAdjustment(build)
-    check(#familySuggestions == 2, "Family Bonus flags exactly the two pure-family tiers")
     local byFamily = {}
     for _, s in ipairs(familySuggestions) do byFamily[s.family] = s end
-    check(byFamily.Tank and byFamily.Tank.suggestedBonus > byFamily.Tank.currentBonus,
-        "higher-value pure-Tank tier is suggested upward")
+    -- New semantics, the point of the redesign's utility filter: the
+    -- pure-Tank tier gets NO DPS-based suggestion at all -- DPS evidence
+    -- says nothing about tanking value, so pretending otherwise was the
+    -- Cavalry Instincts bug wearing a different hat.
+    check(byFamily.Tank == nil, "pure-Tank tiers no longer receive DPS-based bonus suggestions")
     check(byFamily.Caster and byFamily.Caster.suggestedBonus < byFamily.Caster.currentBonus,
-        "lower-value pure-Caster tier is suggested downward")
+        "lower-delta pure-Caster tier is suggested downward")
 
     -- SuggestQualityBonusAdjustment had no test at all before this, and was
     -- missing its final `return suggestions` -- every real call (once
@@ -872,18 +881,16 @@ do
     -- tiers instead of families so real per-tier suggestions get generated.
     EbonBuilds.EchoTableRows.BuildBestByName = function()
         local t = {}
-        for i = 1, 5 do t["Rare" .. i] = { quality = 2, families = { "Tank" }, classMask = 128, spellId = 9300 + i } end
-        for i = 1, 5 do t["Uncommon" .. i] = { quality = 1, families = { "Tank" }, classMask = 128, spellId = 9400 + i } end
+        for i = 1, 5 do t["Rare" .. i] = { quality = 2, families = { "Caster" }, classMask = 128, spellId = 9300 + i } end
+        for i = 1, 5 do t["Uncommon" .. i] = { quality = 1, families = { "Caster" }, classMask = 128, spellId = 9400 + i } end
         return t
     end
     build.echoWeights = {}
     for i = 1, 5 do build.echoWeights["Rare" .. i] = 100 end
     for i = 1, 5 do build.echoWeights["Uncommon" .. i] = 100 end
-    EbonBuilds.EchoPerformance.Clear()
-    EbonBuildsCharDB.echoPerformance = {}
-    for i = 1, 5 do EbonBuildsCharDB.echoPerformance["Rare" .. i] = { sum = (2000 + i * 5) * 10, count = 10 } end
-    for i = 1, 5 do EbonBuildsCharDB.echoPerformance["Uncommon" .. i] = { sum = (1000 + i * 5) * 10, count = 10 } end
-    EbonBuildsCharDB.echoPerformanceCommunity = {}
+    EbonBuilds.EchoSamples.Clear()
+    for i = 1, 5 do for _ = 1, 12 do EbonBuilds.EchoSamples.Record({ "Rare" .. i }, 2000 + i * 5) end end
+    for i = 1, 5 do for _ = 1, 12 do EbonBuilds.EchoSamples.Record({ "Uncommon" .. i }, 1000 + i * 5) end end
 
     local okQuality, qualitySuggestions = pcall(EbonBuilds.EchoPerformance.SuggestQualityBonusAdjustment, build)
     check(okQuality, "SuggestQualityBonusAdjustment does not error: " .. tostring(qualitySuggestions))
@@ -1394,6 +1401,67 @@ do
         "declining still counts as an answered question -- the panel will not nag about it again")
 
     GetAddOnMetadata = origGetMeta
+end
+
+-- Sample-based EchoSamples: with/without deltas from whole-set samples,
+-- the utility filter, and the confounding fix the redesign exists for.
+do
+    EbonBuildsCharDB.echoPerfSampleRing = nil
+
+    -- The Cavalry Instincts scenario, in numbers: a damage echo and a
+    -- mount-speed echo are ALWAYS active together in high-DPS runs. The
+    -- old per-echo averaging credited both identically -- indistinguishable
+    -- by construction. With whole-set samples plus runs where only the
+    -- utility echo differs, with/without separates them.
+    for _ = 1, 12 do EbonBuilds.EchoSamples.Record({ "Deathbringer", "Cavalry" }, 5000) end
+    for _ = 1, 12 do EbonBuilds.EchoSamples.Record({ "Cavalry" }, 1000) end
+
+    local d = EbonBuilds.EchoSamples.Delta("Deathbringer")
+    check(d.reliable and d.delta > 3000,
+        "the damage echo shows a large positive with/without delta")
+    local dc = EbonBuilds.EchoSamples.Delta("Cavalry")
+    check(dc.nWithout == 0 and dc.reliable == false,
+        "the always-active utility echo has no without-side and is honestly unreliable, not confidently wrong")
+
+    -- Reliability gate: below MIN_SAMPLES_PER_SIDE on either side, no evidence.
+    EbonBuilds.EchoSamples.Clear()
+    for _ = 1, 5 do EbonBuilds.EchoSamples.Record({ "Rare" }, 4000) end
+    for _ = 1, 30 do EbonBuilds.EchoSamples.Record({ "Common" }, 2000) end
+    local dr = EbonBuilds.EchoSamples.Delta("Rare")
+    check(dr.reliable == false, "five with-samples are not evidence yet")
+    local value, why = EbonBuilds.EchoSamples.EvidenceValue("Rare", function() return {} end)
+    check(value == nil and why == "insufficient", "EvidenceValue withholds unreliable deltas")
+
+    -- Utility filter: no DPS family -> excluded from attribution entirely.
+    local catalog = function()
+        return {
+            MountSpeed = { families = { "No family" } },
+            Firebolt   = { families = { "Caster" } },
+        }
+    end
+    check(EbonBuilds.EchoSamples.IsDpsRelevant("Firebolt", catalog) == true, "a Caster-family echo is DPS-relevant")
+    check(EbonBuilds.EchoSamples.IsDpsRelevant("MountSpeed", catalog) == false, "a no-DPS-family echo is excluded")
+    local v2, why2 = EbonBuilds.EchoSamples.EvidenceValue("MountSpeed", catalog)
+    check(v2 == nil and why2 == "utility", "EvidenceValue refuses utility echoes regardless of their numbers")
+
+    -- Ring capacity: recording far past the cap keeps a bounded store.
+    EbonBuilds.EchoSamples.Clear()
+    for i = 1, 700 do EbonBuilds.EchoSamples.Record({ "X" }, i) end
+    check(EbonBuilds.EchoSamples.Count() == 500, "the sample ring stays capped at 500")
+
+    -- GetEvidenceStats: only reliable, DPS-relevant echoes appear, with
+    -- the delta as the value the suggestion math consumes.
+    EbonBuilds.EchoSamples.Clear()
+    for _ = 1, 12 do EbonBuilds.EchoSamples.Record({ "Firebolt" }, 6000) end
+    for _ = 1, 12 do EbonBuilds.EchoSamples.Record({ "MountSpeed" }, 2000) end
+    local origCatalog2 = EbonBuilds.EchoTableRows.BuildBestByName
+    EbonBuilds.EchoTableRows.BuildBestByName = catalog
+    local stats = EbonBuilds.EchoPerformance.GetEvidenceStats()
+    check(stats.Firebolt and math.abs(stats.Firebolt.avgDPS - 4000) < 1,
+        "evidence stats carry the with/without delta (6000 vs 2000 -> +4000)")
+    check(stats.MountSpeed == nil, "utility echoes never reach the suggestion layer")
+    EbonBuilds.EchoTableRows.BuildBestByName = origCatalog2
+    EbonBuilds.EchoSamples.Clear()
 end
 
 if failures > 0 then

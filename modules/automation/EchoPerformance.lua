@@ -168,6 +168,20 @@ function EbonBuilds.EchoPerformance.Sample()
     local granted = ProjectEbonhold.PerkService.GetGrantedPerks() or {}
     local store = GetStore()
     local changed = false
+    -- New model: one whole-set sample per tick (every active echo
+    -- together with this DPS reading) into EchoSamples -- the honest
+    -- basis for with/without analysis. The legacy per-echo sum/count
+    -- below keeps accumulating during the migration window so existing
+    -- consumers stay functional until they've all moved to
+    -- EchoSamples.EvidenceValue; it is scheduled for removal.
+    local setNames = {}
+    for key, value in pairs(granted) do
+        local n = GrantedEchoName(key, value)
+        if n then setNames[#setNames + 1] = n end
+    end
+    if #setNames > 0 then
+        EbonBuilds.EchoSamples.Record(setNames, dps)
+    end
     for key, value in pairs(granted) do
         local name = GrantedEchoName(key, value)
         if name then
@@ -471,12 +485,38 @@ local CLASS_MASK = {
 -- Returns a sorted list of { name, currentWeight, suggestedWeight,
 -- deviationPct, tierAvgDPS, avgDPS, sampleCount }, largest deviation
 -- first. Empty list if there isn't enough clean data to say anything.
+-- Delta-based replacement for GetAllStats as the SUGGESTION data
+-- source. Same shape ({ avgDPS, sampleCount } per echo) so the tier
+-- baseline / nudge math downstream applies unchanged -- but avgDPS is
+-- now the with/without delta from whole-set samples, not the confounded
+-- per-echo average, sampleCount is the weaker side of the split, and
+-- an echo appears at all only when the evidence is reliable AND the
+-- echo is DPS-relevant (pure-utility echoes -- the mount-speed case --
+-- are excluded from attribution by design).
+function EbonBuilds.EchoPerformance.GetEvidenceStats()
+    local out = {}
+    if not (EbonBuilds.EchoTableRows and EbonBuilds.EchoTableRows.BuildBestByName) then return out end
+    for name in pairs(EbonBuilds.EchoTableRows.BuildBestByName()) do
+        local value, kind, d = EbonBuilds.EchoSamples.EvidenceValue(name)
+        if value ~= nil and kind == "delta" then
+            out[name] = {
+                avgDPS = value,
+                sampleCount = math.min(d.nWith, d.nWithout),
+                evidence = "delta",
+                nWith = d.nWith,
+                nWithout = d.nWithout,
+            }
+        end
+    end
+    return out
+end
+
 function EbonBuilds.EchoPerformance.SuggestWeightAdjustments(build)
     if not build or not build.class then return {} end
     if not (EbonBuilds.EchoTableRows and EbonBuilds.EchoTableRows.BuildBestByName) then return {} end
     local classMask = CLASS_MASK[build.class] or 0
     local weights = build.echoWeights or {}
-    local allStats = EbonBuilds.EchoPerformance.GetAllStats()
+    local allStats = EbonBuilds.EchoPerformance.GetEvidenceStats()
 
     -- One pass: collect every class-eligible echo with enough samples,
     -- and count how many share an identical (avgDPS, sampleCount)
@@ -508,10 +548,11 @@ function EbonBuilds.EchoPerformance.SuggestWeightAdjustments(build)
 
     -- Tier baselines, computed only from entries NOT in a large cluster
     -- (so one inflated/deflated group doesn't skew the whole tier).
-    local tierSum, tierCount = {}, {}
+    local tierSum, tierAbsSum, tierCount = {}, {}, {}
     for _, e in ipairs(rawEntries) do
         if signatureCounts[e.sig] <= MAX_CLUSTER_SIZE_TO_TRUST then
             tierSum[e.weight] = (tierSum[e.weight] or 0) + e.avgDPS
+            tierAbsSum[e.weight] = (tierAbsSum[e.weight] or 0) + math.abs(e.avgDPS)
             tierCount[e.weight] = (tierCount[e.weight] or 0) + 1
         end
     end
@@ -521,8 +562,12 @@ function EbonBuilds.EchoPerformance.SuggestWeightAdjustments(build)
         local n = tierCount[e.weight] or 0
         if signatureCounts[e.sig] <= MAX_CLUSTER_SIZE_TO_TRUST and n >= MIN_TIER_BASELINE_SIZE then
             local tierAvg = tierSum[e.weight] / n
-            if tierAvg > 0 then
-                local deviation = (e.avgDPS - tierAvg) / tierAvg
+            -- Values are with/without DELTAS now, which legitimately sit
+            -- around (or below) zero -- deviation is therefore normalized
+            -- by the tier's typical delta magnitude, not the mean itself.
+            local scale = tierAbsSum[e.weight] / n
+            if scale > 0 then
+                local deviation = (e.avgDPS - tierAvg) / scale
                 if math.abs(deviation) >= WEIGHT_SUGGESTION_DEVIATION then
                     local delta = deviation > 0 and WEIGHT_NUDGE or -WEIGHT_NUDGE
                     suggestions[#suggestions + 1] = {
@@ -585,7 +630,7 @@ function EbonBuilds.EchoPerformance.SuggestQualityBonusAdjustment(build)
     if not (EbonBuilds.EchoTableRows and EbonBuilds.EchoTableRows.BuildBestByName) then return {} end
     local classMask = CLASS_MASK[build.class] or 0
     local weights = build.echoWeights or {}
-    local allStats = EbonBuilds.EchoPerformance.GetAllStats()
+    local allStats = EbonBuilds.EchoPerformance.GetEvidenceStats()
 
     local signatureCounts = {}
     local raw = {}
@@ -610,25 +655,32 @@ function EbonBuilds.EchoPerformance.SuggestQualityBonusAdjustment(build)
     end
 
     local tierSum, tierCount = {}, {}
-    local globalSum, globalCount = 0, 0
+    local globalSum, globalAbsSum, globalCount = 0, 0, 0
     for _, e in ipairs(raw) do
         if signatureCounts[e.sig] <= MAX_CLUSTER_SIZE_TO_TRUST then
             tierSum[e.quality] = (tierSum[e.quality] or 0) + e.ratio
             tierCount[e.quality] = (tierCount[e.quality] or 0) + 1
             globalSum = globalSum + e.ratio
+            globalAbsSum = globalAbsSum + math.abs(e.ratio)
             globalCount = globalCount + 1
         end
     end
     if globalCount < MIN_ECHOES_PER_TIER_FOR_BONUS then return {} end
-    local globalAvg = globalSum / globalCount
-    if globalAvg <= 0 then return {} end
+    -- Ratios are built on with/without DELTAS now: each value already
+    -- means "runs with this echo minus runs without it", so ZERO is the
+    -- natural reference line -- a tier with a clearly negative mean
+    -- delta deserves a downward nudge regardless of how other tiers
+    -- look (and after the utility filter, a single surviving tier must
+    -- still be judgeable at all). Normalized by typical magnitude.
+    local scale = globalAbsSum / globalCount
+    if scale <= 0 then return {} end
 
     local settings = build.settings or {}
     local suggestions = {}
     for quality, count in pairs(tierCount) do
         if count >= MIN_ECHOES_PER_TIER_FOR_BONUS then
             local tierAvg = tierSum[quality] / count
-            local deviation = (tierAvg - globalAvg) / globalAvg
+            local deviation = tierAvg / scale
             if math.abs(deviation) >= BONUS_DEVIATION_THRESHOLD
                 and not ((settings.qualityBonusMode or {})[quality]) then
                 local currentBonus = (settings.qualityBonus and settings.qualityBonus[quality]) or 0
@@ -700,7 +752,7 @@ function EbonBuilds.EchoPerformance.SuggestFamilyBonusAdjustment(build)
     if not (EbonBuilds.EchoTableRows and EbonBuilds.EchoTableRows.BuildBestByName) then return {} end
     local classMask = CLASS_MASK[build.class] or 0
     local weights = build.echoWeights or {}
-    local allStats = EbonBuilds.EchoPerformance.GetAllStats()
+    local allStats = EbonBuilds.EchoPerformance.GetEvidenceStats()
 
     local signatureCounts = {}
     local raw = {}
@@ -728,25 +780,32 @@ function EbonBuilds.EchoPerformance.SuggestFamilyBonusAdjustment(build)
     end
 
     local tierSum, tierCount = {}, {}
-    local globalSum, globalCount = 0, 0
+    local globalSum, globalAbsSum, globalCount = 0, 0, 0
     for _, e in ipairs(raw) do
         if signatureCounts[e.sig] <= MAX_CLUSTER_SIZE_TO_TRUST then
             tierSum[e.family] = (tierSum[e.family] or 0) + e.ratio
             tierCount[e.family] = (tierCount[e.family] or 0) + 1
             globalSum = globalSum + e.ratio
+            globalAbsSum = globalAbsSum + math.abs(e.ratio)
             globalCount = globalCount + 1
         end
     end
     if globalCount < MIN_ECHOES_PER_TIER_FOR_BONUS then return {} end
-    local globalAvg = globalSum / globalCount
-    if globalAvg <= 0 then return {} end
+    -- Ratios are built on with/without DELTAS now: each value already
+    -- means "runs with this echo minus runs without it", so ZERO is the
+    -- natural reference line -- a tier with a clearly negative mean
+    -- delta deserves a downward nudge regardless of how other tiers
+    -- look (and after the utility filter, a single surviving tier must
+    -- still be judgeable at all). Normalized by typical magnitude.
+    local scale = globalAbsSum / globalCount
+    if scale <= 0 then return {} end
 
     local settings = build.settings or {}
     local suggestions = {}
     for family, count in pairs(tierCount) do
         if count >= MIN_ECHOES_PER_TIER_FOR_BONUS then
             local tierAvg = tierSum[family] / count
-            local deviation = (tierAvg - globalAvg) / globalAvg
+            local deviation = tierAvg / scale
             if math.abs(deviation) >= BONUS_DEVIATION_THRESHOLD then
                 local currentBonus = (settings.familyBonus and settings.familyBonus[family]) or 0
                 local nudge = deviation > 0 and BONUS_NUDGE or -BONUS_NUDGE

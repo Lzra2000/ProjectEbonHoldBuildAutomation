@@ -258,6 +258,18 @@ The gear score is directional build guidance, not a best-in-slot verdict. Uncach
 
 ## Changelog
 
+### 3.28 (2026-07-19) -- Echo Performance redesigned: whole-set samples and with/without evidence
+
+The confounding fix. The old model stored one running average per echo and credited every active echo with the loadout's whole DPS -- a mount-speed echo "earned" the damage its neighbors dealt, and more data only made that more confidently wrong. Recorded aggregates from before this release carry that flaw and cannot be reinterpreted; the suggestion layer no longer reads them.
+
+- New `modules/automation/EchoSamples.lua`: each observation is one sample of the WHOLE active set -- every granted echo together with the DPS reading -- in a capped ring (500 samples). Questions are answered by with/without comparison across samples: runs containing echo X versus runs without it.
+- **Reliability gate**: a with/without split needs at least 10 samples on each side before it counts as evidence at all. An always-active echo honestly reports "no without-side" instead of a confident number.
+- **Utility filter**: echoes whose families include no damage role (Caster/Melee/Ranged, catalog variants like "Caster DPS" included) are excluded from DPS attribution and from weight/bonus suggestions entirely -- DPS evidence says nothing about a mount-speed or tanking echo, and pretending otherwise was the original bug wearing different hats.
+- All three suggestion functions (weights, Quality Bonus, Family Bonus) now consume with/without deltas instead of the confounded averages. Their internal math was rebuilt for delta semantics: deviations are normalized by typical delta magnitude rather than dividing by a mean that legitimately sits at or below zero, and bonus tiers are judged against the zero line -- a delta already means "with minus without", so a clearly negative tier deserves a downward nudge regardless of how other tiers look.
+- One deliberate behavioral consequence, locked in by a test: pure-Tank (and other non-damage) family tiers no longer receive DPS-based bonus suggestions at all.
+- The Cavalry Instincts scenario itself is a test now: a damage echo and a mount-speed echo always active together, plus runs where only the utility echo differs -- the damage echo shows a large reliable delta, the utility echo shows an honest "insufficient".
+- Transitional state, stated plainly: capture dual-writes the legacy per-echo store so older views (Tuning Advisor sample counts, AI report labels) keep working, and community sync still exchanges the legacy aggregates -- but suggestions are strictly local-evidence now, so shared community data currently influences nothing. Moving sync to shared with/without deltas (new format version) is the planned follow-up, after which the legacy store and dual-write go away.
+
 ### 3.27 (2026-07-19) -- Security policy, wiki, repo polish
 
 Repo-only release, nothing changes in-game.
