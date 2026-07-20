@@ -1510,13 +1510,16 @@ do
     check(#pages > 40, "FAQ generator produced the full page set from FAQ.md")
     check(pages[1].title:find("What's new", 1, true) == 1 and pages[1].title:find("3%.") ~= nil,
         "page one is the newest changelog entry with its version")
-    local staleFound = false
-    for _, p in ipairs(pages) do
-        for _, l in ipairs(p.lines) do
-            if l:find("/ebb cleartraining", 1, true) or l:find("2.99", 1, true) then staleFound = true end
+    -- Stale check on the FAQ pages only (page 1 is the changelog entry,
+    -- which may legitimately NARRATE old versions): no removed slash
+    -- subcommands may survive in any answer.
+    local staleFound = nil
+    for i = 2, #pages do
+        for _, l in ipairs(pages[i].lines) do
+            if l:find("/ebb %a") then staleFound = l end
         end
     end
-    check(staleFound == false, "no stale 2.99-era content survives generation")
+    check(staleFound == nil, "no removed slash subcommands survive in FAQ answers: " .. tostring(staleFound))
 
 end
 
