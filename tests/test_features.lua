@@ -1357,6 +1357,45 @@ do
         "BuildTabs defines tab 5 and mounts/unmounts CharacterView")
 end
 
+-- Login panel: show/hide decision, consent flow, and version marking.
+do
+    dofile("modules/ui/LoginPanel.lua")
+    local origGetMeta = GetAddOnMetadata
+    GetAddOnMetadata = function() return "9.99" end
+
+    -- Fresh character: consent unanswered -> must show.
+    EbonBuildsCharDB.consent = nil
+    EbonBuildsCharDB.loginPanelSeenVersion = nil
+    check(EbonBuilds.LoginPanel.ShouldShow() == true, "unanswered consent always shows the login panel")
+
+    -- Consent answered, version never seen -> still shows (what's new).
+    EbonBuilds.EchoPerformance.SetEnabled(false)
+    check(EbonBuilds.LoginPanel.ShouldShow() == true, "a version not yet seen shows the panel even with consent settled")
+
+    -- Marked seen on the current version -> silent next login.
+    EbonBuilds.LoginPanel.MarkSeen()
+    check(EbonBuilds.LoginPanel.ShouldShow() == false, "same version, consent settled: the panel stays away")
+
+    -- New version arrives -> shows again exactly once.
+    GetAddOnMetadata = function() return "10.0" end
+    check(EbonBuilds.LoginPanel.ShouldShow() == true, "a version bump brings the panel back once")
+    EbonBuilds.LoginPanel.MarkSeen()
+    check(EbonBuilds.LoginPanel.ShouldShow() == false, "and marking it seen silences it again")
+
+    -- Consent buttons route through EchoPerformance.SetEnabled: accepting
+    -- enables tracking AND community sharing consent fields together.
+    EbonBuilds.EchoPerformance.SetEnabled(true)
+    check(EbonBuilds.EchoPerformance.IsEnabled() == true
+        and EbonBuildsCharDB.consent.communityDpsSharing == true,
+        "accepting consent enables tracking and sharing together")
+    EbonBuilds.EchoPerformance.SetEnabled(false)
+    check(EbonBuilds.EchoPerformance.IsEnabled() == false
+        and (tonumber(EbonBuildsCharDB.consent.performanceVersion) or 0) >= 1,
+        "declining still counts as an answered question -- the panel will not nag about it again")
+
+    GetAddOnMetadata = origGetMeta
+end
+
 if failures > 0 then
     io.stderr:write(string.format("%d test(s) failed.\n", failures))
     os.exit(1)

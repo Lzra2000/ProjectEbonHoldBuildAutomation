@@ -258,6 +258,15 @@ The gear score is directional build guidance, not a best-in-slot verdict. Uncach
 
 ## Changelog
 
+### 3.24 (2026-07-19) -- Login panel: consent question and what's-new, once per version
+
+New panel shown once after logging in, then it stays out of the way.
+
+- It appears when the DPS-tracking consent question from 3.23 is still unanswered -- without this, an existing player whose tracking was reset to off by 3.23 would only find out by digging through Settings. Two buttons answer it ("Enable tracking & sharing" / "Keep it off"); either answer counts as answered and the panel never asks again. Changing your mind later is the same one checkbox in Settings it always was.
+- It also appears once per new addon version with "What's new" (opens the changelog) and "Getting started" (opens the guide). Dismissing it marks the version as seen for that character; the same version never shows it twice.
+- Nothing else: no reminders, no re-prompts, no showing up when there's nothing new to say.
+- Tests cover the full decision table (unanswered consent, unseen version, seen version, version bump) and that declining counts as a real answer rather than a deferred nag.
+
 ### 3.23 (2026-07-19) -- Unified responsive editing, snapshot-first Character tab, explicit tracking consent (contributed)
 
 Contributed by ha99dfs (PR #5), a large structural release building on 3.22's Character tab.

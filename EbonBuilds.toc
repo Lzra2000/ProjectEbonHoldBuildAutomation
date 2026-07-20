@@ -37,6 +37,7 @@ core/ClickTrace.lua
 modules/ui/FAQView.lua
 modules/ui/MinimapButton.lua
 modules/ui/MainWindow.lua
+modules/ui/LoginPanel.lua
 modules/ui/ViewRouter.lua
 modules/ui/BuildList.lua
 modules/ui/EchoPicker.lua
