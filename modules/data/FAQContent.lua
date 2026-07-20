@@ -4,18 +4,15 @@
 
 EbonBuilds.FAQContent = { PAGES = {
 {
-    title = "What's new: 3.46 (2026-07-20) -- Handler protection: BuildList.lua, BuildForm.lua",
+    title = "What's new: 3.47 (2026-07-20) -- Handler protection: EchoTableRows.lua, Filters.lua",
     lines = {
         "",
-        "- modules/ui/BuildList.lua -- 4 frames now opt into",
-        "EbonBuilds.Debug.ProtectScript at creation (icon button, build list row,",
-        "search box, clear-search button).",
-        "- modules/ui/BuildForm.lua -- 4 frames now opt into ProtectScript at",
-        "creation (icon button, name box, description scroll frame, description",
-        "edit box).",
-        "- Remaining files, largest first: EchoTableRows, Filters,",
-        "PublicBuildsView, ExportImport, EchoPicker, AffixView, BonusView,",
-        "MinimapButton.",
+        "- modules/ui/EchoTableRows.lua -- inline weight edit box and echo table",
+        "row frame now opt into EbonBuilds.Debug.ProtectScript.",
+        "- modules/ui/Filters.lua -- search box, clear-search button, filter bar,",
+        "and result-count hit frame now opt into ProtectScript.",
+        "- Remaining files, largest first: PublicBuildsView, ExportImport,",
+        "EchoPicker, AffixView, BonusView, MinimapButton.",
     },
 },
 {
