@@ -164,6 +164,9 @@ local function CreateTitleBar(frame)
     divider:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -12, -36)
 
     local dragRegion = CreateFrame("Frame", nil, frame)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(dragRegion, "MainWindow.DragRegion")
+    end
     dragRegion:SetPoint("TOPLEFT",  frame, "TOPLEFT",  0,   0)
     dragRegion:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -330, 0)
     dragRegion:SetHeight(34)
@@ -246,6 +249,9 @@ local SETTINGS_CATEGORIES = {
 
 local function BuildSettingsPopup(ownerFrame)
     local popup = CreateFrame("Frame", "EbonBuildsGlobalSettingsPopup", UIParent)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(popup, "MainWindow.GlobalSettingsPopup")
+    end
     popup:SetSize(640, 520)
     popup:SetPoint("CENTER", UIParent, "CENTER")
     popup:SetFrameStrata("DIALOG")
@@ -349,6 +355,9 @@ local function BuildSettingsPopup(ownerFrame)
     subtitle:SetTextColor(unpack(EbonBuilds.Theme.TEXT_MUTED))
 
     local drag = CreateFrame("Frame", nil, popup)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(drag, "MainWindow.PopupDragHeader")
+    end
     drag:SetPoint("TOPLEFT", popup, "TOPLEFT", 0, 0)
     drag:SetPoint("TOPRIGHT", popup, "TOPRIGHT", -37, 0)
     drag:SetHeight(38)
@@ -586,6 +595,9 @@ local function BuildSettingsPopup(ownerFrame)
         flavor:SetText(flavorText)
 
         local slider = CreateFrame("Slider", nil, card)
+        if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+            EbonBuilds.Debug.ProtectScript(slider, "MainWindow.CardSlider")
+        end
         slider:SetOrientation("HORIZONTAL")
         slider:SetPoint("BOTTOMLEFT", card, "BOTTOMLEFT", 10, 9)
         slider:SetPoint("BOTTOMRIGHT", card, "BOTTOMRIGHT", -10, 9)
@@ -963,6 +975,9 @@ end
 
 local function CreateHeaderIconButton(frame, anchor, texture, tooltipTitle, tooltipBody)
     local btn = CreateFrame("Button", nil, frame)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(btn, "MainWindow.ToolbarButton")
+    end
     btn:SetSize(24, 24)
     btn:SetPoint("RIGHT", anchor, "LEFT", -4, 0)
     btn:SetFrameLevel(100)
@@ -1027,6 +1042,9 @@ end
 
 local function BuildFrame()
     local frame = CreateFrame("Frame", FRAME_NAME, UIParent)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(frame, "MainWindow.MainFrame")
+    end
     frame:SetMovable(true)
     frame:SetFrameStrata("DIALOG")
     frame:SetToplevel(true)
