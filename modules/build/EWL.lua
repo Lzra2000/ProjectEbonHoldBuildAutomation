@@ -662,9 +662,10 @@ function EWL.Generate(build)
     if info.error then return nil, info.error, info end
     if info.class == "" then return nil, "The build has no class.", info end
     local unresolvedCount = info.unresolved and #info.unresolved or 0
-    if unresolvedCount > 0 then
-        return nil, string.format("UNRESOLVED_ECHO_REFERENCES: %d weighted Echo reference(s) could not be mapped safely.", unresolvedCount), info
-    end
+    info.unresolvedCount = unresolvedCount
+    -- EchoWishlist export has always been best-effort: valid catalog rows are
+    -- exported while unmatched weighted families are omitted and surfaced in
+    -- info.unresolved. The export dialog already displays that warning.
     if #entries == 0 then
         return nil, "This build has no locked or weighted Echoes to export.", info
     end
