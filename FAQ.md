@@ -264,6 +264,15 @@ The gear score is directional build guidance, not a best-in-slot verdict. Uncach
 
 ## Changelog
 
+### 3.36 (2026-07-20) -- Auto-protection extended to every Theme.lua widget
+
+Step 2 of the handler-protection follow-up (3.35 only covered `CreateButton`).
+
+- `CreateDropdown` (main button, menu frame, and each dynamically created option row), `CreateScrollBar`, `CreateHorizontalScrollBar`, `CreateCloseButton`, and `CreateCheckbox` now all opt into `EbonBuilds.Debug.ProtectScript` the same way `CreateButton` already did.
+- `CreateTab` and `CreateFilterChip` needed no change -- both already build on top of `CreateButton` and were covered indirectly.
+- `CreateCheckbox` needed care: it already overrides `SetScript` itself to chain its internal check-toggle logic ahead of a caller's handler. `ProtectScript` is applied *after* that override is installed, so it wraps the checkbox's existing chain instead of being silently replaced by it.
+- Every widget built through Theme.lua's factories is now covered; remaining unprotected handlers are the ones individual UI modules attach to frames they create directly with `CreateFrame` instead of through a Theme factory (tracked as ongoing follow-up work, largest files first).
+
 ### 3.35 (2026-07-20) -- New: core/Debug.lua, a small internal framework layer
 
 A follow-up to the repository audit's note that most UI handlers weren't isolated against unexpected errors (only a handful were manually wrapped in ErrorLog.Protect out of hundreds).

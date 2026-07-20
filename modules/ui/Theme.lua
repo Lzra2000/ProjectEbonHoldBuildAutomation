@@ -448,6 +448,9 @@ function T.CreateDropdown(parent, width, defaultText, opts)
     local button = CreateFrame("Button", nil, container)
     button:SetAllPoints(container)
     frame._button = button
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(button, "Theme.Dropdown.Button")
+    end
 
     local label = container:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     label:SetPoint("LEFT", container, "LEFT", 8, 0)
@@ -471,6 +474,9 @@ function T.CreateDropdown(parent, width, defaultText, opts)
     menu:Hide()
     menu:SetClampedToScreen(true)
     frame._menu = menu
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(menu, "Theme.Dropdown.Menu")
+    end
 
     local optionButtons = {}
     local footerButton
@@ -479,6 +485,9 @@ function T.CreateDropdown(parent, width, defaultText, opts)
         local btn = optionButtons[index]
         if btn then return btn end
         btn = CreateFrame("Button", nil, menu)
+        if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+            EbonBuilds.Debug.ProtectScript(btn, "Theme.Dropdown.Option")
+        end
         btn:SetHeight(22)
         InstallBackdrop(btn)
         btn:SetBackdropColor(0.08, 0.08, 0.11, 0.98)
@@ -690,6 +699,9 @@ end
 
 function T.CreateScrollBar(parent, width)
     local bar = CreateFrame("Slider", nil, parent)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(bar, "Theme.ScrollBar")
+    end
     bar:SetOrientation("VERTICAL")
     bar:SetWidth(width or 12)
     bar:SetMinMaxValues(0, 0)
@@ -766,6 +778,9 @@ end
 
 function T.CreateHorizontalScrollBar(parent, height)
     local bar = CreateFrame("Slider", nil, parent)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(bar, "Theme.HorizontalScrollBar")
+    end
     bar:SetOrientation("HORIZONTAL")
     bar:SetHeight(height or 12)
     bar:SetMinMaxValues(0, 0)
@@ -1094,6 +1109,9 @@ function T.CreateCloseButton(parent)
     label:SetText("x")
     label:SetTextColor(0.85, 0.85, 0.88)
     btn._label = label
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(btn, "Theme.CloseButton")
+    end
     btn:SetScript("OnEnter", function(self)
         ApplyButtonVisual(self, BTN_BG_HOVER, T.DANGER)
         self._label:SetTextColor(1.00, 0.35, 0.35)
@@ -1180,6 +1198,9 @@ function T.CreateCheckbox(parent, labelText)
         else
             rawSetScript(self, scriptType, handler)
         end
+    end
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(btn, "Theme.Checkbox")
     end
     return btn
 end
