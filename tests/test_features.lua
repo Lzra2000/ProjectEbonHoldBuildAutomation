@@ -1523,6 +1523,59 @@ do
 
 end
 
+-- World integration: player-tooltip addon line and zone tome lines.
+do
+    dofile("modules/ui/WorldIntegration.lua")
+
+    -- Tooltip: only players your client has seen traffic from get the
+    -- line; version shown when announced, generic otherwise.
+    local peerData = { Peerling = { version = "3.31", lastSeen = 1 }, Quietone = { lastSeen = 2 } }
+    local origSyncGet = EbonBuilds.Sync and EbonBuilds.Sync.GetPeerInfo
+    EbonBuilds.Sync = EbonBuilds.Sync or {}
+    EbonBuilds.Sync.GetPeerInfo = function(name) return peerData[name] end
+    local origUnitIsPlayer, origUnitName = UnitIsPlayer, UnitName
+    UnitIsPlayer = function() return true end
+
+    local function TooltipFor(unitName)
+        UnitName = function(u) return u == "player" and "Me" or unitName end
+        local lines = {}
+        local tt = {
+            GetUnit = function() return unitName, "mouseover" end,
+            AddLine = function(_, text) lines[#lines + 1] = text end,
+            Show = function() end,
+        }
+        EbonBuilds.WorldIntegration._AugmentUnitTooltipForTests(tt)
+        return lines
+    end
+    local l = TooltipFor("Peerling")
+    check(#l == 1 and l[1] == "EbonBuilds 3.31", "a version-announcing peer shows the version line")
+    l = TooltipFor("Quietone")
+    check(#l == 1 and l[1] == "EbonBuilds user", "a peer without announced version shows the generic line")
+    l = TooltipFor("Strangerdan")
+    check(#l == 0, "players with no addon traffic get no line")
+    UnitIsPlayer, UnitName = origUnitIsPlayer, origUnitName
+    EbonBuilds.Sync.GetPeerInfo = origSyncGet
+
+    -- Zone tome lines from a ListByZone-shaped fixture.
+    local fixture = function()
+        return {
+            { zone = "Dragonblight", tomes = {
+                [101] = { itemId = 101, name = "Tome of Frost", total = 12,
+                          mobs = { { mob = "Ymirjar Flamebearer", count = 4 }, { mob = "Njorndar Bone Bug", count = 8 } } },
+                [102] = { itemId = 102, name = "Codex of Embers", total = 3,
+                          mobs = { { mob = "Scarlet Drake", count = 3 } } },
+            }, tomeCount = 2 },
+        }
+    end
+    local lines = EbonBuilds.WorldIntegration.BuildZoneTomeLines("Dragonblight", fixture)
+    check(#lines == 2, "one line per tome in the zone")
+    check(lines[1] == "Codex of Embers -- Scarlet Drake (3)", "single-source tome names its mob and count")
+    check(lines[2] == "Tome of Frost -- Njorndar Bone Bug (12) +1",
+        "multi-source tome leads with its best mob and counts the rest")
+    check(#EbonBuilds.WorldIntegration.BuildZoneTomeLines("Elwynn Forest", fixture) == 0,
+        "zones without tome data produce no lines (panel stays hidden)")
+end
+
 if failures > 0 then
     io.stderr:write(string.format("%d test(s) failed.\n", failures))
     os.exit(1)

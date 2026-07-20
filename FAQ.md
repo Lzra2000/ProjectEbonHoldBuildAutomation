@@ -264,6 +264,14 @@ The gear score is directional build guidance, not a best-in-slot verdict. Uncach
 
 ## Changelog
 
+### 3.32 (2026-07-20) -- Player tooltips show EbonBuilds users; world map lists the zone's tomes
+
+Two ways the addon now shows itself in the world instead of only in its own windows.
+
+- **Hover a player, see if they run EbonBuilds.** One tooltip line for any player your client has received addon traffic from -- "EbonBuilds 3.32" when they've announced a version (the VER ping from 3.31, now also sent over the sync channel rather than guild-only), plain "EbonBuilds user" otherwise. Session-local by design: presence is live information, nothing is stored. Cross-realm names match with or without the realm suffix.
+- **Open the world map in a zone with known tome drops** and a compact panel lists every tome recorded there -- best-known source mob, total community drop count, and how many further sources exist. Data comes from the Tome Atlas, which is mob-and-zone keyed; the honest consequence is a zone panel rather than map pins, because no coordinates exist to pin (collecting kill coordinates through the community sync would be the path to real pins later). Zones without tome data show nothing at all.
+- Both hooks are error-isolated like the gear tooltip: a failure lands in the Error log instead of breaking tooltips or the map.
+
 ### 3.31 (2026-07-20) -- In-game FAQ generated from FAQ.md; peer version notice
 
 Two answers to "how do players stay current".

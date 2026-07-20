@@ -25,8 +25,14 @@ if RegisterAddonMessagePrefix then
     -- enough reach; the sync channel rebroadcast happens on activity).
     EbonBuilds.Scheduler.After("sync.versionPing", 15, function()
         local v = GetAddOnMetadata and GetAddOnMetadata("EbonBuilds", "Version")
-        if v and GetGuildInfo("player") then
-            SendAddonMessage(PREFIX, "VER|" .. v, "GUILD")
+        if v then
+            if GetGuildInfo("player") then
+                SendAddonMessage(PREFIX, "VER|" .. v, "GUILD")
+            end
+            RefreshChannel()
+            if syncChannelIndex and syncChannelIndex > 0 then
+                pcall(SendChatMessage, ("VER|" .. v):gsub("|", "||"), "CHANNEL", nil, syncChannelIndex)
+            end
         end
     end)
 end
@@ -103,11 +109,27 @@ local function VerboseLog(msg)
     if VERBOSE_LOG then Log(msg) end
 end
 
+-- Every player we've received ANY addon traffic from, with the version
+-- they announced (VER opcode) when known. Feeds the unit-tooltip line
+-- ("this player runs EbonBuilds") -- session-local by design: presence
+-- is live information, not something to persist.
+local peers = {}
+
 local function MarkAlive(target)
     -- Reset consecutive send counter when we receive any message from this target
     if target and target ~= "" then
         sendTally[target] = nil
+        local p = peers[target] or {}
+        p.lastSeen = GetTime()
+        peers[target] = p
     end
+end
+
+-- name -> { version?, lastSeen } or nil. Strips -Realm suffixes so the
+-- tooltip lookup by plain unit name matches cross-realm senders too.
+function EbonBuilds.Sync.GetPeerInfo(name)
+    if not name then return nil end
+    return peers[name] or peers[name:match("^([^-]+)")]
 end
 
 local function SortableNow()
@@ -553,7 +575,9 @@ local function HandleChannelMessage(msg, sender, _, channelName, _, _, _, channe
     decoded = _StripChatPrefix(decoded)
     local parts = {strsplit("|", decoded)}
     local code = parts[1]
-    if code == "TOM" then
+    if code == "VER" then
+        HandleVersionPing(decoded, sender)
+    elseif code == "TOM" then
         HandleTome(decoded, sender)
         return
     end
@@ -887,6 +911,14 @@ end
 
 local function HandleVersionPing(payload, sender)
     if sender == UnitName("player") then return end
+    -- Record the announced version regardless of the notice logic --
+    -- the tooltip wants to know versions lower than ours too.
+    if sender and sender ~= "" then
+        local p = peers[sender] or {}
+        p.version = payload:sub(5)
+        p.lastSeen = GetTime()
+        peers[sender] = p
+    end
     if updateNoticeShown then return end
     local theirs = ParseVersion(payload:sub(5))
     local mine = ParseVersion(OwnVersion())
