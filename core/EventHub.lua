@@ -22,6 +22,10 @@ local allowed = {
     SYNC_REVISION_CHANGED = true,
     LOCALE_CHANGED = true,
     TUNING_PROPOSAL_APPLIED = true,
+    ECHO_CATALOG_READY = true,
+    ECHO_CATALOG_CHANGED = true,
+    ECHO_RECONCILIATION_FAILED = true,
+    ECHO_DIAGNOSTICS_CHANGED = true,
 }
 
 local function IsAllowed(eventName)

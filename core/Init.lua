@@ -2,7 +2,7 @@
 -- Responsibility: addon bootstrap, saved-variable initialisation, module wiring.
 
 EbonBuilds = EbonBuilds or {}
-EbonBuilds.VERSION = "3.03"
+EbonBuilds.VERSION = "3.28"
 
 local eventFrame = CreateFrame("Frame")
 
@@ -27,7 +27,11 @@ local function OnAddonLoaded(addonName)
     EbonBuilds.DebugLog.Init()
     EbonBuilds.ClickTrace.Init()
 
+    if EbonBuilds.EchoCatalog and EbonBuilds.EchoCatalog.Init then
+        EbonBuilds.EchoCatalog.Init()
+    end
     EbonBuilds.Build.Migrate()
+    EbonBuilds.RecommendationService.Init()
     EbonBuilds.Aggregates.Init()
     EbonBuilds.Session.Init()
     EbonBuilds.SessionHistory.Init()

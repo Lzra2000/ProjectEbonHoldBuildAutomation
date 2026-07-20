@@ -87,7 +87,7 @@ local function CreateNavigationButton(parent, label, route, tooltip)
     btn:SetText(label)
     btn._route = route
     btn:SetScript("OnClick", function() EbonBuilds.ViewRouter.Show(route) end)
-    EbonBuilds.Theme.AttachTooltip(btn, label, tooltip)
+    EbonBuilds.Theme.AttachTooltip(btn, label, tooltip, "ANCHOR_CURSOR_RIGHT")
     navButtons[route] = btn
     return btn
 end

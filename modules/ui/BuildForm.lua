@@ -565,6 +565,7 @@ local function OnSave()
         return
     end
     local weights = EbonBuilds.Runtime.pendingWeights
+    local refWeights = EbonBuilds.Runtime.pendingRefWeights
     local savedBuild
     if state.mode == "create" then
         local b = EbonBuilds.Build.Create({
@@ -573,7 +574,13 @@ local function OnSave()
             settings = state.settings,
             isPublic = state.isPublic,
             echoWeights = weights,
+            echoWeightsByRef = refWeights,
+            echoRefs = state.echoRefs,
+            echoSchema = state.echoSchema,
+            echoCatalogFingerprint = state.echoCatalogFingerprint,
+            unresolvedEchoWeights = state.unresolvedEchoWeights,
             characterSnapshot = state.characterSnapshot,
+            wizardMeta = state.wizardMeta,
         })
         state.mode = "edit"
         state.id   = b.id
@@ -587,8 +594,14 @@ local function OnSave()
             settings = state.settings,
             isPublic = state.isPublic,
             echoWeights = weights,
+            echoWeightsByRef = refWeights,
+            echoRefs = state.echoRefs,
+            echoSchema = state.echoSchema,
+            echoCatalogFingerprint = state.echoCatalogFingerprint,
+            unresolvedEchoWeights = state.unresolvedEchoWeights,
             baseRevision = state.baseRevision,
             characterSnapshot = state.characterSnapshot,
+            wizardMeta = state.wizardMeta,
         })
         -- Saving an imported build forks it under a new id (old id deleted);
         -- adopt it so further saves keep working.
@@ -626,6 +639,7 @@ local LoadFromBuild, ApplyStateToInputs
 local function OnCancel()
     EbonBuilds.Runtime.isEditingBuild = nil
     EbonBuilds.Runtime.pendingWeights = nil
+    EbonBuilds.Runtime.pendingRefWeights = nil
     EbonBuilds.Runtime.wizardPrefill = nil
     if EbonBuilds.BuildTabs and EbonBuilds.BuildTabs.ClearDirty then EbonBuilds.BuildTabs.ClearDirty() end
 
@@ -650,6 +664,7 @@ local function OnDelete()
     if not state.id then return end
     EbonBuilds.Runtime.isEditingBuild = nil
     EbonBuilds.Runtime.pendingWeights = nil
+    EbonBuilds.Runtime.pendingRefWeights = nil
     EbonBuilds.Runtime.wizardPrefill = nil
     EbonBuilds.Build.Delete(state.id)
     if EbonBuilds.BuildList and EbonBuilds.BuildList.Refresh then
@@ -729,9 +744,15 @@ LoadFromBuild = function(build)
     state.isPublic = build.isPublic or false
     state.baseRevision = tonumber(build.revision) or tonumber(build.version) or 1
     state.characterSnapshot = EbonBuilds.Build.CloneTable(build.characterSnapshot)
+    state.wizardMeta = EbonBuilds.Build.CloneTable(build.wizardMeta)
+    state.echoRefs = EbonBuilds.Build.CloneTable(build.echoRefs)
+    state.echoSchema = build.echoSchema
+    state.echoCatalogFingerprint = build.echoCatalogFingerprint
+    state.unresolvedEchoWeights = EbonBuilds.Build.CloneTable(build.unresolvedEchoWeights)
     for i = 1, EbonBuilds.Build.LOCKED_SLOTS do state.locked[i] = build.lockedEchoes and build.lockedEchoes[i] or nil end
     EbonBuilds.Runtime.isEditingBuild = true
     EbonBuilds.Runtime.pendingWeights = EbonBuilds.Weights.CloneWeights(build.echoWeights or {})
+    EbonBuilds.Runtime.pendingRefWeights = EbonBuilds.Weights.CloneRefWeights(build.echoWeightsByRef or {})
 end
 
 -- Replace the editor's saved baseline after an in-place Save without
@@ -757,9 +778,12 @@ local function LoadDefaults()
     state.isPublic = false
     state.baseRevision = nil
     state.characterSnapshot = nil
+    state.wizardMeta = nil
+    state.echoRefs, state.echoSchema, state.echoCatalogFingerprint, state.unresolvedEchoWeights = nil, nil, nil, nil
     for i = 1, EbonBuilds.Build.LOCKED_SLOTS do state.locked[i] = nil end
     EbonBuilds.Runtime.isEditingBuild = true
     EbonBuilds.Runtime.pendingWeights = {}
+    EbonBuilds.Runtime.pendingRefWeights = {}
     EbonBuilds.Runtime.wizardPrefill = nil
 end
 
@@ -775,9 +799,15 @@ local function LoadFromWizardPrefill()
     state.isPublic = pre.isPublic or false
     state.baseRevision = nil
     state.characterSnapshot = EbonBuilds.Build.CloneTable(pre.characterSnapshot)
+    state.wizardMeta = EbonBuilds.Build.CloneTable(pre.wizardMeta)
+    state.echoRefs = EbonBuilds.Build.CloneTable(pre.echoRefs)
+    state.echoSchema = pre.echoSchema
+    state.echoCatalogFingerprint = pre.echoCatalogFingerprint
+    state.unresolvedEchoWeights = EbonBuilds.Build.CloneTable(pre.unresolvedEchoWeights)
     for i = 1, EbonBuilds.Build.LOCKED_SLOTS do state.locked[i] = (pre.lockedEchoes and pre.lockedEchoes[i]) or nil end
     EbonBuilds.Runtime.isEditingBuild = true
     EbonBuilds.Runtime.pendingWeights = EbonBuilds.Runtime.pendingWeights or {}
+    EbonBuilds.Runtime.pendingRefWeights = EbonBuilds.Runtime.pendingRefWeights or EbonBuilds.Weights.CloneRefWeights(pre.echoWeightsByRef or {})
 end
 
 ------------------------------------------------------------------------

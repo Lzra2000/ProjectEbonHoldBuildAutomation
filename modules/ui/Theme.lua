@@ -48,18 +48,35 @@ local LOW_SCALE_BACKDROP = {
 local appliedScale
 local backdropFrames = setmetatable({}, { __mode = "k" })
 
-local function CurrentScale()
+local function CurrentAddonScale()
     return tonumber(appliedScale)
         or tonumber(EbonBuildsDB and EbonBuildsDB.globalSettings and EbonBuildsDB.globalSettings.uiScale)
         or 1
 end
 
-local function CurrentBackdrop()
-    return CurrentScale() < 0.95 and LOW_SCALE_BACKDROP or NORMAL_BACKDROP
+-- Border rasterization depends on the final physical scale. WoW's global UI
+-- scale can reduce a one-unit edge below one physical pixel even when the
+-- addon setting is 1.0, causing individual edges to disappear according to
+-- screen position. Keep the decision centralized for every themed control.
+local function CurrentRasterScale(frame)
+    if frame and frame.GetEffectiveScale then
+        local effective = tonumber(frame:GetEffectiveScale())
+        if effective and effective > 0 then return effective end
+    end
+
+    local parentScale = 1
+    if UIParent and UIParent.GetEffectiveScale then
+        parentScale = tonumber(UIParent:GetEffectiveScale()) or 1
+    end
+    return CurrentAddonScale() * parentScale
+end
+
+local function CurrentBackdrop(frame)
+    return CurrentRasterScale(frame) < 0.95 and LOW_SCALE_BACKDROP or NORMAL_BACKDROP
 end
 
 local function InstallBackdrop(frame)
-    frame:SetBackdrop(CurrentBackdrop())
+    frame:SetBackdrop(CurrentBackdrop(frame))
     backdropFrames[frame] = true
 end
 
@@ -72,7 +89,7 @@ function T.SetAppliedScale(scale)
     for frame in pairs(backdropFrames) do
         local background = frame.GetBackdropColor and { frame:GetBackdropColor() } or nil
         local border = frame.GetBackdropBorderColor and { frame:GetBackdropBorderColor() } or nil
-        frame:SetBackdrop(CurrentBackdrop())
+        frame:SetBackdrop(CurrentBackdrop(frame))
         if background and background[1] then frame:SetBackdropColor(unpack(background)) end
         if border and border[1] then frame:SetBackdropBorderColor(unpack(border)) end
     end
@@ -193,10 +210,14 @@ function T.AttachTooltip(frame, titleText, bodyText, anchor)
     if not frame then return end
     frame:HookScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, anchor or "ANCHOR_RIGHT")
+        GameTooltip:SetFrameStrata("TOOLTIP")
+        GameTooltip:SetToplevel(true)
+        GameTooltip:SetClampedToScreen(true)
         GameTooltip:ClearLines()
         if titleText and titleText ~= "" then GameTooltip:AddLine(titleText, 1, 0.82, 0) end
         if bodyText and bodyText ~= "" then GameTooltip:AddLine(bodyText, 0.82, 0.82, 0.86, true) end
         GameTooltip:Show()
+        GameTooltip:Raise()
     end)
     frame:HookScript("OnLeave", function() GameTooltip:Hide() end)
 end
@@ -241,6 +262,33 @@ local function ApplyButtonVisual(btn, background, border)
     btn:SetBackdropBorderColor(unpack(border))
 end
 
+-- Restore a button to its canonical non-hover visual state. This is required
+-- for recycled widgets because WoW may not fire OnLeave when a popup or
+-- full-screen click catcher appears over the button that was clicked.
+function T.ResetButtonVisual(btn)
+    if not btn then return end
+
+    local label = btn.GetFontString and btn:GetFontString() or nil
+    if btn.IsEnabled and btn:IsEnabled() ~= 1 then
+        local c = btn._accentBorder or T.BORDER_DIM
+        btn:SetBackdropColor(unpack(BTN_BG_DISABLED))
+        btn:SetBackdropBorderColor(c[1], c[2], c[3], btn._accentBorder and 0.42 or 0.70)
+        if label then label:SetTextColor(0.52, 0.52, 0.56) end
+        return
+    end
+
+    if btn._tabSelected then
+        btn._accentBorder = ACCENT_BORDERS.gold
+        btn:SetBackdropColor(0.20, 0.17, 0.07, 1)
+        btn:SetBackdropBorderColor(unpack(ACCENT_BORDERS.gold))
+        if label then label:SetTextColor(1, 0.90, 0.35) end
+        return
+    end
+
+    ApplyButtonVisual(btn, BTN_BG, btn._accentBorder or T.BORDER_DIM)
+    if label then label:SetTextColor(1, 0.82, 0) end
+end
+
 function T.SkinButton(btn)
     btn:SetNormalTexture("")
     btn:SetPushedTexture("")
@@ -255,9 +303,7 @@ function T.SkinButton(btn)
         end
     end)
     btn:HookScript("OnLeave", function(self)
-        if self:IsEnabled() == 1 then
-            ApplyButtonVisual(self, BTN_BG, self._accentBorder or T.BORDER_DIM)
-        end
+        T.ResetButtonVisual(self)
     end)
     btn:HookScript("OnMouseDown", function(self)
         if self:IsEnabled() == 1 then ApplyButtonVisual(self, BTN_BG_DOWN, self._accentBorder or T.BORDER) end
@@ -278,8 +324,7 @@ function T.SkinButton(btn)
         if self:GetFontString() then self:GetFontString():SetTextColor(0.52, 0.52, 0.56) end
     end)
     btn:HookScript("OnEnable", function(self)
-        ApplyButtonVisual(self, BTN_BG, self._accentBorder or T.BORDER_DIM)
-        if self:GetFontString() then self:GetFontString():SetTextColor(1, 0.82, 0) end
+        T.ResetButtonVisual(self)
     end)
     return btn
 end
@@ -300,12 +345,12 @@ function T.SetButtonAccent(btn, accent)
     local c = ACCENT_BORDERS[accent]
     if not c then return end
     btn._accentBorder = c
-    btn:SetBackdropBorderColor(unpack(c))
+    T.ResetButtonVisual(btn)
 end
 
 function T.ClearButtonAccent(btn)
     btn._accentBorder = nil
-    btn:SetBackdropBorderColor(unpack(T.BORDER_DIM))
+    T.ResetButtonVisual(btn)
 end
 
 -- Custom flat tabs provide a stronger selected state than the small WotLK

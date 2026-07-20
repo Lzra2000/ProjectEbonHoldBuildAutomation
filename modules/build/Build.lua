@@ -148,6 +148,8 @@ function EbonBuilds.Build.StrategyChecksum(build)
         spec = build and build.spec,
         lockedEchoes = build and build.lockedEchoes or {},
         echoWeights = build and build.echoWeights or {},
+        echoWeightsByRef = build and build.echoWeightsByRef or {},
+        echoCatalogFingerprint = build and build.echoCatalogFingerprint,
         settings = build and build.settings or {},
     })
 end
@@ -194,18 +196,44 @@ local function NormalizeProtection(build)
     end
 end
 
+local function RestoreWizardAvoidPolicies(build)
+    if type(build) ~= "table" then return 0 end
+    local refs = build.wizardMeta and build.wizardMeta.avoidPolicyRefs
+    if type(refs) ~= "table" then return 0 end
+    EnsureSettings(build)
+    build.settings.echoPolicies = type(build.settings.echoPolicies) == "table" and build.settings.echoPolicies or {}
+    local applied = 0
+    for _, refKey in ipairs(refs) do
+        if type(refKey) == "string" and refKey:match("^[gs]:%d+$") then
+            build.settings.echoPolicies[refKey] = "never_pick"
+            applied = applied + 1
+        end
+    end
+    return applied
+end
+
 function EbonBuilds.Build.NormalizeData(build)
     if not build then return end
     EnsureSettings(build)
+    -- Repair builds made by older Wizard revisions before policy
+    -- normalization. The Wizard's Avoid list is authoritative.
+    RestoreWizardAvoidPolicies(build)
     NormalizeProtection(build)
+    -- NormalizeProtection may rewrite the policy table; enforce the required
+    -- Avoid policies once more under their canonical ref keys.
+    RestoreWizardAvoidPolicies(build)
     if EbonBuilds.Weights and EbonBuilds.Weights.NormalizeWeights then
         build.echoWeights = EbonBuilds.Weights.NormalizeWeights(build.echoWeights or {})
+        if type(build.echoWeightsByRef) == "table" and EbonBuilds.Weights.NormalizeRefWeights then
+            build.echoWeightsByRef = EbonBuilds.Weights.NormalizeRefWeights(build.echoWeightsByRef)
+        end
     else
         build.echoWeights = build.echoWeights or {}
     end
 end
 
 EbonBuilds.Build.NormalizeProtection = NormalizeProtection
+EbonBuilds.Build.RestoreWizardAvoidPolicies = RestoreWizardAvoidPolicies
 
 function EbonBuilds.Build.Checksum(build)
     if not build then return Digest("") end
@@ -503,14 +531,19 @@ function EbonBuilds.Build.Get(id)
 end
 
 function EbonBuilds.Build.GetActive()
-    return EbonBuilds.Build.Get(EbonBuildsCharDB.activeBuildId)
+    local build = EbonBuilds.Build.Get(EbonBuildsCharDB.activeBuildId)
+    if build and EbonBuilds.EchoReferenceMigration then EbonBuilds.EchoReferenceMigration.Ensure(build) end
+    return build
 end
 
 function EbonBuilds.Build.SetActive(id)
     if EbonBuildsCharDB.activeBuildId == id then return end
     EbonBuildsCharDB.activeBuildId = id
     local active = EbonBuilds.Build.Get(id)
-    if active then RuntimeFor(active, false) end
+    if active then
+        if EbonBuilds.EchoReferenceMigration then EbonBuilds.EchoReferenceMigration.Ensure(active) end
+        RuntimeFor(active, false)
+    end
     -- The automation peak is relative to the active build's weights and
     -- settings; switching builds invalidates it.
     if EbonBuilds.Automation and EbonBuilds.Automation.ResetPeakCache then
@@ -532,6 +565,21 @@ function EbonBuilds.Build.GetActiveWeights()
     end
     EbonBuilds.Runtime.pendingWeights = EbonBuilds.Runtime.pendingWeights or {}
     return EbonBuilds.Runtime.pendingWeights
+end
+
+function EbonBuilds.Build.GetActiveRefWeights()
+    if EbonBuilds.Runtime.isEditingBuild then
+        EbonBuilds.Runtime.pendingRefWeights = EbonBuilds.Runtime.pendingRefWeights or {}
+        return EbonBuilds.Runtime.pendingRefWeights
+    end
+    local build = EbonBuilds.Build.GetActive()
+    if build then
+        if EbonBuilds.EchoReferenceMigration then EbonBuilds.EchoReferenceMigration.Ensure(build) end
+        build.echoWeightsByRef = build.echoWeightsByRef or {}
+        return build.echoWeightsByRef
+    end
+    EbonBuilds.Runtime.pendingRefWeights = EbonBuilds.Runtime.pendingRefWeights or {}
+    return EbonBuilds.Runtime.pendingRefWeights
 end
 
 -- UnitName("player") is not guaranteed to return the same FORMAT across
@@ -619,6 +667,11 @@ function EbonBuilds.Build.NewObject(data)
         comments        = data.comments or "",
         lockedEchoes = CloneTable(data.lockedEchoes or { nil, nil, nil, nil, nil, nil }),
         echoWeights     = CloneTable(data.echoWeights or {}),
+        echoWeightsByRef = CloneTable(data.echoWeightsByRef or {}),
+        echoRefs         = CloneTable(data.echoRefs or {}),
+        unresolvedEchoWeights = CloneTable(data.unresolvedEchoWeights),
+        echoSchema       = tonumber(data.echoSchema) or (data.echoWeightsByRef and 2 or nil),
+        echoCatalogFingerprint = data.echoCatalogFingerprint,
         settings        = CloneTable(data.settings or DefaultSettings()),
         version         = 1,
         revision        = 1,
@@ -628,6 +681,7 @@ function EbonBuilds.Build.NewObject(data)
         isPublic         = data.isPublic or false,
         validated         = data.validated or false,
         copiedFrom        = data.copiedFrom or nil,
+        wizardMeta        = data.wizardMeta and CloneTable(data.wizardMeta) or nil,
         characterSnapshot = data.characterSnapshot and CloneTable(data.characterSnapshot) or nil,
         stats            = {
             echoesSeen    = 0,
@@ -648,12 +702,51 @@ function EbonBuilds.Build.NewObject(data)
     return build
 end
 
+local function ApplyWizardAvoidPolicies(build, data)
+    local meta = (data and data.wizardMeta) or (build and build.wizardMeta)
+    local refs = meta and meta.avoidPolicyRefs
+    local api = EbonBuilds.EchoPolicy
+    if type(refs) ~= "table" or not api then return 0 end
+    build.settings = build.settings or DefaultSettings()
+    build.settings.echoPolicies = type(build.settings.echoPolicies) == "table" and build.settings.echoPolicies or {}
+    local applied = 0
+    for _, refKey in ipairs(refs) do
+        if type(refKey) == "string" and refKey:match("^[gs]:%d+$") then
+            local ok
+            if api.EnsureNeverPick then ok = api.EnsureNeverPick(build.settings, refKey)
+            elseif api.SetRef then ok = api.SetRef(build.settings, refKey, api.NEVER_PICK)
+            elseif api.Set then ok = api.Set(build.settings, refKey, api.NEVER_PICK) end
+            -- Last-resort canonical write. Avoid is a required Wizard policy,
+            -- so it must survive even if catalogue resolution is unavailable.
+            if not ok then
+                build.settings.echoPolicies[refKey] = api.NEVER_PICK or "never_pick"
+                ok = true
+            end
+            if ok then applied = applied + 1 end
+        end
+    end
+    return applied
+end
+
 function EbonBuilds.Build.Create(data)
     local build = EbonBuilds.Build.NewObject(data)
     local sourceWeights = data and data.echoWeights ~= nil and build.echoWeights
         or EbonBuilds.Runtime.pendingWeights or build.echoWeights
     build.echoWeights = EbonBuilds.Weights.NormalizeWeights(sourceWeights)
+    local sourceRefWeights = data and data.echoWeightsByRef ~= nil and data.echoWeightsByRef
+        or EbonBuilds.Runtime.pendingRefWeights or build.echoWeightsByRef
+    build.echoWeightsByRef = EbonBuilds.Weights.NormalizeRefWeights(sourceRefWeights or {})
+    if next(build.echoWeightsByRef) then
+        build.echoSchema = 2
+        build.echoCatalogFingerprint = data.echoCatalogFingerprint
+            or (EbonBuilds.EchoCatalog and EbonBuilds.EchoCatalog.GetFingerprint())
+    end
     EbonBuilds.Runtime.pendingWeights = nil
+    EbonBuilds.Runtime.pendingRefWeights = nil
+    EbonBuilds.Build.NormalizeData(build)
+    ApplyWizardAvoidPolicies(build, data)
+    -- Re-normalize after applying required Wizard policies. EchoPolicy.Normalize
+    -- keeps canonical ref keys and guarantees the policy reaches UI/automation.
     EbonBuilds.Build.NormalizeData(build)
     build.strategyHash = EbonBuilds.Build.StrategyChecksum(build)
     build._checksum = EbonBuilds.Build.Checksum(build)
@@ -677,9 +770,15 @@ function EbonBuilds.Build.Duplicate(sourceId)
         comments     = source.comments,
         lockedEchoes = CloneTable(source.lockedEchoes or {}),
         echoWeights  = CloneTable(source.echoWeights or {}),
+        echoWeightsByRef = CloneTable(source.echoWeightsByRef or {}),
+        echoRefs = CloneTable(source.echoRefs or {}),
+        unresolvedEchoWeights = CloneTable(source.unresolvedEchoWeights),
+        echoSchema = source.echoSchema,
+        echoCatalogFingerprint = source.echoCatalogFingerprint,
         settings     = EbonBuilds.Build.CloneSettings(source.settings or DefaultSettings()),
         isPublic     = false,
         copiedFrom   = source.id,
+        wizardMeta   = CloneTable(source.wizardMeta),
     })
     EbonBuildsDB.builds[copy.id] = copy
     local sourceRuntime = RuntimeFor(source, false)
@@ -705,9 +804,17 @@ function EbonBuilds.Build.UpdateFromPublic(localBuild, publicBuild)
     if publicBuild.echoWeights and next(publicBuild.echoWeights) then
         localBuild.echoWeights = EbonBuilds.Weights.CloneWeights(publicBuild.echoWeights)
     end
+    if publicBuild.echoWeightsByRef and next(publicBuild.echoWeightsByRef) then
+        localBuild.echoWeightsByRef = EbonBuilds.Weights.CloneRefWeights(publicBuild.echoWeightsByRef)
+        localBuild.echoRefs = CloneTable(publicBuild.echoRefs or {})
+        localBuild.unresolvedEchoWeights = CloneTable(publicBuild.unresolvedEchoWeights)
+        localBuild.echoSchema = publicBuild.echoSchema or 2
+        localBuild.echoCatalogFingerprint = publicBuild.echoCatalogFingerprint
+    end
     if publicBuild.copiedFrom then
         localBuild.copiedFrom = publicBuild.copiedFrom
     end
+    localBuild.wizardMeta = CloneTable(publicBuild.wizardMeta)
     localBuild._importedAt = publicBuild.lastModified
     localBuild.lastModified = date("%Y-%m-%d %H:%M:%S")
     localBuild.revision = (tonumber(localBuild.revision) or tonumber(localBuild.version) or 1) + 1
@@ -740,9 +847,21 @@ function EbonBuilds.Build.Save(id, data)
     build.lockedEchoes = data.lockedEchoes or build.lockedEchoes
     if data.settings then build.settings = EbonBuilds.Build.CloneSettings(data.settings) end
     if data.echoWeights then build.echoWeights = EbonBuilds.Weights.CloneWeights(data.echoWeights) end
+    if data.echoWeightsByRef then
+        build.echoWeightsByRef = EbonBuilds.Weights.CloneRefWeights(data.echoWeightsByRef)
+        build.echoSchema = data.echoSchema or 2
+        build.echoCatalogFingerprint = data.echoCatalogFingerprint
+            or (EbonBuilds.EchoCatalog and EbonBuilds.EchoCatalog.GetFingerprint())
+    end
+    if data.echoRefs ~= nil then build.echoRefs = CloneTable(data.echoRefs) end
+    if data.unresolvedEchoWeights ~= nil then build.unresolvedEchoWeights = CloneTable(data.unresolvedEchoWeights) end
     if data.isPublic ~= nil then build.isPublic = data.isPublic end
     if data.characterSnapshot ~= nil then build.characterSnapshot = CloneTable(data.characterSnapshot) end
     if data.clearCharacterSnapshot then build.characterSnapshot = nil end
+    if data.wizardMeta ~= nil then build.wizardMeta = CloneTable(data.wizardMeta) end
+    if data.clearWizardMeta then build.wizardMeta = nil end
+    EbonBuilds.Build.NormalizeData(build)
+    ApplyWizardAvoidPolicies(build, data)
     EbonBuilds.Build.NormalizeData(build)
     EnforceTitleUniqueness(build)
     local newStrategyHash = EbonBuilds.Build.StrategyChecksum(build)

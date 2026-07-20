@@ -576,18 +576,46 @@ function EWL.BuildEntries(build)
         end
     end
 
-    for name, rawWeights in pairs(build.echoWeights or {}) do
-        local weights = EbonBuilds.Weights.NormalizeEntry(rawWeights)
-        if EbonBuilds.Weights.HasNonZero(weights) then
-            local row = byFamily[FamilyKey(name)]
-            if row and RowMatchesClass(row, classToken) then
-                AddRow(row, false, EbonBuilds.Weights.MaxFromWeights(build.echoWeights, name))
-            else
-                unresolved[#unresolved + 1] = {
-                    name = CleanEchoName(name) or tostring(name),
-                    weights = weights,
-                    reason = row and "class" or "catalog",
-                }
+    if EbonBuilds.EchoReferenceMigration then EbonBuilds.EchoReferenceMigration.Ensure(build) end
+    local hasRefWeights = type(build.echoWeightsByRef) == "table" and next(build.echoWeightsByRef) ~= nil
+    if hasRefWeights then
+        for refKey, rawWeights in pairs(build.echoWeightsByRef) do
+            local weights = EbonBuilds.Weights.NormalizeEntry(rawWeights)
+            if EbonBuilds.Weights.HasNonZero(weights) then
+                local spellId = select(1, EbonBuilds.EchoProjection.GetBestVariant(classToken, refKey))
+                local row = spellId and (byId[spellId] or ResolveRowForSpell(byId, byFamily, spellId)) or nil
+                if not row and spellId then row = MakeFallbackLockedRow(spellId) end
+                if row and RowMatchesClass(row, classToken) then
+                    local maxWeight = nil
+                    for _, quality in ipairs(EbonBuilds.Quality.ORDER or {}) do
+                        local value = EbonBuilds.Weights.GetForRef(build, refKey, quality)
+                        if maxWeight == nil or value > maxWeight then maxWeight = value end
+                    end
+                    AddRow(row, false, maxWeight or 0)
+                else
+                    local definition = EbonBuilds.EchoCatalog.GetByRef(refKey)
+                    unresolved[#unresolved + 1] = {
+                        name = definition and definition.sourceName or refKey,
+                        weights = weights,
+                        reason = row and "class" or "catalog",
+                    }
+                end
+            end
+        end
+    else
+        for name, rawWeights in pairs(build.echoWeights or {}) do
+            local weights = EbonBuilds.Weights.NormalizeEntry(rawWeights)
+            if EbonBuilds.Weights.HasNonZero(weights) then
+                local row = byFamily[FamilyKey(name)]
+                if row and RowMatchesClass(row, classToken) then
+                    AddRow(row, false, EbonBuilds.Weights.MaxFromWeights(build.echoWeights, name))
+                else
+                    unresolved[#unresolved + 1] = {
+                        name = CleanEchoName(name) or tostring(name),
+                        weights = weights,
+                        reason = row and "class" or "catalog",
+                    }
+                end
             end
         end
     end
@@ -614,11 +642,30 @@ function EWL.BuildEntries(build)
     }
 end
 
+local function StoredUnresolvedCount(build)
+    local count = tonumber(build and build.wizardMeta and build.wizardMeta.unresolvedRecommendations) or 0
+    for _ in pairs(build and build.unresolvedEchoWeights or {}) do count = count + 1 end
+    return count
+end
+
 function EWL.Generate(build)
     if not build then return nil, "No build selected." end
+    local storedUnresolved = StoredUnresolvedCount(build)
+    if storedUnresolved > 0 then
+        return nil, string.format("UNRESOLVED_ECHO_REFERENCES: %d unresolved Echo reference(s) must be fixed before EWL export.", storedUnresolved), {
+            unresolvedCount = storedUnresolved,
+            unresolved = build.unresolvedEchoWeights or {},
+        }
+    end
+
     local entries, info = EWL.BuildEntries(build)
     if info.error then return nil, info.error, info end
     if info.class == "" then return nil, "The build has no class.", info end
+    local unresolvedCount = info.unresolved and #info.unresolved or 0
+    info.unresolvedCount = unresolvedCount
+    -- EchoWishlist export has always been best-effort: valid catalog rows are
+    -- exported while unmatched weighted families are omitted and surfaced in
+    -- info.unresolved. The export dialog already displays that warning.
     if #entries == 0 then
         return nil, "This build has no locked or weighted Echoes to export.", info
     end

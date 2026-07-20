@@ -51,16 +51,29 @@ function W.VisibleName(name)
     return name:gsub("^%s+", ""):gsub("%s+$", "")
 end
 
--- Returns the canonical weight key for a spellId: the DB comment (suffix
--- stripped) when present, otherwise the stripped spell name as fallback.
+-- Compatibility display name for an exact spell. The real player-facing
+-- source name is authoritative; ProjectEbonhold comments are legacy aliases.
 function W.CanonicalName(spellId)
+    spellId = tonumber(spellId)
     if not spellId then return nil end
-    local data = ProjectEbonhold and ProjectEbonhold.PerkDatabase
-        and ProjectEbonhold.PerkDatabase[spellId]
-    local raw = data and data.comment
-    if not raw or raw == "" then raw = GetSpellInfo(spellId) end
+    if EbonBuilds.EchoCatalog and EbonBuilds.EchoCatalog.GetBySpellId then
+        local variant = EbonBuilds.EchoCatalog.GetBySpellId(spellId)
+        if variant and variant.sourceName and variant.sourceName ~= "" then
+            return variant.sourceName
+        end
+    end
+    if EbonBuilds.EchoIdentity and EbonBuilds.EchoIdentity.GetBundledSpell then
+        local bundled = EbonBuilds.EchoIdentity.GetBundledSpell(spellId)
+        if bundled and bundled.sourceName then return bundled.sourceName end
+    end
+    local raw = GetSpellInfo and GetSpellInfo(spellId)
+    if not raw then
+        local data = ProjectEbonhold and ProjectEbonhold.PerkDatabase
+            and (ProjectEbonhold.PerkDatabase[spellId] or ProjectEbonhold.PerkDatabase[tostring(spellId)])
+        raw = data and data.comment
+    end
     if not raw then return nil end
-    return W.StripQualitySuffix(raw)
+    return W.VisibleName(W.StripQualitySuffix(raw))
 end
 
 ------------------------------------------------------------------------
@@ -259,4 +272,379 @@ function W.DescribeFromWeights(weights, echoName, qualities)
         end
     end
     return table.concat(parts, ", ")
+end
+
+
+------------------------------------------------------------------------
+-- Versioned reference weights
+------------------------------------------------------------------------
+
+function W.NormalizeRefWeights(weights)
+    local out = {}
+    if type(weights) ~= "table" then return out end
+    for refKey, value in pairs(weights) do
+        if type(refKey) == "string" and refKey:match("^[gs]:%d+$") then
+            out[refKey] = W.NormalizeEntry(value)
+        end
+    end
+    return out
+end
+
+function W.CloneRefWeights(weights)
+    return W.NormalizeRefWeights(weights)
+end
+
+local function ActiveBuild()
+    return EbonBuilds.Build and EbonBuilds.Build.GetActive and EbonBuilds.Build.GetActive() or nil
+end
+
+
+local function EffectiveRefWeights(build)
+    if EbonBuilds.Runtime and EbonBuilds.Runtime.isEditingBuild and type(EbonBuilds.Runtime.pendingRefWeights) == "table" then
+        return EbonBuilds.Runtime.pendingRefWeights
+    end
+    return type(build) == "table" and build.echoWeightsByRef or nil
+end
+
+local function EffectiveLegacyWeights(build)
+    if EbonBuilds.Runtime and EbonBuilds.Runtime.isEditingBuild and type(EbonBuilds.Runtime.pendingWeights) == "table" then
+        return EbonBuilds.Runtime.pendingWeights
+    end
+    return type(build) == "table" and build.echoWeights or nil
+end
+
+local function ResolveRefByName(name, classToken)
+    if not EbonBuilds.EchoCatalog then return nil, "CATALOG_UNAVAILABLE" end
+    local refs = EbonBuilds.EchoCatalog.FindRefs(name)
+    if classToken and EbonBuilds.EchoProjection then
+        local filtered = {}
+        for _, refKey in ipairs(refs or {}) do
+            if EbonBuilds.EchoProjection.GetEntry(classToken, refKey) then filtered[#filtered + 1] = refKey end
+        end
+        refs = filtered
+    end
+    if #refs == 1 then return refs[1] end
+    if #refs > 1 then return nil, "AMBIGUOUS_ALIAS", refs end
+    return nil, "MISSING_ALIAS"
+end
+
+function W.ResolveLegacyName(build, name)
+    return ResolveRefByName(name, build and build.class)
+end
+
+function W.GetForRef(build, refKey, quality)
+    if type(build) ~= "table" then build = ActiveBuild() end
+    refKey = tostring(refKey or "")
+    local refWeights = EffectiveRefWeights(build)
+    if type(refWeights) == "table" and refWeights[refKey] ~= nil then
+        return W.GetFromWeights(refWeights, refKey, quality)
+    end
+    local definition = EbonBuilds.EchoCatalog and EbonBuilds.EchoCatalog.GetByRef(refKey)
+    if definition then
+        local legacy = EffectiveLegacyWeights(build) or {}
+        if legacy[definition.sourceName] ~= nil then
+            local resolved = ResolveRefByName(definition.sourceName, build and build.class)
+            if resolved == refKey then return W.GetFromWeights(legacy, definition.sourceName, quality) end
+        end
+        for _, alias in ipairs(definition.aliases or {}) do
+            if legacy[alias] ~= nil then
+                local resolved = ResolveRefByName(alias, build.class)
+                if resolved == refKey then return W.GetFromWeights(legacy, alias, quality) end
+            end
+        end
+    end
+    return 0
+end
+
+function W.GetForSpell(build, spellId, quality)
+    if type(build) ~= "table" then build = ActiveBuild() end
+    if not build then return 0 end
+    local refKey = EbonBuilds.EchoCatalog and EbonBuilds.EchoCatalog.GetRefForSpell(spellId)
+    if refKey then return W.GetForRef(build, refKey, quality) end
+    local name = W.CanonicalName(spellId)
+    return name and W.GetFromWeights(build.echoWeights or {}, name, quality) or 0
+end
+
+function W.SetForRef(build, refKey, value, quality)
+    if type(build) ~= "table" then build = ActiveBuild() end
+    local pending = EbonBuilds.Runtime and EbonBuilds.Runtime.isEditingBuild and type(EbonBuilds.Runtime.pendingRefWeights) == "table"
+    if type(build) ~= "table" and not pending then return false, "No build." end
+    local valid, err = W.Validate(value)
+    if valid == nil then return false, err end
+    refKey = tostring(refKey or "")
+    if not refKey:match("^[gs]:%d+$") then return false, "Unknown Echo reference." end
+    local refWeights = EffectiveRefWeights(build)
+    if not refWeights then
+        build.echoWeightsByRef = build.echoWeightsByRef or {}
+        refWeights = build.echoWeightsByRef
+    end
+    if quality == nil then
+        refWeights[refKey] = W.MakeUniform(valid)
+    else
+        if not EbonBuilds.Quality.IsValid(quality) then return false, "Unknown quality rank." end
+        local entry = W.NormalizeEntry(refWeights[refKey])
+        entry[quality] = valid
+        refWeights[refKey] = entry
+    end
+    local definition = EbonBuilds.EchoCatalog and EbonBuilds.EchoCatalog.GetByRef(refKey)
+    if definition then
+        local legacyWeights = EffectiveLegacyWeights(build)
+        if not legacyWeights and build then build.echoWeights = build.echoWeights or {}; legacyWeights = build.echoWeights end
+        local resolved = ResolveRefByName(definition.sourceName, build and build.class)
+        if legacyWeights and resolved == refKey then
+            legacyWeights[definition.sourceName] = W.NormalizeEntry(refWeights[refKey])
+        end
+    end
+    if EbonBuilds.Automation and EbonBuilds.Automation.ResetPeakCache then
+        EbonBuilds.Automation.ResetPeakCache()
+    end
+    return true
+end
+
+function W.IterateResolved(build)
+    local keys, seen = {}, {}
+    if type(build) ~= "table" then return function() end end
+    for refKey in pairs(build.echoWeightsByRef or {}) do
+        if type(refKey) == "string" and refKey:match("^[gs]:%d+$") then
+            seen[refKey] = true; keys[#keys + 1] = refKey
+        end
+    end
+    for legacyName in pairs(build.echoWeights or {}) do
+        local refKey = ResolveRefByName(legacyName, build.class)
+        if refKey and not seen[refKey] then seen[refKey] = true; keys[#keys + 1] = refKey end
+    end
+    table.sort(keys)
+    local index = 0
+    return function()
+        index = index + 1
+        local refKey = keys[index]
+        if not refKey then return nil end
+        return refKey, build.echoWeightsByRef and build.echoWeightsByRef[refKey]
+            or (EbonBuilds.EchoCatalog.GetByRef(refKey) and build.echoWeights[EbonBuilds.EchoCatalog.GetByRef(refKey).sourceName])
+    end
+end
+
+local function EntriesEqual(a, b)
+    a, b = W.NormalizeEntry(a), W.NormalizeEntry(b)
+    for _, quality in ipairs(EbonBuilds.Quality.ORDER or {}) do
+        if a[quality] ~= b[quality] then return false end
+    end
+    return true
+end
+
+local function CurrentReference(refKey)
+    local definition = EbonBuilds.EchoCatalog and EbonBuilds.EchoCatalog.GetByRef(refKey)
+    if not definition then return nil end
+    return { definition.spellId, definition.sourceName, definition.descriptionHash or 0 }
+end
+
+local function IsRefUsableForClass(refKey, classToken)
+    if not EbonBuilds.EchoProjection or not classToken then return true end
+    local entry = EbonBuilds.EchoProjection.GetEntry(classToken, refKey)
+    if not entry then return false end
+    local availability = entry.availability
+    return availability == EbonBuilds.EchoIdentity.AVAILABLE
+        or availability == EbonBuilds.EchoIdentity.CONFLICTED
+end
+
+local function CopyUnresolved(source)
+    local out = {}
+    for _, item in ipairs(type(source) == "table" and source or {}) do
+        if type(item) == "table" then
+            out[#out + 1] = {
+                legacyName = item.legacyName,
+                refKey = item.refKey,
+                reason = item.reason,
+                candidates = item.candidates,
+                weights = W.NormalizeEntry(item.weights),
+            }
+        end
+    end
+    return out
+end
+
+local function AddMigrated(targetWeights, targetRefs, unresolved, targetRef, sourceKey, weights, reason, classToken)
+    if targetRef and not IsRefUsableForClass(targetRef, classToken) then
+        unresolved[#unresolved + 1] = {
+            refKey = sourceKey,
+            reason = "CROSS_CLASS_REFERENCE",
+            candidates = { targetRef },
+            weights = W.NormalizeEntry(weights),
+        }
+        return
+    end
+    if not targetRef then
+        unresolved[#unresolved + 1] = {
+            refKey = sourceKey,
+            reason = reason or "UNRESOLVED_REFERENCE",
+            weights = W.NormalizeEntry(weights),
+        }
+        return
+    end
+    local existing = targetWeights[targetRef]
+    if existing and not EntriesEqual(existing, weights) then
+        unresolved[#unresolved + 1] = {
+            refKey = sourceKey,
+            reason = "REFERENCE_COLLISION",
+            candidates = { targetRef },
+            weights = W.NormalizeEntry(weights),
+        }
+        return
+    end
+    targetWeights[targetRef] = W.NormalizeEntry(weights)
+    targetRefs[targetRef] = CurrentReference(targetRef)
+end
+
+local function ReconcileSchemaTwo(build, currentFingerprint)
+    local sourceWeights = W.NormalizeRefWeights(build.echoWeightsByRef or {})
+    local sourceRefs = type(build.echoRefs) == "table" and build.echoRefs or {}
+    local migrated, refs = {}, {}
+    local unresolved = CopyUnresolved(build.unresolvedEchoWeights)
+
+    for oldRef, weights in pairs(sourceWeights) do
+        local stored = sourceRefs[oldRef]
+        local storedSpellId = type(stored) == "table" and tonumber(stored[1]) or nil
+        local storedName = type(stored) == "table" and stored[2] or nil
+        local storedHash = type(stored) == "table" and tonumber(stored[3]) or 0
+        local current = EbonBuilds.EchoCatalog and EbonBuilds.EchoCatalog.GetByRef(oldRef)
+        local exact = storedSpellId and EbonBuilds.EchoCatalog and EbonBuilds.EchoCatalog.GetBySpellId(storedSpellId)
+        local targetRef, reason
+
+        if exact then
+            -- Exact spell identity wins. This safely follows a spell when a
+            -- server revision moves it to a different group key.
+            targetRef = exact.refKey
+        elseif current and stored then
+            local sameName = EbonBuilds.EchoIdentity and
+                EbonBuilds.EchoIdentity.NormalizeSearch(current.sourceName) ==
+                EbonBuilds.EchoIdentity.NormalizeSearch(storedName)
+            local sameSignature = storedHash == 0 or tonumber(current.descriptionHash) == 0
+                or storedHash == tonumber(current.descriptionHash)
+            if sameName and sameSignature then targetRef = oldRef
+            else reason = "CATALOG_IDENTITY_MISMATCH" end
+        elseif storedName then
+            local resolved, resolveReason, candidates = ResolveRefByName(storedName, build.class)
+            if resolved then targetRef = resolved
+            else
+                reason = resolveReason or "CATALOG_REFERENCE_MISSING"
+                unresolved[#unresolved + 1] = {
+                    refKey = oldRef,
+                    legacyName = storedName,
+                    reason = reason,
+                    candidates = candidates,
+                    weights = W.NormalizeEntry(weights),
+                }
+            end
+        elseif current then
+            -- A revision-local group without its compact reference tuple
+            -- cannot be proven stable across fingerprints. Quarantine it
+            -- rather than silently assigning its weight to a reused group ID.
+            reason = "MISSING_REFERENCE_METADATA"
+        else
+            reason = "CATALOG_REFERENCE_MISSING"
+        end
+
+        if targetRef then
+            AddMigrated(migrated, refs, unresolved, targetRef, oldRef, weights, nil, build.class)
+        elseif not storedName or reason == "CATALOG_IDENTITY_MISMATCH" or reason == "MISSING_REFERENCE_METADATA" then
+            unresolved[#unresolved + 1] = {
+                refKey = oldRef,
+                legacyName = storedName,
+                reason = reason or "UNRESOLVED_REFERENCE",
+                weights = W.NormalizeEntry(weights),
+            }
+        end
+    end
+
+    build.echoWeightsByRef = migrated
+    build.echoRefs = refs
+    build.unresolvedEchoWeights = #unresolved > 0 and unresolved or nil
+    build.echoCatalogFingerprint = currentFingerprint
+    build.echoSchema = 2
+    return true
+end
+
+local function ValidateCurrentSchemaTwo(build, currentFingerprint)
+    local migrated, refs = {}, {}
+    local unresolved = CopyUnresolved(build.unresolvedEchoWeights)
+    for refKey, weights in pairs(W.NormalizeRefWeights(build.echoWeightsByRef or {})) do
+        if EbonBuilds.EchoCatalog and EbonBuilds.EchoCatalog.GetByRef(refKey)
+            and IsRefUsableForClass(refKey, build.class) then
+            migrated[refKey] = W.NormalizeEntry(weights)
+            refs[refKey] = CurrentReference(refKey) or (type(build.echoRefs) == "table" and build.echoRefs[refKey])
+        else
+            unresolved[#unresolved + 1] = {
+                refKey = refKey,
+                reason = EbonBuilds.EchoCatalog and EbonBuilds.EchoCatalog.GetByRef(refKey)
+                    and "CROSS_CLASS_REFERENCE" or "CATALOG_REFERENCE_MISSING",
+                weights = W.NormalizeEntry(weights),
+            }
+        end
+    end
+    build.echoWeightsByRef = migrated
+    build.echoRefs = refs
+    build.unresolvedEchoWeights = #unresolved > 0 and unresolved or nil
+    build.echoCatalogFingerprint = currentFingerprint or build.echoCatalogFingerprint
+    build.echoSchema = 2
+    return true
+end
+
+function W.MigrateBuild(build)
+    if type(build) ~= "table" then return false, "INVALID_BUILD" end
+    local currentFingerprint = EbonBuilds.EchoCatalog and EbonBuilds.EchoCatalog.GetFingerprint() or nil
+
+    if tonumber(build.echoSchema) == 2 and type(build.echoWeightsByRef) == "table" then
+        if not currentFingerprint or build.echoCatalogFingerprint == currentFingerprint then
+            return ValidateCurrentSchemaTwo(build, currentFingerprint)
+        end
+        return ReconcileSchemaTwo(build, currentFingerprint)
+    end
+
+    local migrated, refs, unresolved = {}, {}, {}
+    for legacyName, raw in pairs(build.echoWeights or {}) do
+        local refKey, reason, candidates = ResolveRefByName(legacyName, build.class)
+        if refKey then
+            local normalized = W.NormalizeEntry(raw)
+            if migrated[refKey] then
+                if not EntriesEqual(migrated[refKey], normalized) then
+                    unresolved[#unresolved + 1] = {
+                        legacyName = legacyName,
+                        reason = "COLLISION",
+                        candidates = { refKey },
+                        weights = normalized,
+                    }
+                end
+            else
+                migrated[refKey] = normalized
+                refs[refKey] = CurrentReference(refKey)
+            end
+        else
+            unresolved[#unresolved + 1] = {
+                legacyName = legacyName,
+                reason = reason or "UNRESOLVED",
+                candidates = candidates,
+                weights = W.NormalizeEntry(raw),
+            }
+        end
+    end
+
+    -- Atomic commit: no build fields are changed until every legacy entry has
+    -- been resolved or quarantined in temporary tables.
+    build.echoWeightsByRef = migrated
+    build.echoRefs = refs
+    build.unresolvedEchoWeights = #unresolved > 0 and unresolved or nil
+    build.echoCatalogFingerprint = currentFingerprint
+    build.echoSchema = 2
+    return true
+end
+
+-- Override the compatibility accessor after all legacy helpers are defined.
+local LegacyGet = W.Get
+function W.Get(echoName, quality)
+    local build = ActiveBuild()
+    if build then
+        local refKey = ResolveRefByName(echoName, build.class)
+        if refKey then return W.GetForRef(build, refKey, quality) end
+    end
+    return LegacyGet(echoName, quality)
 end
