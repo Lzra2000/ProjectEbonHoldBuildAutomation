@@ -9,9 +9,8 @@ EbonBuilds.SettingsView = {}
 local View = EbonBuilds.SettingsView
 local Theme = EbonBuilds.Theme
 
-local FAMILY_ORDER = {
-    "Tank", "Survivability", "Healer", "Caster", "Melee", "Ranged", "No family",
-}
+-- Canonical family list and order come from modules/data/Families.lua.
+local FAMILY_ORDER = EbonBuilds.Families.OrderedIds()
 
 local PROFILES = {
     {

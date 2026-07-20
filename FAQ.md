@@ -258,6 +258,15 @@ The gear score is directional build guidance, not a best-in-slot verdict. Uncach
 
 ## Changelog
 
+### 3.29 (2026-07-20) -- Family system rebuilt: one source of truth, family-level evidence
+
+The family system had grown four independent implementations: Scoring held a private normalization map, the settings UI a private display list, the sample filter a substring hack for catalog variants like "Caster DPS", and family suggestions excluded multi-family Echoes entirely because per-echo numbers can't attribute a stacked modifier. All four are gone.
+
+- New `modules/data/Families.lua`, the single source of truth: the canonical seven families with display order and damage-role flags, normalization for every known catalog variant (plus a forgiving prefix match so future server variants degrade to the right family instead of silently becoming unknown), and canonical family-set resolution for any Echo -- deduplicated, unknown variants dropped, empty resolving to "No family" exactly as Scoring's fallback always did.
+- Scoring, the settings UI, and the DPS-relevance filter all consume it now. Score math itself is deliberately unchanged: family bonuses stack per matching family exactly as before -- this release unifies identity, it does not silently change your scores.
+- **Family suggestions are rebuilt on family-level with/without evidence.** A new `EchoSamples.FamilyDelta` asks, from the same whole-set samples: how do runs containing at least one Echo of this family compare against runs with none? Set membership dissolves the old exclusion -- multi-family Echoes finally count toward every family they belong to, because a run either contains the family or it doesn't. Deltas are read against the zero line with the same 10-per-side reliability gate, and non-damage families (Tank, Survivability, Healer, No family) get no DPS-based suggestions at all.
+- Honest accounting from the rebuild itself: the rewrite initially swept away the sampling ticker along with the old function body -- `find-orphans.sh` flagged `Sample()` going caller-less before anything shipped, which in-game would have silently stopped all data collection. Restored, and the kind of catch that tool exists for.
+
 ### 3.28 (2026-07-19) -- Echo Performance redesigned: whole-set samples and with/without evidence
 
 The confounding fix. The old model stored one running average per echo and credited every active echo with the loadout's whole DPS -- a mount-speed echo "earned" the damage its neighbors dealt, and more data only made that more confidently wrong. Recorded aggregates from before this release carry that flaw and cannot be reinterpreted; the suggestion layer no longer reads them.

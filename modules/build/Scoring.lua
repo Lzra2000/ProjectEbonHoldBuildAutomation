@@ -9,17 +9,10 @@ local CLASS_BITS = {
     DEATHKNIGHT = 32, SHAMAN = 64, MAGE = 128, WARLOCK = 256, DRUID = 1024,
 }
 
--- Normalize family tokens produced by ProjectEbonhold to the 6 canonical keys
--- used in settings.familyBonus.
-local FAMILY_MAP = {
-    Tank = "Tank", Survivability = "Survivability", Healer = "Healer",
-    Caster = "Caster", ["Caster DPS"] = "Caster",
-    Melee  = "Melee",  ["Melee DPS"]  = "Melee",
-    Ranged = "Ranged", ["Ranged DPS"] = "Ranged",
-    None   = "No family",
-}
-
-local function NormFamily(f) return FAMILY_MAP[f] end
+-- Family normalization lives in modules/data/Families.lua -- the single
+-- source of truth for canonical ids and catalog variants. Runtime
+-- lookup (not a file-scope alias) so load order stays a non-issue.
+local function NormFamily(f) return EbonBuilds.Families.Normalize(f) end
 
 local function ApplyModifier(score, baseWeight, value, multiplicative)
     if multiplicative then

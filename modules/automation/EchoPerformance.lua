@@ -729,107 +729,65 @@ local FAMILY_BONUS_MAP = {
 -- Returns the single normalized family this echo belongs to, "No family"
 -- if it belongs to none, or nil if it belongs to more than one (the
 -- ambiguous case this function refuses to use).
-local function SingleFamilyOf(families)
-    if not families or #families == 0 then return "No family" end
-    local set = {}
-    for _, f in ipairs(families) do
-        local key = FAMILY_BONUS_MAP[f]
-        if key then set[key] = true end
-    end
-    local only
-    for key in pairs(set) do
-        if only then return nil end -- more than one distinct family, ambiguous
-        only = key
-    end
-    return only
-end
-
--- Returns a sorted list of { family, currentBonus, suggestedBonus,
--- deviationPct, tierEchoCount }, or {} if there isn't enough single-
--- family data to say anything.
+-- Family Bonus suggestions, rebuilt on family-level with/without
+-- evidence (EchoSamples.FamilyDelta). The old path went per-echo:
+-- average each echo, keep only single-family ones (multi-family
+-- echoes were EXCLUDED because a per-echo number can't attribute a
+-- stacked modifier), then compare family means of those ratios. Set
+-- membership dissolves that: a run either contains the family or it
+-- doesn't, so every echo -- multi-family included -- contributes to
+-- every family it belongs to, and the delta is read directly against
+-- the zero line. Non-damage families get no DPS-based suggestions at
+-- all; DPS evidence says nothing about tanking value.
 function EbonBuilds.EchoPerformance.SuggestFamilyBonusAdjustment(build)
     if not build or not build.class then return {} end
     if not (EbonBuilds.EchoTableRows and EbonBuilds.EchoTableRows.BuildBestByName) then return {} end
-    local classMask = CLASS_MASK[build.class] or 0
-    local weights = build.echoWeights or {}
-    local allStats = EbonBuilds.EchoPerformance.GetEvidenceStats()
 
-    local signatureCounts = {}
-    local raw = {}
-    for name, info in pairs(EbonBuilds.EchoTableRows.BuildBestByName()) do
-        if classMask == 0 or bit.band(info.classMask or 0, classMask) ~= 0 then
-            local quality = info.quality or 0
-            local baseWeight = EbonBuilds.Weights.GetFromWeights(weights, name, quality)
-            local score = EbonBuilds.Scoring.ScorePerQuality({
-                spellId = info.spellId,
-                name = name,
-                quality = quality,
-                families = info.families,
-                classMask = info.classMask,
-            }, baseWeight, build.settings or EbonBuilds.Build.DefaultSettings(), quality)
-            local perf = allStats[name]
-            if score > 0 and perf and perf.sampleCount >= MIN_SAMPLES_FOR_WEIGHT_SUGGESTION then
-                local family = SingleFamilyOf(info.families)
-                if family then
-                    local sig = string.format("%.2f|%d", perf.avgDPS, perf.sampleCount)
-                    signatureCounts[sig] = (signatureCounts[sig] or 0) + 1
-                    raw[#raw + 1] = { name = name, family = family, ratio = perf.avgDPS / score, sig = sig }
-                end
+    -- Scale: typical reliable family-delta magnitude, so the deviation
+    -- threshold means the same thing regardless of the class's DPS level.
+    local deltas = {}
+    local absSum, absCount = 0, 0
+    for _, familyId in ipairs(EbonBuilds.Families.OrderedIds()) do
+        if EbonBuilds.Families.IsDps(familyId) then
+            local d = EbonBuilds.EchoSamples.FamilyDelta(familyId)
+            if d and d.reliable then
+                deltas[#deltas + 1] = d
+                absSum = absSum + math.abs(d.delta)
+                absCount = absCount + 1
             end
         end
     end
-
-    local tierSum, tierCount = {}, {}
-    local globalSum, globalAbsSum, globalCount = 0, 0, 0
-    for _, e in ipairs(raw) do
-        if signatureCounts[e.sig] <= MAX_CLUSTER_SIZE_TO_TRUST then
-            tierSum[e.family] = (tierSum[e.family] or 0) + e.ratio
-            tierCount[e.family] = (tierCount[e.family] or 0) + 1
-            globalSum = globalSum + e.ratio
-            globalAbsSum = globalAbsSum + math.abs(e.ratio)
-            globalCount = globalCount + 1
-        end
-    end
-    if globalCount < MIN_ECHOES_PER_TIER_FOR_BONUS then return {} end
-    -- Ratios are built on with/without DELTAS now: each value already
-    -- means "runs with this echo minus runs without it", so ZERO is the
-    -- natural reference line -- a tier with a clearly negative mean
-    -- delta deserves a downward nudge regardless of how other tiers
-    -- look (and after the utility filter, a single surviving tier must
-    -- still be judgeable at all). Normalized by typical magnitude.
-    local scale = globalAbsSum / globalCount
+    if absCount == 0 then return {} end
+    local scale = absSum / absCount
     if scale <= 0 then return {} end
 
     local settings = build.settings or {}
     local suggestions = {}
-    for family, count in pairs(tierCount) do
-        if count >= MIN_ECHOES_PER_TIER_FOR_BONUS then
-            local tierAvg = tierSum[family] / count
-            local deviation = tierAvg / scale
-            if math.abs(deviation) >= BONUS_DEVIATION_THRESHOLD then
-                local currentBonus = (settings.familyBonus and settings.familyBonus[family]) or 0
-                local nudge = deviation > 0 and BONUS_NUDGE or -BONUS_NUDGE
-                suggestions[#suggestions + 1] = {
-                    family = family,
-                    currentBonus = currentBonus,
-                    suggestedBonus = math.max(0, currentBonus + nudge),
-                    deviationPct = deviation * 100,
-                    tierEchoCount = count,
-                }
-            end
+    for _, d in ipairs(deltas) do
+        local deviation = d.delta / scale
+        if math.abs(deviation) >= BONUS_DEVIATION_THRESHOLD then
+            local currentBonus = (settings.familyBonus and settings.familyBonus[d.family]) or 0
+            local nudge = deviation > 0 and BONUS_NUDGE or -BONUS_NUDGE
+            suggestions[#suggestions + 1] = {
+                family = d.family,
+                currentBonus = currentBonus,
+                suggestedBonus = currentBonus + nudge,
+                delta = d.delta,
+                deviationPct = deviation * 100,
+                nWith = d.nWith,
+                nWithout = d.nWithout,
+                sampleCount = math.min(d.nWith, d.nWithout),
+            }
         end
     end
     table.sort(suggestions, function(a, b) return math.abs(a.deviationPct) > math.abs(b.deviationPct) end)
     return suggestions
 end
 
-------------------------------------------------------------------------
--- Sample ticker: only does anything while actually in combat, and only
--- if the player opted in.
-------------------------------------------------------------------------
-
+-- Restored after the family-suggestion rewrite accidentally swept it
+-- away with the old function body -- find-orphans caught Sample() going
+-- caller-less, which in-game would have silently stopped all sampling.
 local elapsed = 0
-
 local function OnTick(dt)
     if not EbonBuilds.EchoPerformance.IsEnabled() then return end
     MaybeBroadcast(dt)

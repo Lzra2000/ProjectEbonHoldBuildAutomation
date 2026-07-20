@@ -94,6 +94,7 @@ dofile("modules/i18n/locales/plPL.lua")
 dofile("modules/i18n/locales/ptBR.lua")
 dofile("modules/i18n/locales/ruRU.lua")
 dofile("modules/build/EchoPolicy.lua")
+dofile("modules/data/Families.lua")
 dofile("modules/build/Scoring.lua")
 dofile("modules/build/ExportImport.lua")
 dofile("modules/build/EWL.lua")
@@ -851,27 +852,27 @@ do
     for i = 1, 5 do build.echoWeights["Caster" .. i] = 100 end
     for i = 1, 5 do build.echoWeights["Multi" .. i] = 100 end
 
-    -- Redesign fixture: whole-set samples. Caster echoes appear in
-    -- low-DPS runs, Tank/Multi in high ones -- with/without deltas make
-    -- the Caster tier negative.
+    -- Family-level fixture: family deltas come from set membership, so
+    -- the picture is per-RUN. Runs containing a Caster-family echo
+    -- (pure or multi) score high; runs without any score low -- the
+    -- Caster family delta is clearly positive. Multi-family echoes
+    -- (Tank + Caster DPS) are the very echoes the old path excluded;
+    -- here their runs count toward Caster like any other.
     EbonBuilds.EchoSamples.Clear()
-    -- Per-echo DPS variance is deliberate: identical deltas would trip
-    -- the co-active-cluster filter, which correctly refuses to judge
-    -- echoes it cannot tell apart -- real data always varies.
-    for i = 1, 5 do for _ = 1, 12 do EbonBuilds.EchoSamples.Record({ "Caster" .. i }, 1000 + i * 17) end end
-    for i = 1, 5 do for _ = 1, 12 do EbonBuilds.EchoSamples.Record({ "Tank" .. i }, 2000 + i * 17) end end
-    for i = 1, 5 do for _ = 1, 12 do EbonBuilds.EchoSamples.Record({ "Multi" .. i }, 5000 + i * 17) end end
+    for i = 1, 5 do for _ = 1, 6 do EbonBuilds.EchoSamples.Record({ "Caster" .. i }, 5000 + i * 17) end end
+    for i = 1, 5 do for _ = 1, 6 do EbonBuilds.EchoSamples.Record({ "Multi" .. i }, 5200 + i * 17) end end
+    for i = 1, 5 do for _ = 1, 12 do EbonBuilds.EchoSamples.Record({ "Tank" .. i }, 1500 + i * 17) end end
 
     local familySuggestions = EbonBuilds.EchoPerformance.SuggestFamilyBonusAdjustment(build)
     local byFamily = {}
     for _, s in ipairs(familySuggestions) do byFamily[s.family] = s end
-    -- New semantics, the point of the redesign's utility filter: the
-    -- pure-Tank tier gets NO DPS-based suggestion at all -- DPS evidence
-    -- says nothing about tanking value, so pretending otherwise was the
-    -- Cavalry Instincts bug wearing a different hat.
-    check(byFamily.Tank == nil, "pure-Tank tiers no longer receive DPS-based bonus suggestions")
-    check(byFamily.Caster and byFamily.Caster.suggestedBonus < byFamily.Caster.currentBonus,
-        "lower-delta pure-Caster tier is suggested downward")
+    -- Non-damage families get no DPS-based suggestions at all -- DPS
+    -- evidence says nothing about tanking value.
+    check(byFamily.Tank == nil, "Tank never receives DPS-based bonus suggestions")
+    check(byFamily.Caster and byFamily.Caster.suggestedBonus > byFamily.Caster.currentBonus,
+        "the Caster family's positive with/without delta suggests upward")
+    check(byFamily.Caster and byFamily.Caster.nWith == 60,
+        "multi-family echoes count toward the family: 30 pure-Caster + 30 Multi runs on the with-side")
 
     -- SuggestQualityBonusAdjustment had no test at all before this, and was
     -- missing its final `return suggestions` -- every real call (once
@@ -1461,6 +1462,44 @@ do
         "evidence stats carry the with/without delta (6000 vs 2000 -> +4000)")
     check(stats.MountSpeed == nil, "utility echoes never reach the suggestion layer")
     EbonBuilds.EchoTableRows.BuildBestByName = origCatalog2
+    EbonBuilds.EchoSamples.Clear()
+end
+
+-- Families.lua: the single source of truth for family identity.
+do
+    local F = EbonBuilds.Families
+    check(F.Normalize("Caster DPS") == "Caster" and F.Normalize("  Melee DPS ") == "Melee",
+        "catalog variants and stray whitespace normalize to canonical ids")
+    check(F.Normalize("None") == "No family" and F.Normalize("Garbage") == nil,
+        "None maps to No family; unknown strings normalize to nil, not a guess")
+    check(F.Normalize("Ranged Whatever") == "Ranged",
+        "future server variants degrade to the right family via prefix match")
+    local fams = F.Of({ families = { "Caster DPS", "Tank", "Caster" } })
+    check(#fams == 2 and fams[1] == "Caster" and fams[2] == "Tank",
+        "Of() deduplicates variants and sorts canonically")
+    check(F.Of({})[1] == "No family", "an entry with no families belongs to No family, same contract Scoring always had")
+    check(F.IsDps("Melee") == true and F.IsDps("Survivability") == false and F.IsDps("No family") == false,
+        "DPS-role flags: damage roles yes, utility and No family no")
+    check(F.HasDpsRole({ families = { "Tank", "Ranged DPS" } }) == true,
+        "a multi-family entry with any damage role counts as DPS-relevant")
+
+    -- FamilyDelta on raw samples: membership decides the with-side.
+    EbonBuilds.EchoSamples.Clear()
+    local cat = {
+        A = { families = { "Caster DPS" } },
+        B = { families = { "Tank", "Caster" } },
+        C = { families = { "Tank" } },
+    }
+    local getCat = function() return cat end
+    for _ = 1, 12 do EbonBuilds.EchoSamples.Record({ "A" }, 4000) end
+    for _ = 1, 12 do EbonBuilds.EchoSamples.Record({ "B" }, 4400) end
+    for _ = 1, 12 do EbonBuilds.EchoSamples.Record({ "C" }, 1000) end
+    local d = EbonBuilds.EchoSamples.FamilyDelta("Caster", getCat)
+    check(d.nWith == 24 and d.nWithout == 12 and d.reliable,
+        "family delta counts every member echo's runs, multi-family included")
+    check(d.delta > 3000, "runs containing the family clearly outscore runs without it")
+    check(EbonBuilds.EchoSamples.FamilyDelta("Nonsense", getCat) == nil,
+        "unknown family ids yield nil, not an empty verdict")
     EbonBuilds.EchoSamples.Clear()
 end
 

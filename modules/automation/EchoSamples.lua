@@ -87,22 +87,68 @@ end
 
 -- Utility filter: an echo whose families include none of the damage
 -- roles has no business in DPS attribution at all -- the mount-speed
--- case. Catalog getter injectable for tests.
-local DPS_FAMILIES = { ["Caster"] = true, ["Melee"] = true, ["Ranged"] = true }
-
+-- case. Family resolution goes through modules/data/Families.lua (the
+-- canonical list), which replaced this module's old substring hack.
+-- Catalog getter injectable for tests.
 function M.IsDpsRelevant(echoName, getCatalog)
     getCatalog = getCatalog or (EbonBuilds.EchoTableRows and EbonBuilds.EchoTableRows.BuildBestByName)
     if not getCatalog then return true end  -- no catalog: never silently exclude
     local entry = getCatalog()[echoName]
     if not entry or type(entry.families) ~= "table" then return true end
-    for _, family in ipairs(entry.families) do
-        if DPS_FAMILIES[family] then return true end
-        -- Catalog variants like "Caster DPS" / "Melee DPS" count too.
-        for role in pairs(DPS_FAMILIES) do
-            if type(family) == "string" and family:find(role, 1, true) then return true end
+    return EbonBuilds.Families.HasDpsRole(entry)
+end
+
+-- Family-level with/without: how do runs containing AT LEAST ONE echo
+-- of this family compare against runs with none. Built from the same
+-- whole-set samples, so multi-family echoes finally COUNT toward every
+-- family they belong to instead of being excluded (the old suggestion
+-- path dropped them because per-echo averages couldn't attribute a
+-- stacked modifier -- set membership can). Catalog getter injectable.
+function M.FamilyDelta(familyId, getCatalog)
+    if not EbonBuilds.Families.IsKnown(familyId) then return nil end
+    getCatalog = getCatalog or (EbonBuilds.EchoTableRows and EbonBuilds.EchoTableRows.BuildBestByName)
+    if not getCatalog then return nil end
+    local catalog = getCatalog()
+
+    -- Which echo names belong to this family (canonical resolution).
+    local members = {}
+    for name, entry in pairs(catalog) do
+        for _, id in ipairs(EbonBuilds.Families.Of(entry)) do
+            if id == familyId then
+                members[name] = true
+                break
+            end
         end
     end
-    return false
+
+    local withSum, withN, withoutSum, withoutN = 0, 0, 0, 0
+    Ring.ForEach(Store(), function(sample)
+        if type(sample) == "table" and type(sample.set) == "table" and type(sample.dps) == "number" then
+            local hasFamily = false
+            for i = 1, #sample.set do
+                if members[sample.set[i]] then
+                    hasFamily = true
+                    break
+                end
+            end
+            if hasFamily then
+                withSum, withN = withSum + sample.dps, withN + 1
+            else
+                withoutSum, withoutN = withoutSum + sample.dps, withoutN + 1
+            end
+        end
+    end)
+    local withMean = withN > 0 and (withSum / withN) or 0
+    local withoutMean = withoutN > 0 and (withoutSum / withoutN) or 0
+    return {
+        family = familyId,
+        withMean = withMean,
+        withoutMean = withoutMean,
+        delta = withMean - withoutMean,
+        nWith = withN,
+        nWithout = withoutN,
+        reliable = withN >= M.MIN_SAMPLES_PER_SIDE and withoutN >= M.MIN_SAMPLES_PER_SIDE,
+    }
 end
 
 -- The one call the suggestion layer uses: a DPS value for this echo

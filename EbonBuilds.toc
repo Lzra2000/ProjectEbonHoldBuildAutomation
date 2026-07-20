@@ -19,6 +19,7 @@ modules/i18n/locales/ptBR.lua
 modules/i18n/locales/ruRU.lua
 modules/build/Build.lua
 modules/build/EchoPolicy.lua
+modules/data/Families.lua
 modules/data/TalentCatalogData.lua
 modules/data/TalentCatalog.lua
 modules/build/CharacterSnapshot.lua
