@@ -494,6 +494,44 @@ local function MakeFallbackLockedRow(spellId)
     }
 end
 
+-- The in-game TOC loads EchoProjection before EWL, but the standalone Lua
+-- test harness intentionally loads this module with only direct collaborators.
+-- Keep the production path strict while providing a catalog-only compatibility
+-- path for isolated tests and partially initialized addon environments.
+local function ResolveExactSpell(classToken, spellId)
+    local projection = EbonBuilds.EchoProjection
+    if projection and type(projection.ResolveSpell) == "function" then
+        local entry, variant = projection.ResolveSpell(classToken, spellId)
+        return entry, variant, true
+    end
+
+    local catalog = EbonBuilds.EchoCatalog
+    if catalog and type(catalog.GetBySpellId) == "function" then
+        local variant = catalog.GetBySpellId(spellId)
+        local definition = variant and type(catalog.GetByRef) == "function"
+            and catalog.GetByRef(variant.refKey) or nil
+        return definition, variant, false
+    end
+
+    return nil, nil, false
+end
+
+local function GetBestResolvedVariant(classToken, refKey, preferredSpellId)
+    local projection = EbonBuilds.EchoProjection
+    if projection and type(projection.GetBestVariant) == "function" then
+        return projection.GetBestVariant(classToken, refKey, preferredSpellId)
+    end
+
+    local catalog = EbonBuilds.EchoCatalog
+    if catalog and type(catalog.GetBestByRef) == "function" then
+        -- Omit classToken deliberately: eligibility belongs to EchoProjection.
+        -- This fallback runs only when the projection module is unavailable.
+        return catalog.GetBestByRef(refKey, nil, preferredSpellId)
+    end
+
+    return nil, 0, nil, nil
+end
+
 -- Returns one EchoWishlist-compatible catalog entry per selected Echo family.
 function EWL.BuildEntries(build)
     if not build then return {}, { error = "No build selected." } end
@@ -530,8 +568,8 @@ function EWL.BuildEntries(build)
     for slot = 1, EbonBuilds.Build.LOCKED_SLOTS do
         local spellId = build.lockedEchoes and tonumber(build.lockedEchoes[slot])
         if spellId then
-            local projectionEntry, variant = EbonBuilds.EchoProjection.ResolveSpell(classToken, spellId)
-            if projectionEntry and variant then
+            local projectionEntry, variant, projectionLoaded = ResolveExactSpell(classToken, spellId)
+            if (projectionEntry and variant) or not projectionLoaded then
                 local row = byId[spellId] or ResolveRowForSpell(byId, byFamily, spellId)
                 if not row then row = MakeFallbackLockedRow(spellId) end
                 AddRow(row, true, 0, spellId)
@@ -550,7 +588,7 @@ function EWL.BuildEntries(build)
         for refKey, rawWeights in pairs(build.echoWeightsByRef) do
             local weights = EbonBuilds.Weights.NormalizeEntry(rawWeights)
             if EbonBuilds.Weights.HasNonZero(weights) then
-                local spellId = select(1, EbonBuilds.EchoProjection.GetBestVariant(classToken, refKey))
+                local spellId = select(1, GetBestResolvedVariant(classToken, refKey))
                 local row = spellId and (byId[spellId] or ResolveRowForSpell(byId, byFamily, spellId)) or nil
                 if not row and spellId then row = MakeFallbackLockedRow(spellId) end
                 if row and spellId then
@@ -576,7 +614,7 @@ function EWL.BuildEntries(build)
             if EbonBuilds.Weights.HasNonZero(weights) then
                 local refs = EbonBuilds.EchoCatalog.FindLegacyRefs(name)
                 local refKey = refs and #refs == 1 and refs[1] or nil
-                local spellId = refKey and select(1, EbonBuilds.EchoProjection.GetBestVariant(classToken, refKey)) or nil
+                local spellId = refKey and select(1, GetBestResolvedVariant(classToken, refKey)) or nil
                 local row = spellId and (byId[spellId] or ResolveRowForSpell(byId, byFamily, spellId)) or nil
                 if row then
                     AddRow(row, false, EbonBuilds.Weights.MaxFromWeights(build.echoWeights, name), spellId)
