@@ -40,6 +40,66 @@ Requires **ProjectEbonhold** or **ProjectEbonhold Enhanced**. Some features addi
 
 See [`FAQ.md`](FAQ.md) for detailed explanations of every feature and the full version history.
 
+## Screenshots
+
+The tour below follows the addon's actual workflow: configure a build, let Autopilot run it, then read what the run produced.
+
+### 1 · Configure the build
+
+Rank values, policies, and the exact score automation will use, per Echo:
+
+<img src="assets/screenshots/editor-priorities.png" alt="Echo priorities" width="100%">
+
+Broad strokes on top of that -- rank strategy, role emphasis, and the unique-Echo bonus:
+
+<img src="assets/screenshots/editor-modifiers.png" alt="Modifiers" width="100%">
+
+Then pick an intent and tune the three decisions Autopilot makes for you:
+
+<img src="assets/screenshots/editor-autopilot.png" alt="Autopilot" width="100%">
+
+### 2 · The Character tab
+
+The build stores a snapshot of a character -- talents, glyphs, and equipped gear -- and models everything against the build's own spec:
+
+<img src="assets/screenshots/character-overview.png" alt="Character overview" width="100%">
+
+The complete talent trees, every talent of every tree, with the snapshot's allocation:
+
+<img src="assets/screenshots/character-talents.png" alt="Talent snapshot" width="100%">
+
+And the gear view: equipped items, affixes per slot, modeled scores:
+
+<img src="assets/screenshots/character-gear.png" alt="Gear snapshot" width="100%">
+
+### 3 · Run it
+
+The build overview is home base -- locked Echoes, sharing, autopilot and training toggles, exports:
+
+<img src="assets/screenshots/build-overview.png" alt="Build overview" width="100%">
+
+While Autopilot plays, every decision is recorded with its reasoning and the next-best alternative:
+
+<img src="assets/screenshots/logbook.png" alt="Decision logbook" width="100%">
+
+### 4 · Learn from the data
+
+The statistics views aggregate recorded runs -- decision value, resource usage, sample quality:
+
+<img src="assets/screenshots/stats-summary.png" alt="Stats summary" width="100%">
+
+How the four actions were actually used, with recorded Echo quality per action:
+
+<img src="assets/screenshots/stats-actions.png" alt="Action statistics" width="100%">
+
+And evidence-backed recommendations, each with its confidence and a link to the exact decisions behind it:
+
+<img src="assets/screenshots/stats-recommendations.png" alt="Recommendations" width="100%">
+
+Finally, the Missing view shows which weighted Echoes you haven't learned yet, and where they drop:
+
+<img src="assets/screenshots/missing-echoes.png" alt="Missing Echoes" width="100%">
+
 ## Installation
 
 This repository's root *is* the addon folder (`EbonBuilds.toc`, `core/`, `modules/` sit at the top level, not nested inside a subfolder).

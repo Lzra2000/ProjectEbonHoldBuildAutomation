@@ -37,6 +37,66 @@ Requer **ProjectEbonhold** ou **ProjectEbonhold Enhanced**. Alguns recursos usam
 
 Veja [`FAQ.md`](FAQ.md) para explicações detalhadas de cada recurso e o histórico completo de versões.
 
+## Capturas de tela
+
+O tour segue o fluxo real: configure um build, deixe o Autopilot jogar e aprenda com os dados.
+
+### 1 · Configurar o build
+
+<img src="assets/screenshots/editor-priorities.png" alt="editor-priorities" width="100%">
+
+*Prioridades de echo: valores por rank, políticas e pontuações finais.*
+
+<img src="assets/screenshots/editor-modifiers.png" alt="editor-modifiers" width="100%">
+
+*Modificadores: estratégia de rank, ênfase de função, bônus de echo único.*
+
+<img src="assets/screenshots/editor-autopilot.png" alt="editor-autopilot" width="100%">
+
+*Autopilot: escolha uma intenção e ajuste os limites.*
+
+### 2 · A aba Personagem
+
+<img src="assets/screenshots/character-overview.png" alt="character-overview" width="100%">
+
+*Snapshot do personagem: talentos, glifos e equipamento.*
+
+<img src="assets/screenshots/character-talents.png" alt="character-talents" width="100%">
+
+*Árvores de talentos completas com a alocação do snapshot.*
+
+<img src="assets/screenshots/character-gear.png" alt="character-gear" width="100%">
+
+*Equipamento com afixos por slot e pontuações modeladas.*
+
+### 3 · Deixar rodar
+
+<img src="assets/screenshots/build-overview.png" alt="build-overview" width="100%">
+
+*A visão geral do build: echoes travados, compartilhamento, exportações.*
+
+<img src="assets/screenshots/logbook.png" alt="logbook" width="100%">
+
+*O diário: cada decisão com o motivo e a alternativa.*
+
+### 4 · Aprender com os dados
+
+<img src="assets/screenshots/stats-summary.png" alt="stats-summary" width="100%">
+
+*Resumo estatístico das partidas registradas.*
+
+<img src="assets/screenshots/stats-actions.png" alt="stats-actions" width="100%">
+
+*Como as quatro ações foram realmente usadas.*
+
+<img src="assets/screenshots/stats-recommendations.png" alt="stats-recommendations" width="100%">
+
+*Recomendações baseadas em evidências, com confiança e links.*
+
+<img src="assets/screenshots/missing-echoes.png" alt="missing-echoes" width="100%">
+
+*Echoes ponderados faltantes e suas fontes.*
+
 ## Instalação
 
 A raiz deste repositório *é* a pasta do addon (`EbonBuilds.toc`, `core/`, `modules/` ficam no nível superior, não dentro de uma subpasta).

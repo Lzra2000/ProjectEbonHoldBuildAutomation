@@ -258,6 +258,14 @@ The gear score is directional build guidance, not a best-in-slot verdict. Uncach
 
 ## Changelog
 
+### 3.25 (2026-07-19) -- Screenshot tour on the repo page, all seven READMEs
+
+Repo-only release, nothing changes in-game.
+
+- Twelve in-game screenshots under `assets/screenshots/`, named by what they show, walking the addon's actual workflow in order: configure the build (Priorities, Modifiers, Autopilot), the Character tab (overview, complete talent trees, gear snapshot), running it (build overview, decision logbook), and learning from the data (stats summary, action statistics, recommendations, missing Echoes).
+- The English README gets the full annotated tour; all six translated READMEs get the same gallery with translated section titles and captions.
+- Screenshots stay out of `dist/EbonBuilds.zip` -- the packaging copies an explicit file list, so the addon download is unchanged.
+
 ### 3.24 (2026-07-19) -- Login panel: consent question and what's-new, once per version
 
 New panel shown once after logging in, then it stays out of the way.

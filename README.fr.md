@@ -37,6 +37,66 @@ Nécessite **ProjectEbonhold** ou **ProjectEbonhold Enhanced**. Certaines foncti
 
 Voir [`FAQ.md`](FAQ.md) pour des explications détaillées de chaque fonctionnalité et l'historique complet des versions.
 
+## Captures d'écran
+
+La visite suit le déroulement réel : configurez un build, laissez Autopilot le jouer, puis apprenez des données.
+
+### 1 · Configurer le build
+
+<img src="assets/screenshots/editor-priorities.png" alt="editor-priorities" width="100%">
+
+*Priorités d'écho : valeurs par rang, politiques et scores finaux.*
+
+<img src="assets/screenshots/editor-modifiers.png" alt="editor-modifiers" width="100%">
+
+*Modificateurs : stratégie de rang, accent de rôle, bonus d'écho unique.*
+
+<img src="assets/screenshots/editor-autopilot.png" alt="editor-autopilot" width="100%">
+
+*Autopilot : choisissez une intention, ajustez les seuils.*
+
+### 2 · L'onglet Personnage
+
+<img src="assets/screenshots/character-overview.png" alt="character-overview" width="100%">
+
+*Instantané du personnage : talents, glyphes et équipement.*
+
+<img src="assets/screenshots/character-talents.png" alt="character-talents" width="100%">
+
+*Arbres de talents complets avec la répartition de l'instantané.*
+
+<img src="assets/screenshots/character-gear.png" alt="character-gear" width="100%">
+
+*Équipement avec affixes par emplacement et scores modélisés.*
+
+### 3 · Le laisser tourner
+
+<img src="assets/screenshots/build-overview.png" alt="build-overview" width="100%">
+
+*La vue d'ensemble du build : échos verrouillés, partage, exports.*
+
+<img src="assets/screenshots/logbook.png" alt="logbook" width="100%">
+
+*Le journal : chaque décision avec sa raison et l'alternative.*
+
+### 4 · Apprendre des données
+
+<img src="assets/screenshots/stats-summary.png" alt="stats-summary" width="100%">
+
+*Résumé statistique des parties enregistrées.*
+
+<img src="assets/screenshots/stats-actions.png" alt="stats-actions" width="100%">
+
+*Comment les quatre actions ont réellement été utilisées.*
+
+<img src="assets/screenshots/stats-recommendations.png" alt="stats-recommendations" width="100%">
+
+*Recommandations fondées sur les données, avec confiance et liens.*
+
+<img src="assets/screenshots/missing-echoes.png" alt="missing-echoes" width="100%">
+
+*Échos pondérés manquants et leurs sources.*
+
 ## Installation
 
 La racine de ce dépôt *est* le dossier de l'addon (`EbonBuilds.toc`, `core/`, `modules/` se trouvent au niveau supérieur, pas dans un sous-dossier).

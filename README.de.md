@@ -37,6 +37,66 @@ Benötigt **ProjectEbonhold** oder **ProjectEbonhold Enhanced**. Manche Funktion
 
 Ausführliche Erklärungen zu jedem Feature und die vollständige Versionshistorie stehen in [`FAQ.md`](FAQ.md).
 
+## Screenshots
+
+Die Tour folgt dem tatsächlichen Ablauf: Build konfigurieren, vom Autopilot spielen lassen, dann aus den Daten lernen.
+
+### 1 · Build konfigurieren
+
+<img src="assets/screenshots/editor-priorities.png" alt="editor-priorities" width="100%">
+
+*Echo-Prioritäten: Rang-Werte, Policies und die finalen Scores der Automation.*
+
+<img src="assets/screenshots/editor-modifiers.png" alt="editor-modifiers" width="100%">
+
+*Modifikatoren: Rang-Strategie, Rollen-Gewichtung, Unique-Echo-Bonus.*
+
+<img src="assets/screenshots/editor-autopilot.png" alt="editor-autopilot" width="100%">
+
+*Autopilot: Ausrichtung wählen, Banish/Reroll/Freeze-Schwellen justieren.*
+
+### 2 · Der Charakter-Tab
+
+<img src="assets/screenshots/character-overview.png" alt="character-overview" width="100%">
+
+*Gespeicherter Charakter-Snapshot: Talente, Glyphen, Ausrüstung.*
+
+<img src="assets/screenshots/character-talents.png" alt="character-talents" width="100%">
+
+*Vollständige Talentbäume mit der Verteilung des Snapshots.*
+
+<img src="assets/screenshots/character-gear.png" alt="character-gear" width="100%">
+
+*Ausrüstung mit Affixen pro Slot und modellierten Scores.*
+
+### 3 · Laufen lassen
+
+<img src="assets/screenshots/build-overview.png" alt="build-overview" width="100%">
+
+*Die Build-Übersicht: gesperrte Echoes, Teilen, Schalter, Exporte.*
+
+<img src="assets/screenshots/logbook.png" alt="logbook" width="100%">
+
+*Das Logbuch: jede Entscheidung mit Begründung und Alternative.*
+
+### 4 · Aus den Daten lernen
+
+<img src="assets/screenshots/stats-summary.png" alt="stats-summary" width="100%">
+
+*Statistik-Zusammenfassung über aufgezeichnete Runs.*
+
+<img src="assets/screenshots/stats-actions.png" alt="stats-actions" width="100%">
+
+*Wie die vier Aktionen tatsächlich genutzt wurden.*
+
+<img src="assets/screenshots/stats-recommendations.png" alt="stats-recommendations" width="100%">
+
+*Belegbasierte Empfehlungen mit Konfidenz und Entscheidungs-Links.*
+
+<img src="assets/screenshots/missing-echoes.png" alt="missing-echoes" width="100%">
+
+*Fehlende gewichtete Echoes und ihre Quellen.*
+
 ## Installation
 
 Das Wurzelverzeichnis dieses Repos *ist* der Addon-Ordner (`EbonBuilds.toc`, `core/`, `modules/` liegen direkt oben, nicht in einem Unterordner).
