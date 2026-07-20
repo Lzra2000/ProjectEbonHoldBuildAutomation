@@ -13,7 +13,7 @@ Build Wizard Step 3 now separates Echoes into functional groups instead of showi
 Each Echo has an independent **Priority** and **Use** control. Enabling Use on a Neutral Echo assigns the Useful preset automatically, giving it a real positive weight. Disabling Use always resets the Echo to **Neutral +0**. Selecting **Avoid** is policy-only: its weight remains 0 and the build receives the canonical **Never Pick** policy for that Echo. Priority rows are virtualized and recycled, preserving smooth scrolling and consistent visual state.
 
 ### How do I generate an Echo Wish List (EWL)?
-Open the build's **Overview** and click **Export EWL**, or use `/ebb ewl` for the active build. The addon creates a standard `EWL1:<CLASS>:` import string.
+Open the build's **Overview** and click **Export EWL** (also available in Settings under Build for the active build). The addon creates a standard `EWL1:<CLASS>:` import string.
 
 EWL export mirrors the EchoWishlist addon's catalog rules. A configured locked Echo marks its **catalog family** as saved with `:1`; it does not force that particular quality-rank spell ID. For example, a locked `200745` variant can correctly export as the family's retained EWL ID `200744`.
 
@@ -263,6 +263,15 @@ The build editor's **Character** tab has three focused views:
 The gear score is directional build guidance, not a best-in-slot verdict. Uncached saved items remain pending instead of being counted as zero or replaced with current equipment. **Adopt current snapshot** copies current gear, the complete talent-tree presentation/allocation, and glyphs into the editor draft only when the current character and edited build have the same class; a mismatch disables the action and explains why. Save commits the staged snapshot and Cancel discards it. Older rank-only snapshots are expanded automatically from the built-in 3.3.5a talent catalog, restoring their native names, icons, full trees, backgrounds, and prerequisite lines without changing the stored build.
 
 ## Changelog
+
+### 3.30 (2026-07-20) -- Build Wizard reworked: grouped Echo priorities (contributed)
+
+Contributed by ha99dfs (PR #7).
+
+- Wizard Step 3 replaces the one oversized Echo list with functional groups (Recommended, Included, Modified, build-changing, Damage, Survival, Resources, Control, Utility, Equipment, Other, plus diagnostic views) and a search that spans all groups by default.
+- Each Echo gets independent Priority and Use controls: enabling Use on a Neutral Echo assigns the Useful preset, disabling always resets to Neutral +0, and Avoid is policy-only -- weight stays 0 and the Echo receives the canonical Never Pick policy.
+- Priority rows are virtualized and recycled for smooth scrolling; fixes missing Echoes, clipped borders, unreadable labels, and inconsistent row states along the way.
+- Also in this release: the FAQ's EWL answer no longer references a slash command removed in 3.15.
 
 ### 3.29 (2026-07-20) -- Family system rebuilt: one source of truth, family-level evidence
 
