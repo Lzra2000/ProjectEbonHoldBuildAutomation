@@ -2,8 +2,8 @@
 # Packages the addon source into dist/EbonBuilds.zip, ready to drop into
 # Interface/AddOns/EbonBuilds.
 #
-# Included: EbonBuilds.toc, FAQ.md, core/, modules/ -- everything the .toc
-# actually loads plus the in-game FAQ source.
+# Included: EbonBuilds.toc, FAQ.md, core/, modules/, media/ -- everything
+# the .toc actually loads plus the in-game FAQ source and custom textures.
 # Excluded: repo/dev-only files that don't belong in an installed addon --
 # READMEs (all locales), UI_UX_REVIEW.md, tests/, .github/, .gitignore, .git,
 # dist/ itself, and scripts/.
@@ -20,6 +20,7 @@ cp EbonBuilds.toc "$PKG/"
 cp FAQ.md "$PKG/"
 cp -r core "$PKG/"
 cp -r modules "$PKG/"
+[ -d media ] && cp -r media "$PKG/"
 
 mkdir -p dist
 rm -f dist/EbonBuilds.zip
