@@ -128,8 +128,16 @@ Reliability and efficiency, same protocol on the wire (old versions stay compati
 - **Feedback.** A toast summarizes each sync ("Sync complete: N build(s) received"), and with the Debug log (Settings, Windows & Tools) enabled the full sync traffic appears in the debug log.
 - Retransmit requests can only ever re-send **public** builds you own -- a forged request cannot extract private data.
 
-### What is Smart mode? (extended in 2.4)
-Choose a preset in the **Autopilot** tab. Smart mode measures decisions against expected values computed from your weights: rerolls compare the best offer against an average reroll, banish compares one card against an average random card, and freeze compares offers against the expected best of a future screen. New builds start on the Balanced Smart profile; existing builds retain their saved behavior, and Classic remains available under Advanced.
+### What is Smart mode, and how is it different from Classic?
+Choose under **Settings -> Advanced controls -> Decision model**. Smart is recommended and is what new builds start on; Classic is the older model, kept only for builds already tuned around it.
+
+**The core difference:** Classic compares an offer against a single fixed number -- the highest score your build could ever roll ("peak"). Smart instead compares an offer against what you'd realistically get if you *didn't* act -- the average of your other options right now, or the expected best of a future reroll/screen. A build's peak only happens under a rare, near-perfect roll, so under Classic, thresholds tuned as a percentage of it end up meaning different things depending how close to that ceiling the current offer already is. Smart's comparison point moves with the actual situation instead of staying fixed, so a threshold behaves the same way whether the run has been lucky or unlucky so far.
+
+**Worked example:** say your build's peak score is 200. An offer scores 105.
+- *Classic* asks: is 105 a high enough percentage of 200 (52%)? If your select threshold is 50%, this barely clears it -- looks marginal.
+- *Smart* asks instead: is 105 better than what you'd expect from rerolling or waiting (say, an average reroll nets ~65)? 105 beats that comfortably, so Smart is confident selecting it, even though the same offer looked borderline against the fixed peak.
+
+In short: Classic asks "how close to perfect is this?", Smart asks "is this better than my realistic alternative right now?" -- which is closer to the actual decision being made.
 
 ### How do build chat links work? (new in 2.4)
 Open a build and press **Chat Link** — a token like `[EbonBuilds: Pyro Mage V2]` lands in your chat box and can be sent anywhere (say, guild, party, whisper). Other EbonBuilds users see it as a clickable link: clicking opens the build if they already have it, otherwise it is fetched automatically from any online player who owns it. Only **public** builds are ever served. Players without the addon simply see the plain text.
@@ -263,6 +271,12 @@ The build editor's **Character** tab has three focused views:
 The gear score is directional build guidance, not a best-in-slot verdict. Uncached saved items remain pending instead of being counted as zero or replaced with current equipment. **Adopt current snapshot** copies current gear, the complete talent-tree presentation/allocation, and glyphs into the editor draft only when the current character and edited build have the same class; a mismatch disables the action and explains why. Save commits the staged snapshot and Cancel discards it. Older rank-only snapshots are expanded automatically from the built-in 3.3.5a talent catalog, restoring their native names, icons, full trees, backgrounds, and prerequisite lines without changing the stored build.
 
 ## Changelog
+
+### 3.53 (2026-07-20) -- Live self-tests; Smart vs. Classic explained properly
+
+**Framework:** the Error Log window (Settings -> Windows & Tools) has a new **Self-Tests** button that runs every self-test registered via `core/Debug.lua` live, right in your client -- not just in CI. Failures are recorded into the Error Log itself, so a bug report can include "ran self-tests, X failed" as a real data point. `Debug.GetStats()` now also tracks how many frames currently have `ProtectScript` coverage, for a future diagnostic view.
+
+**Clarity:** community feedback showed the Smart-vs-Classic decision model choice wasn't landing -- the FAQ answer and in-settings tooltips explained the mechanism but not the actual difference. Rewritten with the core distinction stated plainly (Classic compares against a fixed ceiling that's rarely met; Smart compares against what you'd realistically get otherwise) plus a worked example in the FAQ. The FAQ answer's stated location for switching models was also stale (said "Autopilot tab"; it's actually Settings -> Advanced controls) -- fixed to match where the toggle actually lives.
 
 ### 3.52 (2026-07-20) -- Map overlay: matched to the rest of the UI, a few things fixed along the way
 

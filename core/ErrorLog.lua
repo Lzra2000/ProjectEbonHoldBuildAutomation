@@ -80,6 +80,9 @@ end
 
 local function BuildWindow()
     local f = CreateFrame("Frame", "EbonBuildsErrorLogWindow", UIParent)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(f, "ErrorLog.Window")
+    end
     f:SetSize(560, 380)
     f:SetPoint("CENTER", UIParent, "CENTER")
     f:SetFrameStrata("FULLSCREEN_DIALOG")
@@ -93,6 +96,9 @@ local function BuildWindow()
     title:SetText("EbonBuilds Error Log (Ctrl+C to copy)")
 
     local drag = CreateFrame("Frame", nil, f)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(drag, "ErrorLog.WindowDrag")
+    end
     drag:SetPoint("TOPLEFT", f, "TOPLEFT", 0, 0)
     drag:SetPoint("TOPRIGHT", f, "TOPRIGHT", -30, 0)
     drag:SetHeight(28)
@@ -108,6 +114,9 @@ local function BuildWindow()
     sf:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -32, 44)
 
     editBox = CreateFrame("EditBox", nil, sf)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(editBox, "ErrorLog.WindowEditBox")
+    end
     editBox:SetMultiLine(true)
     editBox:SetAutoFocus(false)
     editBox:SetFontObject(ChatFontNormal)
@@ -137,6 +146,33 @@ local function BuildWindow()
     clearBtn:SetScript("OnClick", function()
         EbonBuilds.ErrorLog.Clear()
         editBox:SetText(EbonBuilds.ErrorLog.GetText())
+    end)
+
+    local selfTestStatus = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    selfTestStatus:SetPoint("RIGHT", f, "BOTTOMRIGHT", -12, 22)
+
+    local selfTestBtn = EbonBuilds.Theme.CreateButton(f)
+    selfTestBtn:SetSize(100, 22)
+    selfTestBtn:SetPoint("LEFT", clearBtn, "RIGHT", 8, 0)
+    selfTestBtn:SetText("Self-Tests")
+    selfTestBtn:SetScript("OnClick", function()
+        if not (EbonBuilds.Debug and EbonBuilds.Debug.RunSelfTests) then
+            selfTestStatus:SetText("Self-test registry unavailable.")
+            return
+        end
+        local summary = EbonBuilds.Debug.RunSelfTests()
+        for _, result in ipairs(summary.results) do
+            if not result.ok then
+                EbonBuilds.ErrorLog.Record("SelfTest: " .. result.name, result.err)
+            end
+        end
+        editBox:SetText(EbonBuilds.ErrorLog.GetText())
+        if summary.failed == 0 then
+            selfTestStatus:SetTextColor(unpack(EbonBuilds.Theme.SUCCESS))
+        else
+            selfTestStatus:SetTextColor(unpack(EbonBuilds.Theme.DANGER))
+        end
+        selfTestStatus:SetText(string.format("%d/%d self-tests passed", summary.passed, summary.total))
     end)
 
     tinsert(UISpecialFrames, "EbonBuildsErrorLogWindow")

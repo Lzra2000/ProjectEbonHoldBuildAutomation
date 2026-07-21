@@ -695,7 +695,7 @@ local function AddBannedEcho(name, spellId)
 end
 
 local function BuildAdvancedPanel(parent, y)
-    local panel = Theme.CreateSection(parent, "Advanced controls", "Use these only when your build needs exceptions or a different decision model.")
+    local panel = Theme.CreateSection(parent, "Advanced controls", "Smart is right for virtually everyone -- these exist for builds tuned before Smart existed, or genuine exceptions.")
     panel:SetPoint("TOPLEFT", parent, "TOPLEFT", 4, y)
     panel:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -4, y)
     panel:SetHeight(390)
@@ -710,7 +710,8 @@ local function BuildAdvancedPanel(parent, y)
     smart:SetPoint("TOPLEFT", panel, "TOPLEFT", 14, -68)
     smart:SetText("Smart expected value")
     smart:SetScript("OnClick", function() SetModel("ev") end)
-    Theme.AttachTooltip(smart, "Smart expected value", "Recommended. Compares each screen with the expected value of future random offers, so one unusually high Echo does not distort every threshold.")
+    Theme.AttachTooltip(smart, "Smart expected value",
+        "Recommended. Asks \"is this offer better than what I'd realistically get by waiting or rerolling?\" instead of comparing it to a fixed ceiling -- so a threshold means the same thing whether the run has been lucky or unlucky so far.")
     modelButtons.smart = smart
 
     local classic = Theme.CreateButton(panel)
@@ -718,7 +719,8 @@ local function BuildAdvancedPanel(parent, y)
     classic:SetPoint("LEFT", smart, "RIGHT", 6, 0)
     classic:SetText("Classic peak %")
     classic:SetScript("OnClick", function() SetModel("sum") end)
-    Theme.AttachTooltip(classic, "Classic peak percentage", "Legacy model. Thresholds are percentages of the single highest attainable score; reroll uses the sum of all three offers.")
+    Theme.AttachTooltip(classic, "Classic peak percentage",
+        "Legacy model. Asks \"what percent of the single highest score my build could ever roll is this?\" -- a fixed yardstick, kept for builds already tuned around it. Reroll uses the sum of all three offers.")
     modelButtons.classic = classic
 
     guardControl = CreateCompactSlider(panel, "Reroll guard", "Classic only: keep the screen whenever one Echo reaches this percentage of peak.", "rerollGuardPct", 0, 200, -106)

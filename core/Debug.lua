@@ -1,26 +1,44 @@
 -- EbonBuilds: core/Debug.lua
--- Responsibility: ergonomic error-isolation helpers built on core/ErrorLog.lua,
--- plus a lightweight self-test registry so modules can add a sanity check
--- without hand-editing tests/test_load.lua or tests/test_features.lua.
+-- Responsibility: ergonomic error-isolation helpers built on
+-- core/ErrorLog.lua, plus a lightweight self-test registry so modules can
+-- add a sanity check without hand-editing tests/test_load.lua or
+-- tests/test_features.lua.
 --
--- Two problems this exists to make cheaper than they were before:
+-- Problems this exists to make cheaper than they were before:
 --
 -- 1. Wrapping every SetScript handler in ErrorLog.Protect by hand does not
---    scale (repo-wide, most handlers are still unwrapped -- see the audit
---    note on modules/ui/Theme.lua's button handlers). ProtectScript() lets a
---    widget factory (Theme.CreateButton, etc.) opt a frame in ONCE; every
---    handler any caller attaches afterwards via SetScript is wrapped
---    automatically, with no per-call-site change required anywhere else.
+--    scale. ProtectScript() lets a widget factory (Theme.CreateButton, etc.)
+--    opt a frame in ONCE; every handler any caller attaches afterwards via
+--    SetScript is wrapped automatically, with no per-call-site change
+--    required anywhere else.
 --
 -- 2. New modules only get load/behavior coverage if someone remembers to
 --    extend the big hand-written test files. RegisterTest() lets a module
 --    register its own small self-check next to the code it's testing;
---    tests/test_selftests.lua runs every registered test in one pass.
+--    tests/test_selftests.lua runs every registered test in one pass, and
+--    the same registry can be run live in-game (Error Log window ->
+--    Self-Tests button) since none of it depends on a real WoW client.
+--
+-- Planned next (not yet built): Time() for spotting a slow handler without
+-- a profiler attached, event-spam detection inside ProtectScript, a small
+-- diagnostic HUD, and Assert() for "this should never happen here" spots.
 
 EbonBuilds.Debug = {}
 
 local D = EbonBuilds.Debug
 local registeredTests = {}
+local protectedFrameCount = 0
+local lastSelfTestSummary = nil
+
+-- GetStats(): a few numbers for a diagnostic HUD or a bug report -- how
+-- many frames currently have ProtectScript coverage, and the result of
+-- the last RunSelfTests() call (nil if it's never been run this session).
+function D.GetStats()
+    return {
+        protectedFrameCount = protectedFrameCount,
+        lastSelfTestSummary = lastSelfTestSummary,
+    }
+end
 
 -- Protect(source, fn): thin re-export of ErrorLog.Protect. Exists so call
 -- sites can say EbonBuilds.Debug.Protect(...) consistently, without every
@@ -39,6 +57,7 @@ end
 function D.ProtectScript(frame, source)
     if not frame or frame._ebonProtectedScript then return frame end
     frame._ebonProtectedScript = true
+    protectedFrameCount = protectedFrameCount + 1
     local originalSetScript = frame.SetScript
     frame.SetScript = function(self, scriptType, handler, ...)
         if type(handler) == "function" then
@@ -71,6 +90,7 @@ function D.RunSelfTests()
         end
         table.insert(results, { name = entry.name, ok = ok, err = err })
     end
+    lastSelfTestSummary = { passed = passed, failed = failed, total = #registeredTests }
     return { passed = passed, failed = failed, total = #registeredTests, results = results }
 end
 
