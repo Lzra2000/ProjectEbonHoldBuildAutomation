@@ -6,6 +6,8 @@
 
 ## FAQ
 
+Jump to a category: [Getting Started](#getting-started) · [Automation & Decision Models](#automation-decision-models) · [Stats, Logbook & Missing Tab](#stats-logbook-missing-tab) · [Tome Atlas](#tome-atlas) · [Affixes & Character](#affixes-character) · [Sync, Sharing & Public Builds](#sync-sharing-public-builds) · [Settings, Diagnostics & Troubleshooting](#settings-diagnostics-troubleshooting)
+
 ## Getting Started
 The basics -- reading the UI and getting help.
 
