@@ -51,8 +51,17 @@ local CLASS_DISPLAY = {
 
 local CLASS_TOKENS = { "WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST", "DEATHKNIGHT", "SHAMAN", "MAGE", "WARLOCK", "DRUID" }
 
-local classDropdown, specDropdown, refreshBtn
+local classDropdown, specDropdown, refreshBtn, sortDropdown
+local searchBox, searchPlaceholder
 local filterClass, filterSpec
+local filterText = ""
+local sortMode = "votes"  -- "votes" | "newest" | "itemlevel" | "trending"
+local SORT_LABELS = {
+    votes     = "Most Votes",
+    newest    = "Newest",
+    itemlevel = "Item Level",
+    trending  = "Trending",
+}
 
 ------------------------------------------------------------------------
 -- Data source
@@ -444,6 +453,10 @@ local function CharacterSummary(snapshot)
             and string.format("%d/%d equipped, avg item level %.0f", equipped, total, ilvlSum / ilvlCount)
             or string.format("%d/%d equipped", equipped, total),
         capturedAt = snapshot.capturedAt,
+        -- Raw average, for sorting -- nil (not 0) when no piece has a
+        -- resolved item level yet, so callers can push unknown-ilvl
+        -- builds to the bottom of a ranking instead of the top.
+        avgItemLevel = ilvlCount > 0 and (ilvlSum / ilvlCount) or nil,
     }
 end
 EbonBuilds.PublicBuildsView._CharacterSummaryForTest = CharacterSummary
@@ -1048,12 +1061,57 @@ local function Render()
     RefreshPaginationControls()
 end
 
+-- ParseLastModified(str, timeFn) -> epoch seconds | nil. lastModified is
+-- always written via date("%Y-%m-%d %H:%M:%S") (see Build.lua) -- parsed
+-- back into a real timestamp for age-based sorting instead of relying on
+-- the string's lexicographic order, which only happens to work for
+-- "Newest" and says nothing about "how many days old". timeFn is
+-- injectable (defaults to the real time()) so tests can verify the
+-- parsing itself without depending on the client's time(table) --
+-- WoW's own time() is trustworthy in-game, but the plain "return 1"
+-- test-harness stub used for the rest of the suite ignores its
+-- argument entirely and can't stand in for it here.
+local function ParseLastModified(str, timeFn)
+    if type(str) ~= "string" then return nil end
+    local y, mo, d, h, mi, se = str:match("^(%d+)-(%d+)-(%d+) (%d+):(%d+):(%d+)$")
+    if not y then return nil end
+    local ok, result = pcall(timeFn or time, {
+        year = tonumber(y), month = tonumber(mo), day = tonumber(d),
+        hour = tonumber(h), min = tonumber(mi), sec = tonumber(se),
+    })
+    return ok and result or nil
+end
+EbonBuilds.PublicBuildsView._ParseLastModifiedForTest = ParseLastModified
+
+-- TrendingScore(build, now): votes discounted by age -- a build that
+-- picked up its votes recently ranks above an old build sitting on a
+-- larger but stale total. +1 in the denominator keeps a same-day build
+-- from dividing by (near) zero and drowning out everything else; no
+-- votes always scores 0 regardless of age, so an empty new build isn't
+-- "trending" just for being new (that's what the Newest sort is for).
+local function TrendingScore(build, now, timeFn)
+    local votes = (EbonBuilds.BuildVotes and EbonBuilds.BuildVotes.Count(build.id)) or 0
+    if votes == 0 then return 0 end
+    local modified = ParseLastModified(build.lastModified, timeFn)
+    local days = modified and math.max(0, (now - modified) / 86400) or 36500 -- unparseable: treat as ancient, not fresh
+    return votes / (days + 1)
+end
+EbonBuilds.PublicBuildsView._TrendingScoreForTest = TrendingScore
+
+local function MatchesSearch(build, needle)
+    if needle == "" then return true end
+    local title = string.lower(tostring(build.title or ""))
+    local author = string.lower(tostring(build.author or ""))
+    return title:find(needle, 1, true) ~= nil or author:find(needle, 1, true) ~= nil
+end
+
 GetFilteredBuilds = function()
     local all = FetchPublicBuilds()
     local filtered = {}
     for _, build in ipairs(all) do
         if filterClass and build.class ~= filterClass then
         elseif filterSpec and build.spec ~= filterSpec then
+        elseif not MatchesSearch(build, filterText) then
         else
             -- Own builds are now INCLUDED (not hidden) -- seeing your own
             -- public build listed here is confirmation it actually
@@ -1072,13 +1130,38 @@ GetFilteredBuilds = function()
             end
         end
     end
-    -- Deterministic order (the raw list comes out of pairs()): most
-    -- voted first -- the issue-#8 point of votes is exactly to sort the
-    -- cared-for builds from the experiments -- then title, then id.
+
+    -- Deterministic order (the raw list comes out of pairs()) under every
+    -- mode: the primary key decides, ties fall through to title then id
+    -- so two builds never visibly swap position between refreshes.
+    local now = (time and time()) or 0
     table.sort(filtered, function(a, b)
-        local va = (EbonBuilds.BuildVotes and EbonBuilds.BuildVotes.Count(a.id)) or 0
-        local vb = (EbonBuilds.BuildVotes and EbonBuilds.BuildVotes.Count(b.id)) or 0
-        if va ~= vb then return va > vb end
+        local primary
+        if sortMode == "newest" then
+            local ma, mb = ParseLastModified(a.lastModified) or 0, ParseLastModified(b.lastModified) or 0
+            primary = ma ~= mb and ma > mb or nil
+        elseif sortMode == "itemlevel" then
+            local sa = EbonBuilds.PublicBuildsView._CharacterSummaryForTest(a.characterSnapshot)
+            local sb = EbonBuilds.PublicBuildsView._CharacterSummaryForTest(b.characterSnapshot)
+            local ia, ib = sa and sa.avgItemLevel, sb and sb.avgItemLevel
+            if ia == nil and ib == nil then
+                primary = nil
+            elseif ia == nil or ib == nil then
+                -- Builds with no gear data sink to the bottom rather than
+                -- sorting as "item level 0", which would put them first.
+                return ib == nil
+            else
+                primary = ia ~= ib and ia > ib or nil
+            end
+        elseif sortMode == "trending" then
+            local ta, tb = TrendingScore(a, now), TrendingScore(b, now)
+            primary = ta ~= tb and ta > tb or nil
+        else -- "votes"
+            local va = (EbonBuilds.BuildVotes and EbonBuilds.BuildVotes.Count(a.id)) or 0
+            local vb = (EbonBuilds.BuildVotes and EbonBuilds.BuildVotes.Count(b.id)) or 0
+            primary = va ~= vb and va > vb or nil
+        end
+        if primary ~= nil then return primary end
         local ta, tb = tostring(a.title or ""), tostring(b.title or "")
         if ta ~= tb then return ta < tb end
         return tostring(a.id or "") < tostring(b.id or "")
@@ -1213,12 +1296,95 @@ local function BuildViewFrame(parent)
         end
     end)
 
+    -- Second row: title/author search (left, wide) and sort dropdown
+    -- (right). A second row rather than crowding the class/spec row --
+    -- both rows stay comfortably click-able instead of shrinking
+    -- everything to fit one line.
+    local searchRow = CreateFrame("Frame", nil, f)
+    searchRow:SetPoint("TOPLEFT", filterBar, "BOTTOMLEFT", 0, -6)
+    searchRow:SetPoint("RIGHT", f, "RIGHT", -10, 0)
+    searchRow:SetHeight(24)
+
+    sortDropdown = EbonBuilds.Theme.CreateDropdown(searchRow, 150, SORT_LABELS[sortMode])
+    sortDropdown:SetPoint("RIGHT", searchRow, "RIGHT", 0, 0)
+    sortDropdown:SetMenuBuilder(function()
+        local items = {}
+        for _, key in ipairs({ "votes", "newest", "itemlevel", "trending" }) do
+            items[#items + 1] = {
+                text = SORT_LABELS[key],
+                checked = (sortMode == key),
+                func = function()
+                    sortMode = key
+                    sortDropdown:SetText(SORT_LABELS[key])
+                    RefreshView()
+                end,
+            }
+        end
+        return items
+    end)
+    sortDropdown:RefreshMenu()
+
+    local searchWrap = CreateFrame("Frame", nil, searchRow)
+    searchWrap:SetPoint("LEFT", searchRow, "LEFT", 0, 0)
+    searchWrap:SetPoint("RIGHT", sortDropdown, "LEFT", -8, 0)
+    searchWrap:SetHeight(24)
+    EbonBuilds.Theme.ApplyInput(searchWrap)
+    EbonBuilds.Theme.AddSearchIcon(searchWrap)
+
+    local searchEdit = CreateFrame("EditBox", nil, searchWrap)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(searchEdit, "PublicBuildsView.SearchBox")
+    end
+    searchEdit:SetPoint("TOPLEFT", searchWrap, "TOPLEFT", 21, -3)
+    searchEdit:SetPoint("BOTTOMRIGHT", searchWrap, "BOTTOMRIGHT", -24, 3)
+    searchEdit:SetFont("Fonts\\FRIZQT__.TTF", 11, "")
+    searchEdit:SetTextColor(1, 1, 1, 1)
+    searchEdit:SetAutoFocus(false)
+    EbonBuilds.Theme.WireEditBox(searchEdit, searchWrap)
+
+    local searchPh = searchWrap:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    searchPh:SetPoint("LEFT", searchEdit, "LEFT", 0, 0)
+    searchPh:SetText("Search title or author...")
+    searchPh:SetTextColor(unpack(EbonBuilds.Theme.TEXT_MUTED))
+
+    local function UpdateSearchPlaceholder()
+        if searchEdit:HasFocus() or (searchEdit:GetText() or "") ~= "" then
+            searchPh:Hide()
+        else
+            searchPh:Show()
+        end
+    end
+
+    local searchClear = CreateFrame("Button", nil, searchWrap)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(searchClear, "PublicBuildsView.ClearSearch")
+    end
+    searchClear:SetSize(20, 20)
+    searchClear:SetPoint("RIGHT", searchWrap, "RIGHT", -2, 0)
+    local clearX = searchClear:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    clearX:SetPoint("CENTER")
+    clearX:SetText("x")
+    clearX:SetTextColor(unpack(EbonBuilds.Theme.TEXT_MUTED))
+    searchClear:SetScript("OnClick", function() searchEdit:SetText(""); searchEdit:ClearFocus() end)
+
+    searchEdit:SetScript("OnTextChanged", function(self)
+        filterText = string.lower(self:GetText() or "")
+        UpdateSearchPlaceholder()
+        RefreshView()
+    end)
+    searchEdit:SetScript("OnEditFocusGained", UpdateSearchPlaceholder)
+    searchEdit:SetScript("OnEditFocusLost", UpdateSearchPlaceholder)
+    searchEdit:SetScript("OnEscapePressed", function(self)
+        if self:GetText() ~= "" then self:SetText("") else self:ClearFocus() end
+    end)
+    searchBox, searchPlaceholder = searchEdit, searchPh
+
     -- Scroll area
     scrollFrame = CreateFrame("ScrollFrame", nil, f)
     if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
         EbonBuilds.Debug.ProtectScript(scrollFrame, "PublicBuildsView.ScrollFrame")
     end
-    scrollFrame:SetPoint("TOPLEFT",     filterBar, "BOTTOMLEFT",  0, -4)
+    scrollFrame:SetPoint("TOPLEFT",     searchRow, "BOTTOMLEFT",  0, -4)
     scrollFrame:SetPoint("BOTTOMRIGHT", bottomBar, "TOPRIGHT",    0,  8)
 
     scrollChild = CreateFrame("Frame", nil, scrollFrame)
@@ -1342,5 +1508,55 @@ if EbonBuilds.Debug and EbonBuilds.Debug.RegisterTest then
     EbonBuilds.Debug.RegisterTest("PublicBuildsView.TopPriorities degrades safely without catalog data", function()
         local rows = EbonBuilds.PublicBuildsView._TopPrioritiesForTest({ class = "NONEXISTENT_CLASS_TOKEN" })
         if type(rows) ~= "table" then error("expected a table even with no matching class data") end
+    end)
+
+    EbonBuilds.Debug.RegisterTest("PublicBuildsView.ParseLastModified round-trips the stored date format and rejects garbage", function()
+        -- The test harness's time() stub ("return 1", ignoring its
+        -- argument) can't stand in for date-table conversion -- inject a
+        -- small correct converter instead, so this verifies the parsing
+        -- regex and field extraction, which is what this function
+        -- actually owns. Precise enough for ordering, not a calendar
+        -- library: fixed 30-day months, no leap years -- irrelevant here
+        -- since only relative order between two nearby dates is checked.
+        local function fakeEpoch(t)
+            local days = (t.year - 2000) * 365 + (t.month - 1) * 30 + (t.day - 1)
+            return days * 86400 + t.hour * 3600 + t.min * 60 + t.sec
+        end
+        local epoch = EbonBuilds.PublicBuildsView._ParseLastModifiedForTest("2026-07-21 12:00:00", fakeEpoch)
+        if type(epoch) ~= "number" then error("expected a numeric timestamp") end
+        local later = EbonBuilds.PublicBuildsView._ParseLastModifiedForTest("2026-07-22 12:00:00", fakeEpoch)
+        if not (later > epoch) then error("a later date must parse to a larger timestamp") end
+        for _, garbage in ipairs({ nil, "", "not a date", "2026-07-21" }) do
+            if EbonBuilds.PublicBuildsView._ParseLastModifiedForTest(garbage, fakeEpoch) ~= nil then
+                error("expected nil for: " .. tostring(garbage))
+            end
+        end
+    end)
+
+    EbonBuilds.Debug.RegisterTest("PublicBuildsView.TrendingScore favors recent votes over stale ones, and zero votes always scores zero", function()
+        -- TrendingScore delegates date parsing to ParseLastModified, which
+        -- the test above already covers; here the injected timeFn just
+        -- needs to return a fixed epoch per call so "secondsAgo" is exact
+        -- and reproducible, independent of the harness's time() stub.
+        local now = 2000000000
+        local scoreOf = function(secondsAgo, votes)
+            local build = { id = "scoretest-" .. tostring(secondsAgo) .. "-" .. tostring(votes),
+                lastModified = "2026-01-01 00:00:00" }
+            EbonBuildsDB.buildVotes = {}
+            for i = 1, votes do
+                EbonBuilds.BuildVotes.MergeVote("Voter" .. i, build.id, true)
+            end
+            local score = EbonBuilds.PublicBuildsView._TrendingScoreForTest(build, now, function() return now - secondsAgo end)
+            EbonBuildsDB.buildVotes = {}
+            return score
+        end
+        local freshScore = scoreOf(3600, 1)          -- 1 vote, 1 hour old
+        local staleScore = scoreOf(60 * 86400, 2)     -- 2 votes, 60 days old
+        if not (freshScore > staleScore) then
+            error(string.format("1 recent vote (%.4f) should outrank 2 stale votes (%.4f)", freshScore, staleScore))
+        end
+        if scoreOf(3600, 0) ~= 0 then
+            error("a build with zero votes must always score zero, regardless of age")
+        end
     end)
 end
