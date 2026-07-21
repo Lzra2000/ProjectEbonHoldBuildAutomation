@@ -1092,7 +1092,11 @@ end
 function EbonBuilds.Sync.Init()
     syncFrame = CreateFrame("Frame")
     if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
-        EbonBuilds.Debug.ProtectScript(syncFrame, "Sync.EventFrame")
+        -- spam-exempt: this frame's OnEvent legitimately fires very often
+        -- during active sync with many nearby players (every CHAT_MSG_ADDON
+        -- on the client reaches it, not just ours, plus real BLD/WNT/RTX
+        -- traffic) -- that's the feature working, not a bug.
+        EbonBuilds.Debug.ProtectScript(syncFrame, "Sync.EventFrame", true)
     end
     syncFrame:RegisterEvent("CHAT_MSG_ADDON")
     syncFrame:RegisterEvent("CHAT_MSG_CHANNEL")

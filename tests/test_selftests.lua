@@ -273,6 +273,19 @@ EbonBuilds.Debug.RegisterTest("ProtectScript does not spam-check OnUpdate", func
     end
 end)
 
+EbonBuilds.Debug.RegisterTest("ProtectScript(frame, source, true) exempts any script type from spam detection", function()
+    local frame = NewObject()
+    EbonBuilds.Debug.ProtectScript(frame, "selftest.exempt", true)
+    local statsBefore = EbonBuilds.Debug.GetStats().spamWarningCount
+    frame:SetScript("OnEvent", function() end)
+    local handler = frame:GetScript("OnEvent")
+    for _ = 1, 150 do handler() end
+    local warned = EbonBuilds.Debug.GetStats().spamWarningCount
+    if warned ~= statsBefore then
+        error("spamExempt=true should exempt OnEvent too, but a warning fired")
+    end
+end)
+
 EbonBuilds.Debug.RegisterTest("Theme.CreateButton buttons are auto-protected", function()
     local btn = EbonBuilds.Theme.CreateButton(NewObject())
     local ok = pcall(function()

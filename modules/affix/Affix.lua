@@ -94,6 +94,7 @@ end
 
 -- CHAT_MSG_ADDON handler entry point.
 function EbonBuilds.Affix.HandleAddonMessage(prefix, payload, dist, sender)
+    if prefix ~= S.PREFIX then return false end -- cheapest possible check first -- this fires for every addon message on the channel, not just ours
     local playerName = UnitName("player")
     local ok = S.ShouldAcceptMessage(prefix, payload, dist, sender, playerName)
     if not ok then return false end
@@ -127,7 +128,11 @@ end
 function EbonBuilds.Affix.Init()
     local f = CreateFrame("Frame")
     if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
-        EbonBuilds.Debug.ProtectScript(f, "Affix.EventFrame")
+        -- spam-exempt: CHAT_MSG_ADDON fires here for every addon message on
+        -- the client (not just ours), and HandleAddonMessage's prefix check
+        -- is already the cheapest possible first operation -- high call
+        -- volume during a busy sync period isn't wasted work.
+        EbonBuilds.Debug.ProtectScript(f, "Affix.EventFrame", true)
     end
     f:RegisterEvent("CHAT_MSG_ADDON")
     f:SetScript("OnEvent", function(_, _, prefix, payload, dist, sender)

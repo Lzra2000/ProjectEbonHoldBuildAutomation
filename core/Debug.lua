@@ -121,7 +121,13 @@ local function WrapWithSpamDetection(protectedHandler, source, scriptType)
     end
 end
 
-function D.ProtectScript(frame, source)
+-- spamExempt: pass true for a frame whose handler is legitimately expected
+-- to fire very often by design (like OnUpdate always is) -- e.g. a
+-- CHAT_MSG_ADDON listener during heavy sync traffic with many nearby
+-- players. Without this, a frame doing real, cheap, intended work under
+-- real load gets the same warning as a frame that's actually
+-- over-registered for something it shouldn't be.
+function D.ProtectScript(frame, source, spamExempt)
     if not frame or frame._ebonProtectedScript then return frame end
     frame._ebonProtectedScript = true
     protectedFrameCount = protectedFrameCount + 1
@@ -130,7 +136,7 @@ function D.ProtectScript(frame, source)
         if type(handler) == "function" then
             local protectedHandler = EbonBuilds.ErrorLog.Protect(
                 (source or "?") .. "." .. tostring(scriptType), handler)
-            if not SPAM_EXEMPT[scriptType] then
+            if not spamExempt and not SPAM_EXEMPT[scriptType] then
                 protectedHandler = WrapWithSpamDetection(protectedHandler, source or "?", tostring(scriptType))
             end
             handler = protectedHandler

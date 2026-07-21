@@ -286,6 +286,14 @@ The dialog scrolls if it ever grows past the window (same fix as the FAQ window 
 Yes (2.22). The `.toc` declared a hard `## Dependencies: ProjectEbonhold` -- WoW's client won't let you enable an addon at all if a hard dependency's exact folder name isn't found, and "ProjectEbonhold Enhanced" ships under a different folder name even though it provides the same API. Switched to `## OptionalDeps: ProjectEbonhold, ProjectEbonholdEnhanced`, which still makes sure whichever one you have loads first (so EbonBuilds sees it), but no longer blocks enabling EbonBuilds if the folder name doesn't match exactly. No more manually editing the `.toc` by hand after every update.
 ## Changelog
 
+### 3.64 (2026-07-21) -- Sync/Affix event-spam warnings during heavy sync were false positives
+
+A player's debug log confirmed `Sync.EventFrame` and `Affix.EventFrame` tripping the new spam detector wasn't a bug -- it was dozens of nearby players actively syncing builds at once (`CHAT_MSG_ADDON` fires for every addon message on the client, not just ours, and heavy legitimate `BLD`/`WNT`/`RTX` sync traffic easily clears 120/sec in that situation).
+
+- `ProtectScript(frame, source, spamExempt)` gains an optional third argument: pass `true` for a frame whose handler is legitimately expected to fire very often by design, the same reasoning `OnUpdate` already gets. Applied to both `Sync.EventFrame` and `Affix.EventFrame`.
+- Separately (found while investigating): `Affix.lua`'s `HandleAddonMessage` was calling `UnitName("player")` before its own cheap prefix check -- meaning every non-EbonBuilds addon message on the channel paid for a WoW API call it didn't need. The prefix check now runs first.
+- 1 new self-test (14/14 total).
+
 ### 3.63 (2026-07-21) -- Fix: EchoCatalog cleared its description cache 120+ times per second
 
 3.62's new event-spam detection caught this in the wild within hours of shipping: `SPELLS_CHANGED` is a notoriously chatty event that can fire well over a hundred times in under a second during login/zoning bursts, and the handler was clearing a cache on every single fire.
