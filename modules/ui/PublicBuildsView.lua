@@ -413,6 +413,41 @@ end
 
 EbonBuilds.PublicBuildsView._TopPrioritiesForTest = AllPriorities
 
+-- CharacterSummary(snapshot): a compact, read-only summary line pair for
+-- Inspect -- talent point split across the three tabs, and equipped-gear
+-- count with average item level. Deliberately NOT the full talent-tree
+-- canvas or paperdoll CharacterView.lua renders for the player's OWN
+-- character; those exist for editing, this is for a quick "is this build
+-- actually specced/geared the way the title claims" glance while
+-- browsing someone else's build.
+local function CharacterSummary(snapshot)
+    if not snapshot then return nil end
+    local talentParts = {}
+    for tab = 1, 3 do
+        talentParts[#talentParts + 1] = tostring(snapshot.talents and snapshot.talents[tab] and snapshot.talents[tab].points or 0)
+    end
+    local slots = (EbonBuilds.CharacterSnapshot and EbonBuilds.CharacterSnapshot.EQUIPMENT_SLOTS) or {}
+    local total, equipped, ilvlSum, ilvlCount = #slots, 0, 0, 0
+    for _, slot in ipairs(slots) do
+        local item = snapshot.gear and snapshot.gear[slot.id]
+        if item and not slot.cosmetic then
+            equipped = equipped + 1
+            if item.itemLevel and item.itemLevel > 0 then
+                ilvlSum = ilvlSum + item.itemLevel
+                ilvlCount = ilvlCount + 1
+            end
+        end
+    end
+    return {
+        talentsText = table.concat(talentParts, " / "),
+        gearText = ilvlCount > 0
+            and string.format("%d/%d equipped, avg item level %.0f", equipped, total, ilvlSum / ilvlCount)
+            or string.format("%d/%d equipped", equipped, total),
+        capturedAt = snapshot.capturedAt,
+    }
+end
+EbonBuilds.PublicBuildsView._CharacterSummaryForTest = CharacterSummary
+
 local function BuildInspectFrame(parent)
     local f = CreateFrame("Frame", nil, parent)
     EbonBuilds.Theme.ApplyBackdropDefinition(f)
@@ -482,6 +517,23 @@ local function BuildInspectFrame(parent)
         local btn = CreateIconButton(f, 26)
         f._lockedBtns[i] = btn
     end
+
+    -- Character snapshot summary (talents + gear). Optional on the build
+    -- (only present if the author used "Adopt snapshot"), so this reads
+    -- gracefully whether or not the data exists rather than showing an
+    -- empty section.
+    local charLabel = EbonBuilds.Theme.CreateSectionLabel(f, "Character")
+    f._charLabel = charLabel
+
+    local talentsText = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    talentsText:SetPoint("RIGHT", f, "RIGHT", -18, 0)
+    talentsText:SetJustifyH("LEFT")
+    f._talentsText = talentsText
+
+    local gearText = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    gearText:SetPoint("RIGHT", f, "RIGHT", -18, 0)
+    gearText:SetJustifyH("LEFT")
+    f._gearText = gearText
 
     local priLabel = EbonBuilds.Theme.CreateSectionLabel(f, "Weighted Priorities")
     f._priLabel = priLabel
@@ -637,8 +689,16 @@ local function LayoutInspectRows(f)
         btn:SetPoint("TOPLEFT", f._lockedLabel, "BOTTOMLEFT", x, -6)
         x = x + 32
     end
+    f._charLabel:ClearAllPoints()
+    f._charLabel:SetPoint("TOPLEFT", f._lockedLabel, "BOTTOMLEFT", 0, -40)
+    f._talentsText:ClearAllPoints()
+    f._talentsText:SetPoint("TOPLEFT", f._charLabel, "BOTTOMLEFT", 0, -4)
+    f._talentsText:SetPoint("RIGHT", f, "RIGHT", -18, 0)
+    f._gearText:ClearAllPoints()
+    f._gearText:SetPoint("TOPLEFT", f._talentsText, "BOTTOMLEFT", 0, -2)
+    f._gearText:SetPoint("RIGHT", f, "RIGHT", -18, 0)
     f._priLabel:ClearAllPoints()
-    f._priLabel:SetPoint("TOPLEFT", f._lockedLabel, "BOTTOMLEFT", 0, -40)
+    f._priLabel:SetPoint("TOPLEFT", f._gearText, "BOTTOMLEFT", 0, -14)
 end
 
 -- ShowInspect(build): populates and shows the panel for one build.
@@ -691,6 +751,15 @@ ShowInspect = function(build)
         else
             btn:Hide()
         end
+    end
+
+    local summary = CharacterSummary(build.characterSnapshot)
+    if summary then
+        inspectFrame._talentsText:SetText("|cffaaaaaaTalents:|r " .. summary.talentsText)
+        inspectFrame._gearText:SetText("|cffaaaaaaGear:|r " .. summary.gearText)
+    else
+        inspectFrame._talentsText:SetText("|cff888888No character snapshot shared for this build.|r")
+        inspectFrame._gearText:SetText("")
     end
 
     PopulateInspectPriorities(inspectFrame, build)
@@ -1153,6 +1222,24 @@ function EbonBuilds.PublicBuildsView.Init()
 end
 
 if EbonBuilds.Debug and EbonBuilds.Debug.RegisterTest then
+    EbonBuilds.Debug.RegisterTest("PublicBuildsView.CharacterSummary reports talents and gear, or nil without a snapshot", function()
+        if EbonBuilds.PublicBuildsView._CharacterSummaryForTest(nil) ~= nil then
+            error("expected nil summary for a build with no character snapshot")
+        end
+        local summary = EbonBuilds.PublicBuildsView._CharacterSummaryForTest({
+            talents = { [1] = { points = 31 }, [2] = { points = 0 }, [3] = { points = 20 } },
+            gear = {
+                [1] = { itemLevel = 226 },  -- Head
+                [5] = { itemLevel = 232 },  -- Chest
+                [4] = { itemLevel = 999 },  -- Shirt (cosmetic, must not count toward ilvl or equipped)
+            },
+        })
+        if not summary then error("expected a summary when a snapshot is present") end
+        if summary.talentsText ~= "31 / 0 / 20" then error("wrong talent text: " .. tostring(summary.talentsText)) end
+        if not summary.gearText:find("2/19 equipped") then error("wrong gear text: " .. tostring(summary.gearText)) end
+        if not summary.gearText:find("229") then error("cosmetic slot must not skew average item level: " .. tostring(summary.gearText)) end
+    end)
+
     EbonBuilds.Debug.RegisterTest("PublicBuildsView.TopPriorities degrades safely without catalog data", function()
         local rows = EbonBuilds.PublicBuildsView._TopPrioritiesForTest({ class = "NONEXISTENT_CLASS_TOKEN" })
         if type(rows) ~= "table" then error("expected a table even with no matching class data") end
