@@ -147,6 +147,9 @@ end
 
 local function CreateRow(parent)
     local row = CreateFrame("Button", nil, parent)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(row, "EchoPicker.Row")
+    end
     row:SetHeight(ROW_HEIGHT - 2)
     Theme.ApplyPanel(row)
 
@@ -271,6 +274,9 @@ end
 
 local function BuildFrame()
     local f = CreateFrame("Frame", "EbonBuildsEchoPicker", UIParent)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(f, "EchoPicker.Window")
+    end
     f:SetSize(460, 540)
     f:SetPoint("CENTER")
     f:SetFrameStrata("FULLSCREEN_DIALOG")
@@ -293,6 +299,9 @@ local function BuildFrame()
     Theme.ApplyInput(searchContainer)
 
     searchBox = CreateFrame("EditBox", nil, searchContainer)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(searchBox, "EchoPicker.SearchBox")
+    end
     searchBox:SetPoint("TOPLEFT", searchContainer, "TOPLEFT", 8, -4)
     searchBox:SetPoint("BOTTOMRIGHT", searchContainer, "BOTTOMRIGHT", -30, 4)
     searchBox:SetFontObject("ChatFontNormal")
@@ -303,6 +312,9 @@ local function BuildFrame()
     searchPlaceholder:SetPoint("LEFT", searchBox, "LEFT", 0, 0)
 
     clearSearchButton = CreateFrame("Button", nil, searchContainer)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(clearSearchButton, "EchoPicker.ClearSearch")
+    end
     clearSearchButton:SetSize(22, 22)
     clearSearchButton:SetPoint("RIGHT", searchContainer, "RIGHT", -3, 0)
     local glyph = clearSearchButton:CreateFontString(nil, "OVERLAY", "GameFontNormal")

@@ -286,6 +286,11 @@ The dialog scrolls if it ever grows past the window (same fix as the FAQ window 
 Yes (2.22). The `.toc` declared a hard `## Dependencies: ProjectEbonhold` -- WoW's client won't let you enable an addon at all if a hard dependency's exact folder name isn't found, and "ProjectEbonhold Enhanced" ships under a different folder name even though it provides the same API. Switched to `## OptionalDeps: ProjectEbonhold, ProjectEbonholdEnhanced`, which still makes sure whichever one you have loads first (so EbonBuilds sees it), but no longer blocks enabling EbonBuilds if the folder name doesn't match exactly. No more manually editing the `.toc` by hand after every update.
 ## Changelog
 
+### 3.58 (2026-07-21) -- Handler protection: EchoPicker.lua
+
+- `modules/ui/EchoPicker.lua` -- 4 frames now opt into `EbonBuilds.Debug.ProtectScript` at creation (picker row, picker window, search box, clear-search button).
+- Remaining files: AffixView, BonusView.
+
 ### 3.57 (2026-07-21) -- Handler protection: PublicBuildsView.lua, ExportImport.lua
 
 - `modules/ui/PublicBuildsView.lua` -- 3 frames now opt into `EbonBuilds.Debug.ProtectScript` at creation (icon button, main scroll frame, refresh-throttle OnUpdate timer).
