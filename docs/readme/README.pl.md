@@ -19,7 +19,7 @@ Wymaga **ProjectEbonhold** lub **ProjectEbonhold Enhanced**. Niektóre funkcje d
 
 
 <p align="center">
-  <img src="assets/how-it-works.svg" alt="How it works" width="100%">
+  <img src="../../assets/how-it-works.svg" alt="How it works" width="100%">
 </p>
 
 ## Co robi
@@ -43,57 +43,57 @@ Przegląd podąża za rzeczywistym przepływem: skonfiguruj build, pozwól grać
 
 ### 1 · Konfiguracja builda
 
-<img src="assets/screenshots/editor-priorities.png" alt="editor-priorities" width="100%">
+<img src="../../assets/screenshots/editor-priorities.png" alt="editor-priorities" width="100%">
 
 *Priorytety ech: wartości rang, zasady i finalne wyniki automatyzacji.*
 
-<img src="assets/screenshots/editor-modifiers.png" alt="editor-modifiers" width="100%">
+<img src="../../assets/screenshots/editor-modifiers.png" alt="editor-modifiers" width="100%">
 
 *Modyfikatory: strategia rang, nacisk na role, bonus unikalnego echa.*
 
-<img src="assets/screenshots/editor-autopilot.png" alt="editor-autopilot" width="100%">
+<img src="../../assets/screenshots/editor-autopilot.png" alt="editor-autopilot" width="100%">
 
 *Autopilot: wybierz cel i dostrój progi.*
 
 ### 2 · Zakładka Postać
 
-<img src="assets/screenshots/character-overview.png" alt="character-overview" width="100%">
+<img src="../../assets/screenshots/character-overview.png" alt="character-overview" width="100%">
 
 *Migawka postaci: talenty, glify i ekwipunek.*
 
-<img src="assets/screenshots/character-talents.png" alt="character-talents" width="100%">
+<img src="../../assets/screenshots/character-talents.png" alt="character-talents" width="100%">
 
 *Pełne drzewka talentów z rozkładem migawki.*
 
-<img src="assets/screenshots/character-gear.png" alt="character-gear" width="100%">
+<img src="../../assets/screenshots/character-gear.png" alt="character-gear" width="100%">
 
 *Ekwipunek z afiksami i modelowanymi wynikami.*
 
 ### 3 · Uruchomienie
 
-<img src="assets/screenshots/build-overview.png" alt="build-overview" width="100%">
+<img src="../../assets/screenshots/build-overview.png" alt="build-overview" width="100%">
 
 *Przegląd builda: zablokowane echa, udostępnianie, eksporty.*
 
-<img src="assets/screenshots/logbook.png" alt="logbook" width="100%">
+<img src="../../assets/screenshots/logbook.png" alt="logbook" width="100%">
 
 *Dziennik: każda decyzja z uzasadnieniem i alternatywą.*
 
 ### 4 · Nauka z danych
 
-<img src="assets/screenshots/stats-summary.png" alt="stats-summary" width="100%">
+<img src="../../assets/screenshots/stats-summary.png" alt="stats-summary" width="100%">
 
 *Podsumowanie statystyk zarejestrowanych przebiegów.*
 
-<img src="assets/screenshots/stats-actions.png" alt="stats-actions" width="100%">
+<img src="../../assets/screenshots/stats-actions.png" alt="stats-actions" width="100%">
 
 *Jak faktycznie użyto czterech akcji.*
 
-<img src="assets/screenshots/stats-recommendations.png" alt="stats-recommendations" width="100%">
+<img src="../../assets/screenshots/stats-recommendations.png" alt="stats-recommendations" width="100%">
 
 *Rekomendacje oparte na danych, z pewnością i odnośnikami.*
 
-<img src="assets/screenshots/missing-echoes.png" alt="missing-echoes" width="100%">
+<img src="../../assets/screenshots/missing-echoes.png" alt="missing-echoes" width="100%">
 
 *Brakujące ważone echa i ich źródła.*
 
