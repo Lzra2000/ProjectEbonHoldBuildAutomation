@@ -4,6 +4,15 @@ One `### <version>` entry per release, newest first. scripts/release.sh
 refuses to tag unless this file changed, and the Release workflow and the
 in-game "What's new" page both read the newest entry from here.
 
+### 3.77 (2026-07-21) -- Upvotes and Inspect for Public Builds (#8)
+
+Requested by Zartris: a way to acknowledge a well-made build and tell it apart from someone's experiments. Delivered together with a new Inspect view, because an informed vote needs to see the build first.
+
+- **Inspect:** click any card in Public Builds to open a read-only detail view -- class/spec, the author's intent notes, locked Echoes, and the top configured priorities. Vote and Import/Update live right there too.
+- **Upvotes:** one vote per character, click again to remove it. Public Builds now sorts by vote count first, so builds the community rates highest surface above the rest.
+- **How the count works:** there's no central server, so votes are honest by construction rather than by trust -- your client only ever broadcasts *your own* vote, never a list of what others supposedly voted (which anyone could fake). The number you see is how many distinct voters your client has personally heard from, and it fills in as you sync with more people. Two players may see slightly different counts depending on who they've played alongside -- that's expected, not a bug.
+- **Also fixed:** delta-based sync data (3.76) arriving over the main sync channel was being silently dropped since release -- only the guild copy was getting through. Channel sync now delivers it correctly.
+
 ### 3.76 (2026-07-21) -- Community DPS data finally does something -- and does it honestly
 
 Shared performance data has been collected for a long time but deliberately never influenced anything: the old format pooled raw per-echo DPS averages across players, which mixes everyone's gear, skill, and fight types into one confounded number. That ends here.
