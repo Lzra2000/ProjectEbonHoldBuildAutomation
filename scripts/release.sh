@@ -50,17 +50,19 @@ sh scripts/build-faq-pages.sh
 sh scripts/check.sh
 
 echo ""
-echo "== Rebuilding dist/EbonBuilds.zip =="
+echo "== Building dist/EbonBuilds.zip (smoke test only -- the release asset is built and uploaded by .github/workflows/release.yml) =="
 sh scripts/build-dist.sh
 
 echo ""
 echo "== Committing and tagging =="
 git add EbonBuilds.toc FAQ.md modules/data/FAQContent.lua
-git add -f dist/EbonBuilds.zip
 git commit -q -m "chore(release): bump version to $NEW_VERSION"
 git tag "v$NEW_VERSION" -m "v$NEW_VERSION"
 
 echo ""
-echo "Done. Review with 'git show HEAD' then push and publish:"
+echo "Done. Review with 'git show HEAD' then push:"
 echo "  git push origin main && git push origin v$NEW_VERSION"
-echo "  GITHUB_TOKEN=... sh scripts/publish-github-release.sh $NEW_VERSION   # a pushed tag alone is NOT a GitHub Release"
+echo "Pushing the tag triggers .github/workflows/release.yml, which runs the"
+echo "checks, builds the zip, and publishes the GitHub Release with the asset."
+echo "Manual fallback if Actions is unavailable:"
+echo "  GITHUB_TOKEN=... sh scripts/publish-github-release.sh $NEW_VERSION"
