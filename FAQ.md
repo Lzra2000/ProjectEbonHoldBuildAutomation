@@ -286,6 +286,13 @@ The dialog scrolls if it ever grows past the window (same fix as the FAQ window 
 Yes (2.22). The `.toc` declared a hard `## Dependencies: ProjectEbonhold` -- WoW's client won't let you enable an addon at all if a hard dependency's exact folder name isn't found, and "ProjectEbonhold Enhanced" ships under a different folder name even though it provides the same API. Switched to `## OptionalDeps: ProjectEbonhold, ProjectEbonholdEnhanced`, which still makes sure whichever one you have loads first (so EbonBuilds sees it), but no longer blocks enabling EbonBuilds if the folder name doesn't match exactly. No more manually editing the `.toc` by hand after every update.
 ## Changelog
 
+### 3.63 (2026-07-21) -- Fix: EchoCatalog cleared its description cache 120+ times per second
+
+3.62's new event-spam detection caught this in the wild within hours of shipping: `SPELLS_CHANGED` is a notoriously chatty event that can fire well over a hundred times in under a second during login/zoning bursts, and the handler was clearing a cache on every single fire.
+
+- Debounced via the Scheduler's keyed rescheduling: each fire now just pushes the actual cache-clear out by 0.5s, so it runs once after the burst settles instead of once per fire.
+- A `Sync.SendChunked` "exceeds the 27 KB transfer limit" log entry seen alongside this is not a bug -- that's a deliberate safety cap (matching WoW's addon-message size constraints) correctly rejecting an oversized build instead of transferring it partway and failing.
+
 ### 3.62 (2026-07-21) -- Framework: slow-handler detection, event-spam warnings, a diagnostic HUD, and Assert()
 
 Four additions to `core/Debug.lua`, all following the same pattern as the error-isolation work: catch a class of bug once, centrally, instead of relying on every module remembering to check for it.

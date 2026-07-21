@@ -688,6 +688,16 @@ lifecycleFrame:SetScript("OnEvent", function(_, event)
             Catalog.Refresh("PLAYER_ENTERING_WORLD")
         end
     elseif event == "SPELLS_CHANGED" then
-        ClearTable(descriptionCache)
+        -- SPELLS_CHANGED is notoriously chatty -- it can fire well over a
+        -- hundred times in under a second during login/zoning bursts (this
+        -- is exactly what core/Debug.lua's new event-spam detection caught
+        -- in the wild: 120+ fires/sec here). Clearing the cache is cheap
+        -- once, but pointless to redo on every single fire in a burst --
+        -- debounced via the Scheduler's keyed rescheduling: each fire just
+        -- pushes the actual clear out, so it runs once after the burst
+        -- settles instead of once per fire.
+        EbonBuilds.Scheduler.After("EchoCatalog.ClearDescriptionCache", 0.5, function()
+            ClearTable(descriptionCache)
+        end, EbonBuilds.Scheduler.BACKGROUND)
     end
 end)
