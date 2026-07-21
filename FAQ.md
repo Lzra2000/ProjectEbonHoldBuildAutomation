@@ -286,6 +286,11 @@ The dialog scrolls if it ever grows past the window (same fix as the FAQ window 
 Yes (2.22). The `.toc` declared a hard `## Dependencies: ProjectEbonhold` -- WoW's client won't let you enable an addon at all if a hard dependency's exact folder name isn't found, and "ProjectEbonhold Enhanced" ships under a different folder name even though it provides the same API. Switched to `## OptionalDeps: ProjectEbonhold, ProjectEbonholdEnhanced`, which still makes sure whichever one you have loads first (so EbonBuilds sees it), but no longer blocks enabling EbonBuilds if the folder name doesn't match exactly. No more manually editing the `.toc` by hand after every update.
 ## Changelog
 
+### 3.68 (2026-07-21) -- Zone tome-list panel can now be hidden; Mapster map-tinting fix merged
+
+- **Fix (merged from PR #14):** continent zone tinting is now skipped entirely when Mapster is loaded, instead of rendering as oversized solid boxes. Mapster actively rescales the map frame between its windowed and quest-list presets, which desynced our cached zone-highlight geometry. The zone-level tome panel doesn't depend on that geometry and still works normally with Mapster active.
+- **New, from community feedback:** the "Tomes in this zone" panel had no way to dismiss it, and a long list (11 entries reported in Sholazar Basin) could cover a meaningful chunk of the map. It now has its own close (X) button, plus a matching Settings toggle (Interface -> World Map -> "Show tome list on the world map") -- either one stays in sync with the other.
+
 ### 3.67 (2026-07-21) -- Fix: world map crashed with 'attempt to call global ShowZonePins (a nil value)'
 
 3.65's new pin system had a Lua scoping bug: `RefreshMapPanel` calls `ShowZonePins`, but `RefreshMapPanel` is defined earlier in the file than `local function ShowZonePins` -- so at the point `RefreshMapPanel`'s body was compiled, no local `ShowZonePins` existed yet, and the reference silently resolved to a nonexistent global instead. Every world-map refresh threw the error.
