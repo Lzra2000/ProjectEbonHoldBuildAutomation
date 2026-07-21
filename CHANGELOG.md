@@ -4,6 +4,10 @@ One `### <version>` entry per release, newest first. scripts/release.sh
 refuses to tag unless this file changed, and the Release workflow and the
 in-game "What's new" page both read the newest entry from here.
 
+### 3.74 (2026-07-21) -- Internal: Stats data layer split out (no behavior change)
+
+The Stats workspace's data derivation -- session metrics, action analytics, early-Epic stats, weighted coverage, echo rows, recommendations, and the stats cache -- now lives in its own module (`modules/analytics/StatsData.lua`) instead of being interleaved with the rendering code in one 2815-line file. Nothing changes in what you see or how anything is computed: the full test suite, including the representative-data Stats/Logbook render and all self-tests, passes unchanged. This is groundwork (issue #19) -- the same split is planned for Session History, the Character tab, and the Build Overview, and it makes the analytics testable without the UI layer in between.
+
 ### 3.73 (2026-07-21) -- Infrastructure modernization: correct version display, smaller download, real release assets, docs site
 
 A pair of maintenance rounds across the whole toolchain. What you'll notice in-game and on GitHub:
