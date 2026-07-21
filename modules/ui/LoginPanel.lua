@@ -39,20 +39,54 @@ end
 local function BuildPanel()
     local Theme = EbonBuilds.Theme
     panel = CreateFrame("Frame", "EbonBuildsLoginPanel", UIParent)
-    panel:SetSize(440, 300)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(panel, "LoginPanel.Window")
+    end
+    panel:SetSize(460, 340)
     panel:SetPoint("CENTER", UIParent, "CENTER", 0, 60)
     panel:SetFrameStrata("DIALOG")
     panel:SetToplevel(true)
+    panel:SetMovable(true)
     Theme.ApplyWindow(panel)
     panel:Hide()
 
+    local drag = CreateFrame("Frame", nil, panel)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(drag, "LoginPanel.Drag")
+    end
+    drag:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, 0)
+    drag:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -30, 0)
+    drag:SetHeight(36)
+    drag:EnableMouse(true)
+    drag:RegisterForDrag("LeftButton")
+    drag:SetScript("OnDragStart", function() panel:StartMoving() end)
+    drag:SetScript("OnDragStop", function() panel:StopMovingOrSizing() end)
+
+    local icon = panel:CreateTexture(nil, "ARTWORK")
+    icon:SetTexture("Interface\\AddOns\\EbonBuilds\\media\\minimap_icon")
+    icon:SetSize(28, 28)
+    icon:SetPoint("TOPLEFT", panel, "TOPLEFT", 18, -14)
+
     local title = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
-    title:SetPoint("TOP", panel, "TOP", 0, -16)
+    title:SetPoint("LEFT", icon, "RIGHT", 8, 0)
     title:SetText("EbonBuilds " .. AddonVersion())
+    Theme.AddHeaderRule(panel, title, 420)
+
+    local whatsNewTeaser = panel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    whatsNewTeaser:SetPoint("TOPLEFT", icon, "BOTTOMLEFT", 0, -8)
+    whatsNewTeaser:SetWidth(420)
+    whatsNewTeaser:SetJustifyH("LEFT")
+    local newestPage = EbonBuilds.FAQContent and EbonBuilds.FAQContent.PAGES and EbonBuilds.FAQContent.PAGES[1]
+    local newestHeadline = newestPage and newestPage.title and newestPage.title:match("^What's new: (.*)$")
+    if newestHeadline then
+        whatsNewTeaser:SetText("Latest: " .. newestHeadline)
+    else
+        whatsNewTeaser:SetText("")
+    end
 
     local intro = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    intro:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -44)
-    intro:SetWidth(400)
+    intro:SetPoint("TOPLEFT", whatsNewTeaser, "BOTTOMLEFT", 0, -10)
+    intro:SetWidth(420)
     intro:SetJustifyH("LEFT")
     intro:SetText("Echo automation for ProjectEbonhold. Your builds, weights, and automation settings are exactly where you left them.")
 
@@ -100,7 +134,7 @@ local function BuildPanel()
             consentDone:SetText(on
                 and "Tracking and sharing are ON. Change it any time in Settings."
                 or "Tracking and sharing stay OFF. Enable them any time in Settings.")
-            consentDone:SetTextColor(0.62, 0.62, 0.66)
+            consentDone:SetTextColor(unpack(Theme.TEXT_MUTED))
             consentDone:Show()
         else
             consentDone:Hide()

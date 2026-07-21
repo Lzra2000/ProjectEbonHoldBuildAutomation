@@ -6,7 +6,6 @@
 EbonBuilds.FAQ = {}
 
 local GOLD = "|cffffd100"
-local GREY = "|cffaaaaaa"
 local R = "|r"
 
 ------------------------------------------------------------------------
@@ -19,18 +18,32 @@ local R = "|r"
 local PAGES = (EbonBuilds.FAQContent and EbonBuilds.FAQContent.PAGES) or {
     { title = "FAQ unavailable", lines = { "FAQ content failed to load; see FAQ.md on GitHub." } },
 }
+local CATEGORIES = (EbonBuilds.FAQContent and EbonBuilds.FAQContent.CATEGORIES) or {}
+
+-- First page index belonging to a category, so the category dropdown can
+-- jump straight there instead of the player clicking Next dozens of times.
+local function FirstPageForCategory(category)
+    for i, p in ipairs(PAGES) do
+        if p.category == category then return i end
+    end
+    return 1
+end
 
 ------------------------------------------------------------------------
 -- Window
 ------------------------------------------------------------------------
 
 local frame, titleText, bodyText, scrollFrame, scrollChild, scrollBar, pageLabel, prevBtn, nextBtn
+local categoryDropdown
 local page = 1
 
 local function RenderPage()
     local p = PAGES[page]
     if not p then return end
     titleText:SetText(GOLD .. p.title .. R)
+    if categoryDropdown and p.category then
+        categoryDropdown:SetText(p.category)
+    end
     bodyText:SetText(table.concat(p.lines, "\n"))
     -- FontStrings don't clip or scroll on their own -- the scroll child
     -- must be resized to the text's actual rendered height (which varies
@@ -53,7 +66,10 @@ end
 
 local function BuildWindow()
     local f = CreateFrame("Frame", "EbonBuildsFAQWindow", UIParent)
-    f:SetSize(560, 480)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(f, "FAQView.Window")
+    end
+    f:SetSize(560, 504)
     f:SetPoint("CENTER", UIParent, "CENTER")
     f:SetFrameStrata("FULLSCREEN_DIALOG")
     f:SetToplevel(true)
@@ -66,6 +82,9 @@ local function BuildWindow()
     header:SetText("EbonBuilds " .. (EbonBuilds.VERSION or "") .. " - FAQ & What's New")
 
     local drag = CreateFrame("Frame", nil, f)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(drag, "FAQView.WindowDrag")
+    end
     drag:SetPoint("TOPLEFT", f, "TOPLEFT", 0, 0)
     drag:SetPoint("TOPRIGHT", f, "TOPRIGHT", -30, 0)
     drag:SetHeight(28)
@@ -76,9 +95,34 @@ local function BuildWindow()
 
     local close = EbonBuilds.Theme.CreateCloseButton(f)
 
-    -- Page title with a thin gold rule underneath
+    -- Jump-to-category row: with 51 FAQ pages across 7 categories, pure
+    -- linear Prev/Next made finding a specific topic mean clicking Next
+    -- dozens of times. This jumps straight to a category's first page.
+    local jumpLabel = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    jumpLabel:SetPoint("TOPLEFT", f, "TOPLEFT", 22, -38)
+    jumpLabel:SetText("Jump to:")
+    jumpLabel:SetTextColor(unpack(EbonBuilds.Theme.ACCENT_GOLD))
+
+    categoryDropdown = EbonBuilds.Theme.CreateDropdown(f, 260, CATEGORIES[1] or "Topics")
+    categoryDropdown:SetPoint("LEFT", jumpLabel, "RIGHT", 8, 0)
+    categoryDropdown:SetMenuBuilder(function()
+        local items = {}
+        for _, cat in ipairs(CATEGORIES) do
+            items[#items + 1] = {
+                text = cat,
+                checked = PAGES[page] and PAGES[page].category == cat,
+                func = function()
+                    page = FirstPageForCategory(cat)
+                    RenderPage()
+                end,
+            }
+        end
+        return items
+    end)
+
+    -- Page title with a thin gold rule underneath.
     titleText = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    titleText:SetPoint("TOPLEFT", f, "TOPLEFT", 22, -42)
+    titleText:SetPoint("TOPLEFT", f, "TOPLEFT", 22, -68)
     EbonBuilds.Theme.AddHeaderRule(f, titleText, 516)
 
     -- Scrollable body: leaves room on the right for the scrollbar and at
@@ -86,7 +130,7 @@ local function BuildWindow()
     -- that doesn't fit -- unlike the old bare FontString, content can
     -- never draw outside this window regardless of how long a page is.
     scrollFrame = CreateFrame("ScrollFrame", "EbonBuildsFAQSF", f)
-    scrollFrame:SetPoint("TOPLEFT", f, "TOPLEFT", 22, -76)
+    scrollFrame:SetPoint("TOPLEFT", f, "TOPLEFT", 22, -104)
     scrollFrame:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -24, 48)
 
     scrollChild = CreateFrame("Frame", nil, scrollFrame)
