@@ -237,7 +237,6 @@ end
 local function MapsterLoaded()
     return IsAddOnLoaded and IsAddOnLoaded("Mapster")
 end
-end
 
 local function ShowContinentOverlays()
     if not MapFeatureEnabled() then

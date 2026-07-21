@@ -128,9 +128,13 @@ function EbonBuilds.Affix.HandleAddonMessage(prefix, payload, dist, sender)
 end
 
 function EbonBuilds.Affix.Init()
+    -- spam-exempt: CHAT_MSG_ADDON fires for every addon message on the
+    -- client (not just ours), and HandleAddonMessage's prefix check is
+    -- already the cheapest possible first operation -- high call volume
+    -- during a busy sync period isn't wasted work.
     EbonBuilds.WoWEvents.On("CHAT_MSG_ADDON", function(_, prefix, payload, dist, sender)
         EbonBuilds.Affix.HandleAddonMessage(prefix, payload, dist, sender)
-    end, "Affix")
+    end, "Affix", false, true)
     -- Ask once shortly after login; cheap no-op if the character already
     -- has a cached list from a previous session.
     EbonBuilds.Affix.RequestLearned(false)

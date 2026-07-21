@@ -700,5 +700,8 @@ end
 if EbonBuilds.WoWEvents then
     EbonBuilds.WoWEvents.On("PLAYER_LOGIN", OnCatalogLifecycleEvent, "EchoCatalog")
     EbonBuilds.WoWEvents.On("PLAYER_ENTERING_WORLD", OnCatalogLifecycleEvent, "EchoCatalog")
-    EbonBuilds.WoWEvents.On("SPELLS_CHANGED", OnCatalogLifecycleEvent, "EchoCatalog")
+    -- spam-exempt: SPELLS_CHANGED legitimately fires 120+ times/sec during
+    -- login/zoning bursts (this is exactly what triggered 3.63's debounce
+    -- fix and 3.66's spam-exempt fix in the pre-WoWEvents version).
+    EbonBuilds.WoWEvents.On("SPELLS_CHANGED", OnCatalogLifecycleEvent, "EchoCatalog", false, true)
 end

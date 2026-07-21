@@ -292,6 +292,35 @@ EbonBuilds.Debug.RegisterTest("ProtectScript(frame, source, true) exempts any sc
     end
 end)
 
+EbonBuilds.Debug.RegisterTest("Debug.CheckSpam is a shared counter distinct callers can reuse", function()
+    local key = "selftest.sharedcounter." .. tostring({})
+    local crossed = false
+    for i = 1, 150 do
+        if EbonBuilds.Debug.CheckSpam(key) then crossed = true end
+    end
+    if not crossed then error("CheckSpam never returned true across 150 calls on the same key") end
+end)
+
+EbonBuilds.Debug.RegisterTest("WoWEvents.On: non-exempt listener trips shared spam detection", function()
+    local statsBefore = EbonBuilds.Debug.GetStats().spamWarningCount
+    EbonBuilds.WoWEvents.On("SELFTEST_SPAM_EVENT", function() end, "selftest")
+    for _ = 1, 150 do EbonBuilds.WoWEvents.EmitForTests("SELFTEST_SPAM_EVENT") end
+    local warned = EbonBuilds.Debug.GetStats().spamWarningCount
+    if warned ~= statsBefore + 1 then
+        error("expected exactly one spam warning for 150 emits, got " .. tostring(warned - statsBefore))
+    end
+end)
+
+EbonBuilds.Debug.RegisterTest("WoWEvents.On: spamExempt=true listener does not trip spam detection", function()
+    local statsBefore = EbonBuilds.Debug.GetStats().spamWarningCount
+    EbonBuilds.WoWEvents.On("SELFTEST_SPAM_EXEMPT_EVENT", function() end, "selftest", false, true)
+    for _ = 1, 150 do EbonBuilds.WoWEvents.EmitForTests("SELFTEST_SPAM_EXEMPT_EVENT") end
+    local warned = EbonBuilds.Debug.GetStats().spamWarningCount
+    if warned ~= statsBefore then
+        error("spamExempt=true listener should never trip spam detection, but a warning fired")
+    end
+end)
+
 EbonBuilds.Debug.RegisterTest("Theme.CreateButton buttons are auto-protected", function()
     local btn = EbonBuilds.Theme.CreateButton(NewObject())
     local ok = pcall(function()

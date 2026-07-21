@@ -42,7 +42,13 @@ local function Compact()
     end
 end
 
-function Router.On(eventName, callback, owner, fast)
+-- fast: skip pcall entirely for performance-critical handlers (no error
+-- isolation -- use only where that trade-off is deliberate).
+-- spamExempt: pass true for a listener that's legitimately expected to
+-- fire very often by design (e.g. CHAT_MSG_ADDON during heavy sync with
+-- many nearby players) -- same reasoning and the same underlying counter
+-- as core/Debug.lua's ProtectScript(frame, source, spamExempt).
+function Router.On(eventName, callback, owner, fast, spamExempt)
     if type(eventName) ~= "string" or type(callback) ~= "function" then return nil end
     local bucket = buckets[eventName]
     if not bucket then
@@ -56,6 +62,7 @@ function Router.On(eventName, callback, owner, fast)
         callback = callback,
         owner = owner,
         fast = fast == true,
+        spamExempt = spamExempt == true,
         active = true,
     }
     bucket[#bucket + 1] = record
@@ -91,6 +98,22 @@ function Router.OffOwner(owner)
     return removed
 end
 
+-- Same spam threshold/window as core/Debug.lua's ProtectScript -- one
+-- shared definition of "too often" (EbonBuilds.Debug.CheckSpam), not two
+-- independently-tuned copies that could quietly drift apart.
+local function CheckListenerSpam(eventName, record)
+    if record.spamExempt or not EbonBuilds.Debug or not EbonBuilds.Debug.CheckSpam then return end
+    -- Keyed per-registration (tostring(record) is unique per listener),
+    -- not just per event+owner -- two listeners on the same event from the
+    -- same module must not share a counter, same reasoning as ProtectScript
+    -- keying per-frame instead of per-source-string.
+    local key = tostring(record) .. "." .. eventName
+    if EbonBuilds.Debug.CheckSpam(key) then
+        Report(eventName .. ".spam", record.owner,
+            "fired 120+ times within 1 second -- check event registration scope")
+    end
+end
+
 function Router.EmitForTests(eventName, ...)
     local bucket = buckets[eventName]
     if not bucket then return true end
@@ -99,6 +122,7 @@ function Router.EmitForTests(eventName, ...)
     for index = 1, count do
         local record = bucket[index]
         if record and record.active then
+            CheckListenerSpam(eventName, record)
             if record.fast then
                 record.callback(eventName, ...)
             else
