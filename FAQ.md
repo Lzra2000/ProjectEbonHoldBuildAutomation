@@ -286,6 +286,22 @@ The dialog scrolls if it ever grows past the window (same fix as the FAQ window 
 Yes (2.22). The `.toc` declared a hard `## Dependencies: ProjectEbonhold` -- WoW's client won't let you enable an addon at all if a hard dependency's exact folder name isn't found, and "ProjectEbonhold Enhanced" ships under a different folder name even though it provides the same API. Switched to `## OptionalDeps: ProjectEbonhold, ProjectEbonholdEnhanced`, which still makes sure whichever one you have loads first (so EbonBuilds sees it), but no longer blocks enabling EbonBuilds if the folder name doesn't match exactly. No more manually editing the `.toc` by hand after every update.
 ## Changelog
 
+### 3.70 (2026-07-21) -- Core architecture refactor merged (PR #13), with unified spam detection
+
+A substantial contribution from ha99dfs and Juriz V, reviewed and integrated with the existing framework rather than merged as-is.
+
+**What changed under the hood:**
+- Every file now uses the private per-file namespace pattern (`local addonName, EbonBuilds = ...`) instead of a bare global -- available since patch 3.3.0, confirmed compatible with 3.3.5a.
+- New dependency-graph module system (`core/Modules.lua`, `core/InitPipeline.lua`) replaces the flat, manually-ordered `Init()` dispatcher -- modules declare what they depend on instead of relying on list order.
+- `core/Scheduler.lua` rewritten as an object-pooled, time-budgeted binary-heap scheduler (still the same `Scheduler.After(id, delay, callback, priority, allowCombat)` call shape, so nothing using it needed to change).
+- New `core/WoWEvents.lua`: one shared event frame with stable-iteration listener dispatch, replacing dozens of modules each creating their own `CreateFrame` + `RegisterEvent` + `SetScript` for events.
+
+**What we changed on top before merging:** the new `WoWEvents.On` dispatcher had its own error isolation but no equivalent to `core/Debug.lua`'s event-spam detection -- merging as-is would have quietly dropped that coverage for every event moved onto it. `Debug.CheckSpam(key)` is now a shared, public counter both `ProtectScript` and `WoWEvents.On` call into (`Router.On(..., spamExempt)`), so there's one definition of "too often" instead of two that could drift apart. Re-applied the spam exemption to the listeners that already needed it (Sync's `CHAT_MSG_ADDON`/`CHAT_MSG_CHANNEL`, Affix's `CHAT_MSG_ADDON`, EchoCatalog's `SPELLS_CHANGED`).
+
+Both branches had also independently built overlapping Settings toggles after diverging -- kept all of them (they're complementary): "Sync chat messages" and "Tome Atlas map integration" master switches (new) alongside "Show tome list on the world map" and "Verbose sync logging" (3.68/3.69) -- notably the new toggles don't replace 3.69's fix; they control different, non-overlapping messages.
+
+3 new self-tests for the spam-detection integration (21/21 total).
+
 ### 3.69 (2026-07-21) -- Verbose sync logging is now a real Settings toggle
 
 Community report: a player had `/ebbsync verbose` on and had no idea how to turn off the resulting chat spam ("[EbonBuilds Sync] Build ... stored in remote" repeated for every build received) -- it was a bare, non-persisted slash command left over from before the addon consolidated its other toggles into Settings.
