@@ -4,6 +4,10 @@ One `### <version>` entry per release, newest first. scripts/release.sh
 refuses to tag unless this file changed, and the Release workflow and the
 in-game "What's new" page both read the newest entry from here.
 
+### 3.80 (2026-07-21) -- A real icon on the Public Builds vote button
+
+The vote button has shown a plain "^" character since it shipped. It's now an actual chevron icon -- filled gold once you've voted, a dim outline before -- generated from the same source and palette as the minimap icon and the website logo, so all three are provably one design instead of three separate guesses at it.
+
 ### 3.79 (2026-07-21) -- Fix: Inspect showed the build list through it, and only 8 priorities
 
 Reported right after 3.78 with a screenshot: opening Inspect on a public build left the list visibly showing through underneath, and the priorities section was capped at 8 flat text lines.
