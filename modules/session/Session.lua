@@ -534,6 +534,9 @@ function EbonBuilds.Session.Init()
 
     -- Event frame for lifecycle detection
     local ef = CreateFrame("Frame", nil, UIParent)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(ef, "Session.EventFrame")
+    end
     ef:RegisterEvent("PLAYER_ENTERING_WORLD")
     ef:RegisterEvent("PLAYER_LEVEL_UP")
     ef:SetScript("OnEvent", function(self, event, ...)

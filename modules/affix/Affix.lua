@@ -126,6 +126,9 @@ end
 
 function EbonBuilds.Affix.Init()
     local f = CreateFrame("Frame")
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(f, "Affix.EventFrame")
+    end
     f:RegisterEvent("CHAT_MSG_ADDON")
     f:SetScript("OnEvent", function(_, _, prefix, payload, dist, sender)
         EbonBuilds.Affix.HandleAddonMessage(prefix, payload, dist, sender)

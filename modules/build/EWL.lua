@@ -660,6 +660,9 @@ local function CreateExportDialog()
     frame:Hide()
 
     local drag = CreateFrame("Frame", nil, frame)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(drag, "EWL.Drag")
+    end
     drag:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
     drag:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -34, 0)
     drag:SetHeight(34)
@@ -704,10 +707,16 @@ local function CreateExportDialog()
     Theme.ApplyInput(inputFrame)
 
     local scroll = CreateFrame("ScrollFrame", nil, inputFrame)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(scroll, "EWL.InputScroll")
+    end
     scroll:SetPoint("TOPLEFT", inputFrame, "TOPLEFT", 7, -7)
     scroll:SetPoint("BOTTOMRIGHT", inputFrame, "BOTTOMRIGHT", -7, 7)
 
     local box = CreateFrame("EditBox", nil, scroll)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(box, "EWL.TextBox")
+    end
     box:SetMultiLine(true)
     box:SetMaxLetters(0)
     box:SetFont("Fonts\\FRIZQT__.TTF", 11, "")

@@ -1091,6 +1091,9 @@ end
 
 function EbonBuilds.Sync.Init()
     syncFrame = CreateFrame("Frame")
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(syncFrame, "Sync.EventFrame")
+    end
     syncFrame:RegisterEvent("CHAT_MSG_ADDON")
     syncFrame:RegisterEvent("CHAT_MSG_CHANNEL")
     syncFrame:RegisterEvent("CHAT_MSG_SYSTEM")

@@ -107,6 +107,9 @@ end
 
 function EbonBuilds.TalentAutoLearn.Init()
     local f = CreateFrame("Frame")
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(f, "TalentAutoLearn.EventFrame")
+    end
     f:RegisterEvent("CHARACTER_POINTS_CHANGED")
     f:RegisterEvent("PLAYER_TALENT_UPDATE")
     f:SetScript("OnEvent", MaybePrompt)

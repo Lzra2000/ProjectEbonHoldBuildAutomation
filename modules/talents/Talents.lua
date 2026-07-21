@@ -68,6 +68,9 @@ end
 local function EnsureWatcher()
     if watcherFrame then return end
     watcherFrame = CreateFrame("Frame")
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(watcherFrame, "Talents.WatcherFrame")
+    end
     watcherFrame:RegisterEvent("INSPECT_TALENT_READY")
     watcherFrame:SetScript("OnEvent", function()
         if not pending then return end

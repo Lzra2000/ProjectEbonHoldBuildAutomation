@@ -312,6 +312,9 @@ end
 
 function EbonBuilds.TomeAtlas.Init()
     local f = CreateFrame("Frame")
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(f, "TomeAtlas.EventFrame")
+    end
     f:RegisterEvent("LOOT_OPENED")
     f:RegisterEvent("CHAT_MSG_LOOT")
     f:SetScript("OnEvent", function(_, event, arg1)

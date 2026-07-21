@@ -286,6 +286,10 @@ The dialog scrolls if it ever grows past the window (same fix as the FAQ window 
 Yes (2.22). The `.toc` declared a hard `## Dependencies: ProjectEbonhold` -- WoW's client won't let you enable an addon at all if a hard dependency's exact folder name isn't found, and "ProjectEbonhold Enhanced" ships under a different folder name even though it provides the same API. Switched to `## OptionalDeps: ProjectEbonhold, ProjectEbonholdEnhanced`, which still makes sure whichever one you have loads first (so EbonBuilds sees it), but no longer blocks enabling EbonBuilds if the folder name doesn't match exactly. No more manually editing the `.toc` by hand after every update.
 ## Changelog
 
+### 3.61 (2026-07-21) -- Handler protection rollout complete
+
+Last 10 files from the repo-wide scan: `TalentAutoLearn`, `Talents`, `Session`, `EchoEligibilityEvidence`, `EchoCatalog`, `EWL`, `Sync`, `Affix`, `TomeAtlas`, `ClickTrace` all now opt into `EbonBuilds.Debug.ProtectScript`. Every frame in the addon that registers an event or UI handler is now error-isolated -- a bug in one handler can no longer take down others on the same frame or spam a red error toast.
+
 ### 3.60 (2026-07-21) -- Handler protection: EchoTable, BuildTabs, Toast, ShowcaseView, DebugLog
 
 - `modules/ui/EchoTable.lua` -- scroll frame.

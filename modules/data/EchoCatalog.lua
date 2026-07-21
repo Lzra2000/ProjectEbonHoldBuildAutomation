@@ -32,6 +32,9 @@ local reconcileFailed = false
 local diagnostics = {}
 local reconcileState
 local lifecycleFrame = CreateFrame("Frame")
+if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+    EbonBuilds.Debug.ProtectScript(lifecycleFrame, "EchoCatalog.LifecycleFrame")
+end
 local staticGroupByNormalizedName
 
 -- ProjectEbonhold has shipped more than one PerkDatabase layout.  Most builds

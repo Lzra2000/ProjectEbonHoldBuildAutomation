@@ -25,6 +25,9 @@ local diagnostics = {
     discoveryLive = false,
 }
 local lifecycleFrame = CreateFrame("Frame")
+if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+    EbonBuilds.Debug.ProtectScript(lifecycleFrame, "EchoEligibilityEvidence.LifecycleFrame")
+end
 local cachedScopeRealm, cachedScopeFingerprint, cachedScopeKey, cachedScope
 
 local function Clear(t)
