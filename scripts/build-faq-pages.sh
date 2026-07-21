@@ -33,12 +33,24 @@ if not firstHeader then
     firstHeader, firstBody = changelog:match("### ([^\n]+)\n(.*)$")
 end
 
--- FAQ questions: "### Question?" blocks between ## FAQ and ## Changelog.
+-- FAQ questions: "### Question?" blocks between ## FAQ and ## Changelog,
+-- each tagged with the nearest preceding "## Category" header so the
+-- in-game viewer can group/jump by category instead of being one long
+-- linear Prev/Next chain.
 local faqSection = md:match("## FAQ\n(.-)\n## Changelog") or ""
 local qas = {}
-for q, a in faqSection:gmatch("### ([^\n]+)\n(.-)\n?%f[#\0]") do
-    a = a:gsub("^%s+", ""):gsub("%s+$", "")
-    if q ~= "" and a ~= "" then qas[#qas + 1] = { q = q, a = a } end
+local categories = {}
+local currentCategory = "General"
+for kind, header, body in faqSection:gmatch("(#+) ([^\n]+)\n(.-)\n?%f[#\0]") do
+    if kind == "##" then
+        currentCategory = header
+        categories[#categories + 1] = header
+    elseif kind == "###" then
+        local a = body:gsub("^%s+", ""):gsub("%s+$", "")
+        if header ~= "" and a ~= "" then
+            qas[#qas + 1] = { q = header, a = a, category = currentCategory }
+        end
+    end
 end
 
 -- Markdown -> plain in-game text: strip bold/code markers, keep lists.
@@ -74,9 +86,10 @@ emit("-- by hand; edit FAQ.md and re-run the script (release.sh does).")
 emit("")
 emit("EbonBuilds.FAQContent = { PAGES = {")
 
-local function emitPage(title, bodyLines)
+local function emitPage(title, bodyLines, category)
     emit("{")
     emit(string.format("    title = %q,", title))
+    if category then emit(string.format("    category = %q,", category)) end
     emit("    lines = {")
     for _, l in ipairs(bodyLines) do
         emit(string.format("        %q,", l))
@@ -88,14 +101,21 @@ end
 if firstHeader then
     local lines = {}
     Wrap(firstBody or "", lines)
-    emitPage("What's new: " .. Plain(firstHeader), lines)
+    emitPage("What's new: " .. Plain(firstHeader), lines, "What's New")
 end
 for _, qa in ipairs(qas) do
     local lines = {}
     Wrap(qa.a, lines)
-    emitPage(Plain(qa.q), lines)
+    emitPage(Plain(qa.q), lines, Plain(qa.category))
 end
 emit("} }")
+emit("")
+emit("EbonBuilds.FAQContent.CATEGORIES = {")
+emit(string.format("    %q,", "What's New"))
+for _, c in ipairs(categories) do
+    emit(string.format("    %q,", Plain(c)))
+end
+emit("}")
 
 local f = assert(io.open("modules/data/FAQContent.lua", "w"))
 f:write(table.concat(out, "\n") .. "\n")
