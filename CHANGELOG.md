@@ -4,6 +4,16 @@ One `### <version>` entry per release, newest first. scripts/release.sh
 refuses to tag unless this file changed, and the Release workflow and the
 in-game "What's new" page both read the newest entry from here.
 
+### 3.76 (2026-07-21) -- Community DPS data finally does something -- and does it honestly
+
+Shared performance data has been collected for a long time but deliberately never influenced anything: the old format pooled raw per-echo DPS averages across players, which mixes everyone's gear, skill, and fight types into one confounded number. That ends here.
+
+- **New sharing format:** the addon now broadcasts each player's own **with/without deltas** ("my runs with this Echo average X more DPS than my runs without it") -- and only the ones that are reliable on that player's own data. A delta is measured within one player, so their gear and skill sit on both sides of the comparison; combining deltas across players is defensible in a way pooled raw DPS never was.
+- **Where it shows up:** the Tuning Advisor's weight suggestions can now draw on community evidence -- but only for Echoes where you have **no reliable local samples yet**. Your own data always wins. Community evidence needs at least two distinct players and the same per-side sample floors your local data must clear.
+- **Labeled honestly:** any recommendation built on community data says so, including how many players it came from.
+- **Compatibility:** the old format still broadcasts alongside the new one, so players on older versions lose nothing; the legacy path retires in a later release. Sharing remains opt-in via the same consent setting; clearing your performance data clears the community delta store with it.
+- 3 new self-tests (27/27); the new inbound handler sits behind the same hostile-payload fuzzing as every other one.
+
 ### 3.75 (2026-07-21) -- Fix: disabling Tome on Map no longer "works half way" (#15)
 
 Reported by kipsell: turning the tome map integration off left part of it behind, and closing the "Tomes in this zone" panel was a one-way door.
