@@ -279,12 +279,21 @@ local function CreateCard(parent)
     card._importBtn = importBtn
 
     -- Vote button (top-right). Shows the distinct-voter tally this
-    -- client has heard (see BuildVotes.lua's trust model); gold when
-    -- this character's own vote is among them.
+    -- client has heard (see BuildVotes.lua's trust model); the chevron
+    -- fills gold when this character's own vote is among them.
     local voteBtn = EbonBuilds.Theme.CreateButton(card)
-    voteBtn:SetWidth(58)
+    voteBtn:SetWidth(50)
     voteBtn:SetHeight(18)
     voteBtn:SetPoint("TOPRIGHT", card, "TOPRIGHT", -10, -8)
+    voteBtn:SetText("")
+    local voteIcon = voteBtn:CreateTexture(nil, "ARTWORK")
+    voteIcon:SetWidth(14)
+    voteIcon:SetHeight(14)
+    voteIcon:SetPoint("LEFT", voteBtn, "LEFT", 6, 0)
+    voteBtn._icon = voteIcon
+    local voteCount = voteBtn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    voteCount:SetPoint("LEFT", voteIcon, "RIGHT", 4, 0)
+    voteBtn._count = voteCount
     card._voteBtn = voteBtn
     EbonBuilds.Theme.AttachTooltip(voteBtn, "Upvote",
         "Acknowledge a well-made build. One vote per character, click again to remove it. The number is how many distinct voters this client has heard from.")
@@ -443,6 +452,15 @@ local function BuildInspectFrame(parent)
     voteBtn:SetWidth(80)
     voteBtn:SetHeight(22)
     voteBtn:SetPoint("TOPRIGHT", f, "TOPRIGHT", -40, -18)
+    voteBtn:SetText("")
+    local voteIcon = voteBtn:CreateTexture(nil, "ARTWORK")
+    voteIcon:SetWidth(16)
+    voteIcon:SetHeight(16)
+    voteIcon:SetPoint("LEFT", voteBtn, "LEFT", 12, 0)
+    voteBtn._icon = voteIcon
+    local voteCount = voteBtn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    voteCount:SetPoint("LEFT", voteIcon, "RIGHT", 5, 0)
+    voteBtn._count = voteCount
     f._voteBtn = voteBtn
 
     local intentLabel = EbonBuilds.Theme.CreateSectionLabel(f, "Intent", classIcon, -18)
@@ -643,7 +661,11 @@ ShowInspect = function(build)
 
     local votes = (EbonBuilds.BuildVotes and EbonBuilds.BuildVotes.Count(build.id)) or 0
     local voted = EbonBuilds.BuildVotes and EbonBuilds.BuildVotes.HasVoted(build.id)
-    inspectFrame._voteBtn:SetText((voted and "|cffffd100" or "") .. "^ " .. votes .. (voted and "|r" or ""))
+    inspectFrame._voteBtn._icon:SetTexture(voted
+        and "Interface\\AddOns\\EbonBuilds\\media\\vote_icon"
+        or "Interface\\AddOns\\EbonBuilds\\media\\vote_icon_off")
+    inspectFrame._voteBtn._count:SetText(tostring(votes))
+    inspectFrame._voteBtn._count:SetTextColor(voted and 0.90 or 0.78, voted and 0.75 or 0.78, voted and 0.20 or 0.78, 1)
     if isOwn then
         inspectFrame._voteBtn:Disable()
         inspectFrame._voteBtn:SetScript("OnClick", nil)
@@ -715,7 +737,11 @@ local function PopulateCard(card, build)
     if card._voteBtn then
         local votes = (EbonBuilds.BuildVotes and EbonBuilds.BuildVotes.Count(build.id)) or 0
         local voted = EbonBuilds.BuildVotes and EbonBuilds.BuildVotes.HasVoted(build.id)
-        card._voteBtn:SetText((voted and "|cffffd100" or "") .. "^ " .. votes .. (voted and "|r" or ""))
+        card._voteBtn._icon:SetTexture(voted
+            and "Interface\\AddOns\\EbonBuilds\\media\\vote_icon"
+            or "Interface\\AddOns\\EbonBuilds\\media\\vote_icon_off")
+        card._voteBtn._count:SetText(tostring(votes))
+        card._voteBtn._count:SetTextColor(voted and 0.90 or 0.78, voted and 0.75 or 0.78, voted and 0.20 or 0.78, 1)
         if EbonBuildsDB.builds[build.id] then
             card._voteBtn:Disable()
             card._voteBtn:SetScript("OnClick", nil)
