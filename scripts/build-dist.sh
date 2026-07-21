@@ -27,7 +27,7 @@ rm -f dist/EbonBuilds.zip
 
 # Verify every file the .toc references made it into the package before
 # zipping, so a stale build script can't silently ship a broken addon.
-grep -E '^\S+\.lua$' EbonBuilds.toc > "$STAGE/toc_files.txt"
+awk '{ sub(/\r$/, ""); if ($0 ~ /^[^[:space:]]+\.lua$/) print }' EbonBuilds.toc > "$STAGE/toc_files.txt"
 fail=0
 while IFS= read -r f; do
     [ -f "$PKG/$f" ] || { echo "::error:: TOC file missing from package: $f" >&2; fail=1; }

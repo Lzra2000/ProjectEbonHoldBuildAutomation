@@ -154,7 +154,15 @@ EbonBuildsCharDB = {}
 
 local files = {}
 for line in io.lines("EbonBuilds.toc") do
-    if line:match("%.lua$") then files[#files + 1] = line end
+    -- Windows/WSL checkouts may use CRLF. io.lines removes the newline but
+    -- retains the carriage return, so normalize it before matching paths.
+    line = line:gsub("\r$", "")
+    if line:match("^%S+%.lua$") then files[#files + 1] = line end
+end
+
+if #files == 0 then
+    io.stderr:write("LOAD FAIL: EbonBuilds.toc contained no Lua paths after normalization\n")
+    os.exit(1)
 end
 
 for _, file in ipairs(files) do

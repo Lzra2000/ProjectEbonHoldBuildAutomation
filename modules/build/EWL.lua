@@ -89,10 +89,9 @@ local function TryGetPerkData(spellId)
 end
 
 local function CanonicalNameForSpell(spellId)
-    local variant = EbonBuilds.EchoCatalog and type(EbonBuilds.EchoCatalog.GetBySpellId) == "function"
+    local variant = EbonBuilds.EchoCatalog and EbonBuilds.EchoCatalog.GetBySpellId
         and EbonBuilds.EchoCatalog.GetBySpellId(spellId) or nil
-    local definition = variant and type(EbonBuilds.EchoCatalog.GetByRef) == "function"
-        and EbonBuilds.EchoCatalog.GetByRef(variant.refKey) or nil
+    local definition = variant and EbonBuilds.EchoCatalog.GetByRef(variant.refKey) or nil
     local name = definition and (definition.displayName or definition.canonicalName or definition.sourceName)
     if name and name ~= "" then return CleanEchoName(name) end
     return CleanEchoName(GetSpellInfo(spellId))
@@ -484,7 +483,7 @@ local function ResolveRowForSpell(byId, byFamily, spellId)
 end
 
 local function MakeFallbackLockedRow(spellId)
-    local variant = EbonBuilds.EchoCatalog and type(EbonBuilds.EchoCatalog.GetBySpellId) == "function"
+    local variant = EbonBuilds.EchoCatalog and EbonBuilds.EchoCatalog.GetBySpellId
         and EbonBuilds.EchoCatalog.GetBySpellId(spellId) or nil
     local data = GetPerkData(spellId)
     return {
@@ -493,101 +492,6 @@ local function MakeFallbackLockedRow(spellId)
         quality = variant and tonumber(variant.quality) or (data and tonumber(data.quality) or 0),
         requiredSpell = variant and tonumber(variant.requiredSpell) or (data and tonumber(data.requiredSpell) or 0),
     }
-end
-
--- The in-game TOC loads EchoProjection before EWL, but the standalone Lua
--- test harness intentionally loads this module with only direct collaborators.
--- Keep the production path strict while providing a catalog-only compatibility
--- path for isolated tests and partially initialized addon environments.
-local function ResolveExactSpell(classToken, spellId)
-    local projection = EbonBuilds.EchoProjection
-    if projection and type(projection.ResolveSpell) == "function" then
-        local entry, variant = projection.ResolveSpell(classToken, spellId)
-        return entry, variant, true
-    end
-
-    local catalog = EbonBuilds.EchoCatalog
-    if catalog and type(catalog.GetBySpellId) == "function" then
-        local variant = catalog.GetBySpellId(spellId)
-        local definition = variant and type(catalog.GetByRef) == "function"
-            and catalog.GetByRef(variant.refKey) or nil
-        return definition, variant, false
-    end
-
-    return nil, nil, false
-end
-
-local function GetBestResolvedVariant(classToken, refKey, preferredSpellId, byId)
-    local projection = EbonBuilds.EchoProjection
-    if projection and type(projection.GetBestVariant) == "function" then
-        return projection.GetBestVariant(classToken, refKey, preferredSpellId)
-    end
-
-    local catalog = EbonBuilds.EchoCatalog
-    if catalog and type(catalog.GetBestByRef) == "function" then
-        -- Omit classToken deliberately: eligibility belongs to EchoProjection.
-        -- This fallback runs only when the projection module is unavailable.
-        return catalog.GetBestByRef(refKey, nil, preferredSpellId)
-    end
-
-    -- Standalone EWL tests load neither EchoProjection nor EchoCatalog. Resolve
-    -- stable references against the compatible catalog already indexed above.
-    -- This path does not interpret class masks; production remains projection-led.
-    local kind, numeric = tostring(refKey or ""):match("^([gs]):(%d+)$")
-    numeric = tonumber(numeric)
-    if not numeric or type(byId) ~= "table" then return nil, 0, nil, nil end
-
-    if kind == "s" then
-        local row = byId[numeric] or byId[tostring(numeric)]
-        return numeric, row and tonumber(row.quality or row.maxQuality) or 0, nil, row
-    end
-
-    local row = byId[numeric] or byId[tostring(numeric)]
-    if not row then return nil, 0, nil, nil end
-
-    preferredSpellId = tonumber(preferredSpellId)
-    if preferredSpellId then
-        for _, variant in ipairs(row._variants or {}) do
-            local candidate = tonumber(variant.spellId or variant.id)
-            if candidate == preferredSpellId then
-                return candidate, tonumber(variant.quality) or 0, nil, variant
-            end
-        end
-        local candidate = tonumber(row.spellId or row.id)
-        if candidate == preferredSpellId then
-            return candidate, tonumber(row.quality or row.maxQuality) or 0, nil, row
-        end
-    end
-
-    local best = row
-    for _, variant in ipairs(row._variants or {}) do
-        local bestQuality = tonumber(best.quality or best.maxQuality) or 0
-        local quality = tonumber(variant.quality) or 0
-        local bestSpell = tonumber(best.spellId or best.id) or math.huge
-        local spell = tonumber(variant.spellId or variant.id) or math.huge
-        if quality > bestQuality or (quality == bestQuality and spell < bestSpell) then
-            best = variant
-        end
-    end
-
-    local spellId = tonumber(best.spellId or best.id)
-    return spellId, tonumber(best.quality or best.maxQuality) or 0, nil, best
-end
-
-local function CatalogDefinitionByRef(refKey)
-    local catalog = EbonBuilds.EchoCatalog
-    if catalog and type(catalog.GetByRef) == "function" then
-        return catalog.GetByRef(refKey)
-    end
-    return nil
-end
-
-local function CatalogLegacyRefs(name)
-    local catalog = EbonBuilds.EchoCatalog
-    if catalog and type(catalog.FindLegacyRefs) == "function" then
-        return catalog.FindLegacyRefs(name), true
-    end
-    return nil, false
 end
 
 -- Returns one EchoWishlist-compatible catalog entry per selected Echo family.
@@ -605,8 +509,7 @@ function EWL.BuildEntries(build)
         if not spellId then return nil end
         local entry = entriesBySpell[spellId]
         if not entry then
-            local variant = EbonBuilds.EchoCatalog and type(EbonBuilds.EchoCatalog.GetBySpellId) == "function"
-                and EbonBuilds.EchoCatalog.GetBySpellId(spellId) or nil
+            local variant = EbonBuilds.EchoCatalog and EbonBuilds.EchoCatalog.GetBySpellId(spellId)
             entry = {
                 row = row, spellId = spellId,
                 locked = saved and true or false,
@@ -627,8 +530,8 @@ function EWL.BuildEntries(build)
     for slot = 1, EbonBuilds.Build.LOCKED_SLOTS do
         local spellId = build.lockedEchoes and tonumber(build.lockedEchoes[slot])
         if spellId then
-            local projectionEntry, variant, projectionLoaded = ResolveExactSpell(classToken, spellId)
-            if (projectionEntry and variant) or not projectionLoaded then
+            local projectionEntry, variant = EbonBuilds.EchoProjection.ResolveSpell(classToken, spellId)
+            if projectionEntry and variant then
                 local row = byId[spellId] or ResolveRowForSpell(byId, byFamily, spellId)
                 if not row then row = MakeFallbackLockedRow(spellId) end
                 AddRow(row, true, 0, spellId)
@@ -647,7 +550,7 @@ function EWL.BuildEntries(build)
         for refKey, rawWeights in pairs(build.echoWeightsByRef) do
             local weights = EbonBuilds.Weights.NormalizeEntry(rawWeights)
             if EbonBuilds.Weights.HasNonZero(weights) then
-                local spellId = select(1, GetBestResolvedVariant(classToken, refKey, nil, byId))
+                local spellId = select(1, EbonBuilds.EchoProjection.GetBestVariant(classToken, refKey))
                 local row = spellId and (byId[spellId] or ResolveRowForSpell(byId, byFamily, spellId)) or nil
                 if not row and spellId then row = MakeFallbackLockedRow(spellId) end
                 if row and spellId then
@@ -658,7 +561,7 @@ function EWL.BuildEntries(build)
                     end
                     AddRow(row, false, maxWeight or 0, spellId)
                 else
-                    local definition = CatalogDefinitionByRef(refKey)
+                    local definition = EbonBuilds.EchoCatalog.GetByRef(refKey)
                     unresolved[#unresolved + 1] = {
                         name = definition and definition.sourceName or refKey,
                         weights = weights,
@@ -671,20 +574,11 @@ function EWL.BuildEntries(build)
         for name, rawWeights in pairs(build.echoWeights or {}) do
             local weights = EbonBuilds.Weights.NormalizeEntry(rawWeights)
             if EbonBuilds.Weights.HasNonZero(weights) then
-                local refs, hasCanonicalLegacyResolver = CatalogLegacyRefs(name)
+                local refs = EbonBuilds.EchoCatalog.FindLegacyRefs(name)
                 local refKey = refs and #refs == 1 and refs[1] or nil
-                local spellId = refKey and select(1, GetBestResolvedVariant(classToken, refKey, nil, byId)) or nil
+                local spellId = refKey and select(1, EbonBuilds.EchoProjection.GetBestVariant(classToken, refKey)) or nil
                 local row = spellId and (byId[spellId] or ResolveRowForSpell(byId, byFamily, spellId)) or nil
-
-                -- Legacy EWL tests predate the canonical catalog modules. In
-                -- that environment, preserve the original unique family-name
-                -- lookup using the compatible catalog instead of failing.
-                if not row and not hasCanonicalLegacyResolver then
-                    row = byFamily[FamilyKey(name)]
-                    spellId = row and tonumber(row.spellId or row.id) or nil
-                end
-
-                if row and spellId then
+                if row then
                     AddRow(row, false, EbonBuilds.Weights.MaxFromWeights(build.echoWeights, name), spellId)
                 else
                     unresolved[#unresolved + 1] = {

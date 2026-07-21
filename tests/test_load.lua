@@ -7,6 +7,10 @@ EbonBuildsDB = EbonBuildsDB or {}
 EbonBuildsCharDB = EbonBuildsCharDB or {}
 
 local function Noop() end
+
+local function NormalizeNewlines(value)
+    return tostring(value or ""):gsub("\r\n", "\n"):gsub("\r", "\n")
+end
 local function NewObject()
     return setmetatable({}, {
         __index = function(_, key)
@@ -131,7 +135,15 @@ utils = {}
 
 local files = {}
 for line in io.lines("EbonBuilds.toc") do
-    if line:match("%.lua$") then files[#files + 1] = line end
+    -- Windows/WSL checkouts may use CRLF. io.lines removes the newline but
+    -- retains the carriage return, so normalize it before matching paths.
+    line = line:gsub("\r$", "")
+    if line:match("^%S+%.lua$") then files[#files + 1] = line end
+end
+
+if #files == 0 then
+    io.stderr:write("LOAD FAIL: EbonBuilds.toc contained no Lua paths after normalization\n")
+    os.exit(1)
 end
 
 for _, file in ipairs(files) do
@@ -228,7 +240,7 @@ do
     }
     for _, definition in ipairs(requiredSources) do
         local file = assert(io.open(definition[1], "r"))
-        local source = file:read("*a")
+        local source = NormalizeNewlines(file:read("*a"))
         file:close()
         if not source:find(definition[2], 1, true) then
             io.stderr:write("ECHO POLICY UI FAIL: missing " .. definition[2] .. " in " .. definition[1] .. "\n")
@@ -243,7 +255,7 @@ print("Verified conditional Echo policy controls and hard automation enforcement
 -- the complete visible Echo name.
 do
     local file = assert(io.open("modules/ui/EchoTableRows.lua", "r"))
-    local source = file:read("*a")
+    local source = NormalizeNewlines(file:read("*a"))
     file:close()
     local required = {
         "icon = 40, quality = 70, protect = 84, policy = 104, rank = 56",
@@ -269,7 +281,7 @@ print("Verified long Echo names receive a compact, two-line table column.")
 -- total score shown in the rank columns, not merely the largest raw weight.
 do
     local file = assert(io.open("modules/ui/EchoTableRows.lua", "r"))
-    local source = file:read("*a")
+    local source = NormalizeNewlines(file:read("*a"))
     file:close()
     local required = {
         "local function MaxTotalScore(entry)",
@@ -294,7 +306,7 @@ print("Verified Echo row Max values use final total score rather than raw weight
 -- icon gutter, and must remain inside the shared table header bounds.
 do
     local file = assert(io.open("modules/ui/EchoTable.lua", "r"))
-    local source = file:read("*a")
+    local source = NormalizeNewlines(file:read("*a"))
     file:close()
     local required = {
         'headerFrames.name:SetPoint("TOPLEFT", parent, "TOPLEFT", 2, -3)',
@@ -313,7 +325,7 @@ print("Verified the Echo name sort control fills the complete header column.")
 -- dropdown creates one button per session and can cover the entire screen.
 do
     local file = assert(io.open("modules/ui/SessionHistory.lua", "r"))
-    local source = file:read("*a")
+    local source = NormalizeNewlines(file:read("*a"))
     file:close()
     if not source:find("local RUN_BROWSER_VISIBLE_ROWS = 8", 1, true)
         or not source:find("CreateRunBrowserRow", 1, true)
@@ -330,7 +342,7 @@ print("Verified the Logbook run browser is fixed-height and virtualized.")
 -- underneath the Echo icons on compact windows.
 do
     local file = assert(io.open("modules/ui/SessionHistory.lua", "r"))
-    local source = file:read("*a")
+    local source = NormalizeNewlines(file:read("*a"))
     file:close()
     if not source:find("local DETAIL_H = 184", 1, true)
         or not source:find('card:SetPoint("TOPLEFT", detailFlags, "BOTTOMLEFT", 0, -8)', 1, true)
@@ -346,7 +358,7 @@ print("Verified Decision Inspector offer cards stay below the evidence text.")
 -- dropdown/button text appear clipped at common UI scales.
 do
     local file = assert(io.open("modules/ui/SessionHistory.lua", "r"))
-    local source = file:read("*a")
+    local source = NormalizeNewlines(file:read("*a"))
     file:close()
     local required = {
         "local FILTER_TOOLBAR_H = 30",
@@ -373,7 +385,7 @@ print("Verified Logbook search and filter controls use unclipped shared dimensio
 -- at y=-540, making its lower border and text appear cut off at the bottom.
 do
     local file = assert(io.open("modules/ui/SettingsView.lua", "r"))
-    local source = file:read("*a")
+    local source = NormalizeNewlines(file:read("*a"))
     file:close()
     local required = {
         "local ADVANCED_TOGGLE_H = 26",
@@ -434,7 +446,7 @@ do
     }
     for _, definition in ipairs(requiredBindings) do
         local file = assert(io.open(definition[1], "r"))
-        local source = file:read("*a")
+        local source = NormalizeNewlines(file:read("*a"))
         file:close()
         if not source:find(definition[2], 1, true) then
             io.stderr:write("SHARED SCROLL FAIL: content-tree wheel routing is missing in " .. definition[1] .. "\n")
@@ -443,7 +455,7 @@ do
     end
 
     local overviewFile = assert(io.open("modules/ui/BuildOverview.lua", "r"))
-    local overviewSource = overviewFile:read("*a")
+    local overviewSource = NormalizeNewlines(overviewFile:read("*a"))
     overviewFile:close()
     if not overviewSource:find('descScroll:SetVerticalScroll(value)', 1, true)
         or overviewSource:find('descChild:SetPoint("TOPLEFT", descScroll, "TOPLEFT", 0, value)', 1, true) then
@@ -452,7 +464,7 @@ do
     end
 
     local themeFile = assert(io.open("modules/ui/Theme.lua", "r"))
-    local themeSource = themeFile:read("*a")
+    local themeSource = NormalizeNewlines(themeFile:read("*a"))
     themeFile:close()
     if not themeSource:find("function T.BindSliderWheel", 1, true) then
         io.stderr:write("SHARED SCROLL FAIL: virtualized lists do not share the boundary-safe wheel router\n")
@@ -467,7 +479,7 @@ do
     for _, file in ipairs(files) do
         if file:match("^modules/ui/") and not allowedDirectWheel[file] then
             local handle = assert(io.open(file, "r"))
-            local source = handle:read("*a")
+            local source = NormalizeNewlines(handle:read("*a"))
             handle:close()
             if source:find('SetScript("OnMouseWheel"', 1, true) then
                 io.stderr:write("SHARED SCROLL FAIL: ad-hoc mouse-wheel logic remains in " .. file .. "\n")
@@ -507,7 +519,7 @@ print("Verified readable Decision Inspector resource changes and remaining charg
 -- than leaving the user with an empty panel when one category fails.
 do
     local file = assert(io.open("modules/ui/MainWindow.lua", "r"))
-    local source = file:read("*a")
+    local source = NormalizeNewlines(file:read("*a"))
     file:close()
     local required = {
         'popup:SetSize(640, 520)',
@@ -541,10 +553,10 @@ print("Verified staged, defensive, 3.3.5-safe global Settings rendering.")
 -- EWL export is available from the build overview and the Settings popup.
 do
     local overviewFile = assert(io.open("modules/ui/BuildOverview.lua", "r"))
-    local overviewSource = overviewFile:read("*a")
+    local overviewSource = NormalizeNewlines(overviewFile:read("*a"))
     overviewFile:close()
     local mainFile = assert(io.open("modules/ui/MainWindow.lua", "r"))
-    local mainSource = mainFile:read("*a")
+    local mainSource = NormalizeNewlines(mainFile:read("*a"))
     mainFile:close()
     if not overviewSource:find("Export EWL", 1, true) or not overviewSource:find("EWL.ShowExportDialog", 1, true) then
         io.stderr:write("EWL UI FAIL: build overview export action is missing\n")
@@ -565,7 +577,7 @@ print("Verified EWL generation controls and Settings integration.")
 -- places again).
 do
     local file = assert(io.open("modules/ui/MainWindow.lua", "r"))
-    local source = file:read("*a")
+    local source = NormalizeNewlines(file:read("*a"))
     file:close()
 
     local mustContain = {
@@ -614,7 +626,7 @@ print("Verified every removed /ebb subcommand has a Settings popup replacement, 
 -- shared draft that Save commits regardless of which category is visible.
 do
     local file = assert(io.open("modules/ui/MainWindow.lua", "r"))
-    local source = file:read("*a")
+    local source = NormalizeNewlines(file:read("*a"))
     file:close()
 
     local categoriesStart = source:find("local SETTINGS_CATEGORIES = {", 1, true)
@@ -737,7 +749,7 @@ print("Verified weighted-missing default and alternate Missing views.")
 -- Theme consistency and bottom-of-list regression contracts.
 do
     local themeFile = assert(io.open("modules/ui/Theme.lua", "r"))
-    local themeSource = themeFile:read("*a")
+    local themeSource = NormalizeNewlines(themeFile:read("*a"))
     themeFile:close()
     if not themeSource:find('SetDisabledTexture%(""%)') then
         io.stderr:write("THEME FAIL: native disabled button texture is not cleared\n")
@@ -745,7 +757,7 @@ do
     end
 
     local echoFile = assert(io.open("modules/ui/EchoTable.lua", "r"))
-    local echoSource = echoFile:read("*a")
+    local echoSource = NormalizeNewlines(echoFile:read("*a"))
     echoFile:close()
     if not echoSource:find("fullVisibleRows") or not echoSource:find("#filteredList %- fullVisibleRows") then
         io.stderr:write("SCROLL RANGE FAIL: Echo list range is not based on fully visible rows\n")
@@ -757,7 +769,7 @@ print("Verified themed controls and full last-row scroll range.")
 -- Remaining legacy-scrollbar and build-title visibility regressions.
 do
     local buildListFile = assert(io.open("modules/ui/BuildList.lua", "r"))
-    local buildListSource = buildListFile:read("*a")
+    local buildListSource = NormalizeNewlines(buildListFile:read("*a"))
     buildListFile:close()
     if buildListSource:find("UIPanelScrollFrameTemplate", 1, true) then
         io.stderr:write("BUILD LIST SCROLLBAR FAIL: native scroll-frame template is still used\n")
@@ -774,7 +786,7 @@ do
     end
 
     local buildFormFile = assert(io.open("modules/ui/BuildForm.lua", "r"))
-    local buildFormSource = buildFormFile:read("*a")
+    local buildFormSource = NormalizeNewlines(buildFormFile:read("*a"))
     buildFormFile:close()
     if buildFormSource:find("UIPanelScrollFrameTemplate", 1, true)
         or buildFormSource:find("BuildFormDescriptionSFScrollBar", 1, true) then
@@ -789,7 +801,7 @@ do
     for _, file in ipairs(files) do
         if file:match("^modules/ui/") then
             local handle = assert(io.open(file, "r"))
-            local source = handle:read("*a")
+            local source = NormalizeNewlines(handle:read("*a"))
             handle:close()
             if source:find("UIPanelScrollFrameTemplate", 1, true)
                 or source:find("UIPanelScrollBarTemplate", 1, true) then
@@ -841,7 +853,7 @@ print("Verified rank sorting uses final total score, highest-rank fallback, and 
 -- pooled row during FocusLost and could recurse until the client froze.
 do
     local file = assert(io.open("modules/ui/EchoTableRows.lua", "r"))
-    local source = file:read("*a")
+    local source = NormalizeNewlines(file:read("*a"))
     file:close()
     if source:find("EchoTable%.RefreshCurrentView%(") then
         io.stderr:write("EDIT PERFORMANCE FAIL: EchoTableRows still performs a synchronous full refresh\n")
@@ -860,7 +872,7 @@ print("Verified weight edits use deferred incremental resorting without recursiv
 -- where the scroll frame clipped it completely.
 do
     local file = assert(io.open("modules/ui/BuildList.lua", "r"))
-    local source = file:read("*a")
+    local source = NormalizeNewlines(file:read("*a"))
     file:close()
     if source:find('row%._titleLabel:SetPoint%("TOPLEFT", classBtn') then
         io.stderr:write("BUILD LIST FAIL: title still uses the out-of-scope classBtn anchor\n")
@@ -927,7 +939,7 @@ print("Verified learned-only filtering by name, group, and spell ID with safe lo
 -- Save/Cancel owns build configuration; operational toggles remain separate.
 do
     local file = assert(io.open("modules/ui/BuildForm.lua", "r"))
-    local source = file:read("*a")
+    local source = NormalizeNewlines(file:read("*a"))
     file:close()
     local beginAt = assert(source:find("function EbonBuilds.BuildForm.PersistEditingSettings", 1, true))
     local endAt = assert(source:find("function EbonBuilds.BuildForm.GetEditingLockedEchoes", beginAt, true))
@@ -948,7 +960,7 @@ print("Verified build configuration remains staged until Save.")
 -- draft baseline. Cancel remains the explicit route back to Overview.
 do
     local formFile = assert(io.open("modules/ui/BuildForm.lua", "r"))
-    local formSource = formFile:read("*a")
+    local formSource = NormalizeNewlines(formFile:read("*a"))
     formFile:close()
     local saveBegin = assert(formSource:find("local function OnSave()", 1, true))
     local saveEnd = assert(formSource:find("local LoadFromBuild, ApplyStateToInputs", saveBegin, true))
@@ -965,7 +977,7 @@ do
     end
 
     local tabsFile = assert(io.open("modules/ui/BuildTabs.lua", "r"))
-    local tabsSource = tabsFile:read("*a")
+    local tabsSource = NormalizeNewlines(tabsFile:read("*a"))
     tabsFile:close()
     local handlerBegin = assert(tabsSource:find("function EbonBuilds.BuildTabs.OnBuildSaved(savedBuild)", 1, true))
     local handlerEnd = assert(tabsSource:find("local function CreateTabs", handlerBegin, true))
@@ -985,7 +997,7 @@ print("Verified Save commits in place without remounting the active editor tab."
 -- shared page header rather than native parchment tab geometry.
 do
     local file = assert(io.open("modules/ui/BuildOverview.lua", "r"))
-    local source = file:read("*a")
+    local source = NormalizeNewlines(file:read("*a"))
     file:close()
     if source:find("OptionsFrameTabButtonTemplate", 1, true) then
         io.stderr:write("OVERVIEW UI FAIL: native parchment tabs are still present\n")

@@ -289,7 +289,7 @@ do
         "policy is stored under stable refKey")
 end
 
--- EWL keeps retained family IDs while validating exact class eligibility.
+-- EWL serializes exact resolved variant IDs while validating class eligibility.
 do
     EchoWishlist = {
         catalog = {
@@ -317,8 +317,8 @@ do
     })
     local ewl, err, info = EbonBuilds.EWL.Generate(build)
     equal(err, nil, "EWL generation succeeds")
-    check(ewl and ewl:find("990001:1", 1, true), "rank alias serializes retained family ID")
-    check(ewl and not ewl:find("990003:1", 1, true), "exact rank ID is not serialized as a duplicate family")
+    check(ewl and ewl:find("990003:1", 1, true), "locked rank serializes the exact resolved spell ID")
+    check(ewl and not ewl:find("990001:1", 1, true), "retained family ID is not substituted for the exact locked rank")
     check(ewl and ewl:find("200756:0", 1, true), "Mage Overtime weight is exported")
     check(ewl and not ewl:find("990010:1", 1, true), "class-invalid locked Echo is omitted")
     equal(info.locked, 1, "only the eligible locked family is counted")
