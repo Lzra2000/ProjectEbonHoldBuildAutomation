@@ -33,7 +33,14 @@ local diagnostics = {}
 local reconcileState
 local lifecycleFrame = CreateFrame("Frame")
 if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
-    EbonBuilds.Debug.ProtectScript(lifecycleFrame, "EchoCatalog.LifecycleFrame")
+    -- spam-exempt: SPELLS_CHANGED legitimately fires 120+ times/sec during
+    -- login/zoning bursts (that's what triggered 3.63's debounce fix in
+    -- the first place) -- the debounce made the actual WORK cheap
+    -- (Scheduler.After bookkeeping only), but the handler itself still
+    -- gets called once per fire, same as the event's real frequency. The
+    -- spam warning was flagging call volume this handler can't reduce
+    -- further, not a bug still left to fix.
+    EbonBuilds.Debug.ProtectScript(lifecycleFrame, "EchoCatalog.LifecycleFrame", true)
 end
 local staticGroupByNormalizedName
 

@@ -286,6 +286,12 @@ The dialog scrolls if it ever grows past the window (same fix as the FAQ window 
 Yes (2.22). The `.toc` declared a hard `## Dependencies: ProjectEbonhold` -- WoW's client won't let you enable an addon at all if a hard dependency's exact folder name isn't found, and "ProjectEbonhold Enhanced" ships under a different folder name even though it provides the same API. Switched to `## OptionalDeps: ProjectEbonhold, ProjectEbonholdEnhanced`, which still makes sure whichever one you have loads first (so EbonBuilds sees it), but no longer blocks enabling EbonBuilds if the folder name doesn't match exactly. No more manually editing the `.toc` by hand after every update.
 ## Changelog
 
+### 3.66 (2026-07-21) -- Fix: EchoCatalog spam warning still fired after 3.63's debounce
+
+3.63 debounced the actual cache-clearing work, but missed that the spam warning is based on how often the *handler itself* gets called, not how much work it does -- `SPELLS_CHANGED` still calls the handler once per fire regardless of what's inside it, so the warning kept firing even though the underlying waste was already gone.
+
+- `EchoCatalog.LifecycleFrame` is now marked spam-exempt (`ProtectScript(frame, source, true)`, same as 3.64's Sync/Affix fix) -- the handler is already as cheap as it can be; the call volume itself just reflects how often WoW fires this event, which nothing in the addon can reduce further.
+
 ### 3.65 (2026-07-21) -- Zone map: coordinate-pin system + toggle legend, ready for real location data
 
 Inspired by looking at how a rare-spawn map-overlay addon does it (hand-painted per-target overlay images, plus a toggle legend). That specific technique doesn't fit Tome Atlas's scale, but the toggle-legend idea and a proper coordinate-pin system do -- built now, dormant until real x/y data exists.
