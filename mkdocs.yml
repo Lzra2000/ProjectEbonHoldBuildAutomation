@@ -4,18 +4,48 @@ site_url: https://lzra2000.github.io/ProjectEbonHoldBuildAutomation/
 repo_url: https://github.com/Lzra2000/ProjectEbonHoldBuildAutomation
 repo_name: Lzra2000/ProjectEbonHoldBuildAutomation
 edit_uri: edit/main/docs/
+copyright: EbonBuilds — a community project for ProjectEbonhold. Not affiliated with the server owner.
 
 theme:
   name: material
+  logo: img/logo.svg
+  favicon: img/logo.svg
   palette:
-    - scheme: slate
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
       primary: teal
       accent: amber
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: amber
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
   features:
     - navigation.sections
     - navigation.top
+    - navigation.footer
     - search.suggest
+    - search.highlight
+    - toc.follow
     - content.action.edit
+    - content.code.copy
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/Lzra2000/ProjectEbonHoldBuildAutomation
+      name: Repository
+    - icon: material/download
+      link: https://github.com/Lzra2000/ProjectEbonHoldBuildAutomation/releases/latest
+      name: Latest release
+    - icon: material/forum
+      link: https://github.com/Lzra2000/ProjectEbonHoldBuildAutomation/discussions
+      name: Discussions
 
 nav:
   - Home: index.md
@@ -29,6 +59,8 @@ nav:
 
 markdown_extensions:
   - admonition
+  - attr_list
+  - md_in_html
   - toc:
       permalink: true
   - pymdownx.snippets:

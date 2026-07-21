@@ -1,3 +1,5 @@
+# Development
+
 Full contributor guide: [CONTRIBUTING.md](https://github.com/Lzra2000/ProjectEbonHoldBuildAutomation/blob/main/CONTRIBUTING.md). This page is the short map.
 
 ## Setup
