@@ -10,7 +10,7 @@ if [ "$(id -u)" != "0" ]; then
     if command -v sudo >/dev/null 2>&1; then
         need_sudo="sudo"
     else
-        echo "Not root and no sudo available -- install lua5.1, texlive-binaries, and zip manually." >&2
+        echo "Not root and no sudo available -- install lua5.1 and zip manually." >&2
         exit 1
     fi
 fi

@@ -139,13 +139,14 @@ Attach the Error log or Debug log output (Settings -- gear icon in the main wind
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup, the pre-PR checklist, and project conventions. Quick version:
 
 - Pure Lua, WotLK 3.3.5a API (Interface 30300).
-- One-time setup: `sh scripts/dev-setup.sh` installs the toolchain (`lua5.1`, `texlive-binaries` for the test suite, `zip`). Debian/Ubuntu (`apt`) only — on Windows, use WSL.
+- One-time setup: `sh scripts/dev-setup.sh` installs the toolchain (`lua5.1`, `zip`). Debian/Ubuntu (`apt`) only — on Windows, use WSL.
 - `sh scripts/check.sh` runs the full local check suite (syntax check, test suite, `.toc` file verification, 3.3.5a API check, file-header check) — the same checks as `.github/workflows/lua-syntax.yml`, in one command.
 - `sh scripts/install-hooks.sh` wires up a pre-commit hook that runs `scripts/check.sh` automatically (skip once with `git commit --no-verify`).
 - `sh scripts/build-dist.sh` packages `EbonBuilds.toc`, `core/`, `modules/`, and `media/` into `dist/EbonBuilds.zip`, ready to drop into `Interface/AddOns/` (the in-game FAQ ships as generated Lua; its sources `docs/faq.md` and `CHANGELOG.md` stay repo-only).
 - `sh scripts/release.sh <version>` is the release helper: refuses to run unless `CHANGELOG.md` has changed since the last tag, bumps the version in `EbonBuilds.toc` and the `docs/faq.md` header, regenerates the in-game FAQ pages, runs the check suite, then commits and tags (does not push).
 - Pushing the tag triggers `.github/workflows/release.yml`, which re-runs the checks, builds the zip, and publishes the GitHub Release with `EbonBuilds.zip` attached as a release asset. `GITHUB_TOKEN=... sh scripts/publish-github-release.sh <version>` remains as a manual fallback when Actions is unavailable.
 - For day-to-day development the repo root itself already *is* the addon folder structure expected by `Interface/AddOns/` — the dist zip is only needed for a clean shareable release build.
+- `media/minimap_icon.tga` has a real source: `python3 scripts/generate-media.py` (requires [Pillow](https://pillow.readthedocs.io/)) regenerates it from the same ring geometry as `docs/img/logo.svg`, so the icon is never a hand-edited binary with no way back to its design.
 
 ## License
 
