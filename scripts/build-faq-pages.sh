@@ -9,8 +9,8 @@
 set -eu
 cd "$(dirname "$0")/.."
 
-if ! command -v texlua >/dev/null 2>&1; then
-    echo "texlua not found -- run: sh scripts/dev-setup.sh" >&2
+if ! command -v lua5.1 >/dev/null 2>&1; then
+    echo "lua5.1 not found -- run: sh scripts/dev-setup.sh" >&2
     exit 1
 fi
 
@@ -124,4 +124,4 @@ f:write(table.concat(out, "\n") .. "\n")
 f:close()
 print(string.format("FAQContent.lua: 1 what's-new page + %d FAQ pages.", #qas))
 LUAEOF
-texlua "$HELPER"
+lua5.1 "$HELPER"
