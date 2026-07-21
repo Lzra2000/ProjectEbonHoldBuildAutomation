@@ -1,3 +1,5 @@
+local addonName, EbonBuilds = ...
+
 -- EbonBuilds: modules/sync/Sync.lua
 -- Responsibility: peer-to-peer build synchronisation.
 -- Discovery via hidden chat channel + known-peers fallback.
@@ -58,8 +60,8 @@ local SYNC_VERSION  = 1
 local VALIDATION_REQUIRED = true
 local VERBOSE_LOG = false
 
-local syncFrame
 local syncChannelIndex
+local RefreshChannel
 local inflight = {}
 local sendQueue = EbonBuilds.RingBuffer.New(MAX_QUEUE_SIZE)
 local nextSendTime = 0
@@ -249,7 +251,7 @@ local function HideChannelFromChat()
     end
 end
 
-local function RefreshChannel()
+RefreshChannel = function()
     local idx = FindSyncChannel()
     if idx and idx > 0 then
         if syncChannelIndex ~= idx then
@@ -342,21 +344,17 @@ local function AssembleBuild(sender, buildId, base64)
 
     EbonBuildsDB.remoteBuilds = EbonBuildsDB.remoteBuilds or {}
 
-    -- If the user already owns this build by UUID (e.g. they are the author),
-    -- update it in-place.
-    local existing = EbonBuildsDB.builds[buildId]
-    if existing then
-        local incomingDate = imported.lastModified or ""
-        local localDate   = existing.lastModified or ""
-        if incomingDate > localDate then
-            EbonBuilds.Build.UpdateFromPublic(existing, imported)
-            VerboseLog("Build " .. buildId .. " updated (incoming=" .. incomingDate .. " > local=" .. localDate .. ")")
-        end
-        return
-    end
+    -- Network data never mutates the local build collection. A UUID collision
+    -- is stored under a sender-qualified remote key and requires an explicit
+    -- user import/merge from the Public Builds view.
+    local localCollision = EbonBuildsDB.builds[buildId] ~= nil
+    local remoteKey = localCollision and (NormalizeName(sender) .. ":" .. buildId) or buildId
+    imported._sourceBuildId = buildId
+    imported._transportSender = sender
+    imported._claimedAuthor = imported.author
 
-    -- Store in remote builds (market), not in local collection
-    local rb = EbonBuildsDB.remoteBuilds[buildId]
+    -- Store in remote builds (market), not in local collection.
+    local rb = EbonBuildsDB.remoteBuilds[remoteKey]
     if rb then
         rb._lastSeenAt = time()
         local incomingDate = imported.lastModified or ""
@@ -364,13 +362,13 @@ local function AssembleBuild(sender, buildId, base64)
         if incomingDate > storedDate then
             imported.id = buildId
             imported._lastSeenAt = time()
-            EbonBuildsDB.remoteBuilds[buildId] = imported
+            EbonBuildsDB.remoteBuilds[remoteKey] = imported
             VerboseLog("Build " .. buildId .. " updated in remote (incoming=" .. incomingDate .. ")")
         end
     else
         imported.id = buildId
         imported._lastSeenAt = time()
-        EbonBuildsDB.remoteBuilds[buildId] = imported
+        EbonBuildsDB.remoteBuilds[remoteKey] = imported
         VerboseLog("Build " .. buildId .. " stored in remote (author: " .. (imported.author or "?") .. ")")
     end
     EbonBuilds.Scheduler.After("database.pruneRemoteBuilds", 0.5,
@@ -609,7 +607,7 @@ local function HandleChannelMessage(msg, sender, _, channelName, _, _, _, channe
         end
     end
 
-    local ok, err = pcall(HandleRequest, parts[2], parts[3])
+    local ok, err = pcall(HandleRequest, sender, parts[3])
     if not ok then Log("HandleRequest error: " .. tostring(err)) end
 end
 
@@ -620,7 +618,7 @@ end
 local function HandleAddonREQ(payload, sender)
     local parts = {strsplit("|", payload)}
     if parts[1] ~= "REQ" then return end
-    local ok, err = pcall(HandleRequest, parts[2], parts[3])
+    local ok, err = pcall(HandleRequest, sender, parts[3])
     if not ok then Log("HandleAddonREQ error: " .. tostring(err)) end
 end
 
@@ -1090,40 +1088,22 @@ function EbonBuilds.Sync.RequestSyncAllClasses()
 end
 
 function EbonBuilds.Sync.Init()
-    syncFrame = CreateFrame("Frame")
-    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
-        -- spam-exempt: this frame's OnEvent legitimately fires very often
-        -- during active sync with many nearby players (every CHAT_MSG_ADDON
-        -- on the client reaches it, not just ours, plus real BLD/WNT/RTX
-        -- traffic) -- that's the feature working, not a bug.
-        EbonBuilds.Debug.ProtectScript(syncFrame, "Sync.EventFrame", true)
-    end
-    syncFrame:RegisterEvent("CHAT_MSG_ADDON")
-    syncFrame:RegisterEvent("CHAT_MSG_CHANNEL")
-    syncFrame:RegisterEvent("CHAT_MSG_SYSTEM")
-    syncFrame:RegisterEvent("PLAYER_LEVEL_UP")
-    syncFrame:SetScript("OnEvent", function(_, event, ...)
-        if event == "CHAT_MSG_ADDON" then
-            DispatchAddon(...)
-        elseif event == "CHAT_MSG_CHANNEL" then
-            HandleChannelMessage(...)
-        elseif event == "CHAT_MSG_SYSTEM" then
-            HandleSystemMessage(...)
-        elseif event == "PLAYER_LEVEL_UP" then
-            local newLevel = ...
-            if newLevel == 80 then
-                local build = EbonBuilds.Build.GetActive()
-                local session = EbonBuilds.Session and EbonBuilds.Session.GetActiveSession()
-                local sameStrategy = build and session and session.buildId == build.id
-                    and not session.mixedStrategy
-                    and (tonumber(session.strategyRevision) or 1) == (tonumber(build.strategyRevision) or 1)
-                if build and sameStrategy and not build.validated then
-                    build.validated = true
-                    VerboseLog("Build \"" .. (build.title or "?") .. "\" marked locally run-tested (reached level 80)")
-                end
+    EbonBuilds.WoWEvents.On("CHAT_MSG_ADDON", function(_, ...) DispatchAddon(...) end, "Sync")
+    EbonBuilds.WoWEvents.On("CHAT_MSG_CHANNEL", function(_, ...) HandleChannelMessage(...) end, "Sync")
+    EbonBuilds.WoWEvents.On("CHAT_MSG_SYSTEM", function(_, ...) HandleSystemMessage(...) end, "Sync")
+    EbonBuilds.WoWEvents.On("PLAYER_LEVEL_UP", function(_, newLevel)
+        if newLevel == 80 then
+            local build = EbonBuilds.Build.GetActive()
+            local session = EbonBuilds.Session and EbonBuilds.Session.GetActiveSession()
+            local sameStrategy = build and session and session.buildId == build.id
+                and not session.mixedStrategy
+                and (tonumber(session.strategyRevision) or 1) == (tonumber(build.strategyRevision) or 1)
+            if build and sameStrategy and not build.validated then
+                build.validated = true
+                VerboseLog("Build \"" .. (build.title or "?") .. "\" marked locally run-tested (reached level 80)")
             end
         end
-    end)
+    end, "Sync")
     local function TickSync()
         local now = Now()
 

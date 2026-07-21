@@ -1,3 +1,5 @@
+local addonName, EbonBuilds = ...
+
 -- EbonBuilds: modules/ui/SettingsView.lua
 -- Intent-first automation editor. The common workflow is kept above the fold:
 -- choose an automation intent, understand the resulting score cutoffs, and

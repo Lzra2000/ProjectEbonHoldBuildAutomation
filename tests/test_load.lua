@@ -3,6 +3,8 @@
 
 unpack = unpack or table.unpack
 
+EbonBuilds = EbonBuilds or {}
+
 EbonBuildsDB = EbonBuildsDB or {}
 EbonBuildsCharDB = EbonBuildsCharDB or {}
 
@@ -147,7 +149,11 @@ if #files == 0 then
 end
 
 for _, file in ipairs(files) do
-    local ok, err = pcall(dofile, file)
+    local ok, err = pcall(function()
+        local chunk, loadErr = loadfile(file)
+        if not chunk then error(loadErr) end
+        return chunk("EbonBuilds", EbonBuilds)
+    end)
     if not ok then
         io.stderr:write("LOAD FAIL " .. file .. ": " .. tostring(err) .. "\n")
         os.exit(1)
@@ -207,6 +213,56 @@ end
 
 print("Loaded " .. #files .. " TOC Lua files successfully.")
 print("Verified " .. #uiContracts .. " UI contracts successfully.")
+
+do
+    local toc = assert(io.open("EbonBuilds.toc", "r")):read("*a")
+    if not toc:find("## Version: 3.67", 1, true) or EbonBuilds.VERSION ~= "3.53" then
+        io.stderr:write("VERSION FAIL: patch changed the uploaded build's original version metadata\n")
+        os.exit(1)
+    end
+end
+print("Verified uploaded build version metadata remains unchanged.")
+
+-- Hover cleanup must never overwrite a view-owned text color. Earlier the
+-- shared button reset forced every ordinary button label to gold on OnLeave,
+-- so muted navigation and action labels stayed yellow after the pointer left.
+do
+    local color = { 0.31, 0.47, 0.63, 0.91 }
+    local label = {
+        SetTextColor = function(_, r, g, b, a) color = { r, g, b, a } end,
+        GetTextColor = function() return color[1], color[2], color[3], color[4] end,
+    }
+    local button = {
+        _tabSelected = nil,
+        IsEnabled = function() return 1 end,
+        GetFontString = function() return label end,
+        SetBackdropColor = function() end,
+        SetBackdropBorderColor = function() end,
+    }
+    EbonBuilds.Theme.ResetButtonVisual(button)
+    if math.abs(color[1] - 0.31) > 0.001 or math.abs(color[2] - 0.47) > 0.001
+        or math.abs(color[3] - 0.63) > 0.001 or math.abs(color[4] - 0.91) > 0.001 then
+        io.stderr:write("HOVER RESET FAIL: ordinary button text color was overwritten\n")
+        os.exit(1)
+    end
+
+    local hiddenReset = 0
+    local scripts = {}
+    local frame = {
+        HookScript = function(_, script, handler) scripts[script] = handler end,
+    }
+    EbonBuilds.Theme.BindHoverReset(frame, function() hiddenReset = hiddenReset + 1 end)
+    if not scripts.OnHide then
+        io.stderr:write("HOVER RESET FAIL: no OnHide cleanup was installed\n")
+        os.exit(1)
+    end
+    scripts.OnHide(frame)
+    if hiddenReset ~= 1 then
+        io.stderr:write("HOVER RESET FAIL: hidden widget did not clear its hover state\n")
+        os.exit(1)
+    end
+end
+print("Verified hover cleanup preserves view-owned text colors and runs on hidden widgets.")
 
 -- WoW 3.3.5a embeds Lua 5.1, which rejects functions with more than 60
 -- upvalues. Keep the Logbook UI split into small builders so a future visual
@@ -739,6 +795,31 @@ do
         io.stderr:write("MISSING VIEW FAIL: weighted-missing view includes the wrong Echoes\n")
         os.exit(1)
     end
+
+    -- Schema-3 builds can still legitimately rely on legacy name-keyed values
+    -- after imports or interrupted reference migration.  The Missing views
+    -- must use the effective Weights accessor just like the Priorities editor.
+    local legacyBackedBuild = EbonBuilds.Build.NewObject({
+        title = "Legacy-backed weighted view",
+        class = "MAGE",
+        echoSchema = 3,
+        echoCatalogFingerprint = EbonBuilds.EchoCatalog.GetFingerprint(),
+        echoWeightsByRef = {},
+        echoWeights = {
+            ["Spell 100"] = { [2] = 7 },
+            ["Spell 101"] = { [2] = -2 },
+        },
+        settings = EbonBuilds.Build.DefaultSettings(),
+        lockedEchoes = {},
+    })
+    local legacyWeightedCatalog = EbonBuilds.BuildOverview._ComputeMissingEchoes(legacyBackedBuild, false, true, true)
+    local legacyWeightedMissing = EbonBuilds.BuildOverview._ComputeMissingEchoes(legacyBackedBuild, false, false, true)
+    if not legacyWeightedCatalog or #legacyWeightedCatalog ~= 2
+        or not legacyWeightedMissing or #legacyWeightedMissing ~= 1
+        or legacyWeightedMissing[1].name ~= "Spell 100" then
+        io.stderr:write("MISSING VIEW FAIL: effective legacy/imported weights are not reported\n")
+        os.exit(1)
+    end
     ProjectEbonhold.PerkDatabase = originalDatabase
     EbonBuilds.EchoCatalog.Refresh("restore_missing_view")
     EbonBuilds.Scheduler.After = originalAfter
@@ -1197,6 +1278,30 @@ local analyticsOK, analyticsErr = xpcall(function()
     })
     EbonBuilds.Weights.MigrateBuild(build)
     EbonBuilds.Build.SetActive(build.id)
+
+    -- Schema-3 and imported builds can have an allocated reference table that
+    -- does not yet contain every still-valid legacy value. Stats must iterate
+    -- the effective union instead of treating the presence of the table as an
+    -- instruction to ignore name-keyed weights.
+    local partialBuild = {
+        id = "analytics-partial",
+        title = "Analytics Partial",
+        class = "MAGE",
+        spec = 1,
+        echoSchema = 3,
+        echoCatalogFingerprint = EbonBuilds.EchoCatalog.GetFingerprint(),
+        echoWeightsByRef = {},
+        echoWeights = { ["Spell 1"] = { [3] = 12 } },
+        settings = EbonBuilds.Build.NewBuildSettings(),
+        stats = {},
+    }
+    local partialRows = EbonBuilds.StatsView._BuildEchoRowsForTest(partialBuild, {}, {}, {})
+    local _, partialWeightedTotal = EbonBuilds.StatsView._WeightedCoverageForTest(partialBuild)
+    if #partialRows ~= 1 or partialRows[1].name ~= "Spell 1" or partialRows[1].weight ~= 12
+        or partialWeightedTotal ~= 1 then
+        error("Stats Echoes ignored effective legacy weights when echoWeightsByRef existed but was incomplete")
+    end
+
     EbonBuildsDB.sessions = {
         {
             id = "analytics-run",

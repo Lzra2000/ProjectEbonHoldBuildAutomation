@@ -1,3 +1,5 @@
+local addonName, EbonBuilds = ...
+
 -- EbonBuilds: modules/ui/MainWindow.lua
 -- Responsibility: top-level window shell with navigation and a high-contrast content panel.
 -- Hosts the build list and the view router.
@@ -1036,6 +1038,12 @@ local function CreateHeaderIconButton(frame, anchor, texture, tooltipTitle, tool
         EbonBuilds.Theme.SetCardHovered(self, false)
         GameTooltip:Hide()
     end)
+    if EbonBuilds.Theme.BindHoverReset then
+        EbonBuilds.Theme.BindHoverReset(btn, function(self)
+            EbonBuilds.Theme.SetCardHovered(self, false)
+            GameTooltip:Hide()
+        end)
+    end
     return btn
 end
 

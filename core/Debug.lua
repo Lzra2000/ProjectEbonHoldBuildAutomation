@@ -1,3 +1,5 @@
+local addonName, EbonBuilds = ...
+
 -- EbonBuilds: core/Debug.lua
 -- Responsibility: ergonomic error-isolation, timing, and contract helpers
 -- built on core/ErrorLog.lua, plus a lightweight self-test registry so

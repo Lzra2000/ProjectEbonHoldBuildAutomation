@@ -11,6 +11,8 @@
 
 unpack = unpack or table.unpack
 
+EbonBuilds = EbonBuilds or {}
+
 local function Noop() end
 
 local function NewObject()
@@ -171,7 +173,11 @@ if #files == 0 then
 end
 
 for _, file in ipairs(files) do
-    local ok, err = pcall(dofile, file)
+    local ok, err = pcall(function()
+        local chunk, loadErr = loadfile(file)
+        if not chunk then error(loadErr) end
+        return chunk("EbonBuilds", EbonBuilds)
+    end)
     if not ok then
         io.stderr:write("LOAD FAIL " .. file .. ": " .. tostring(err) .. "\n")
         os.exit(1)

@@ -1,3 +1,5 @@
+local addonName, EbonBuilds = ...
+
 -- EbonBuilds: modules/ui/WorldIntegration.lua
 -- Responsibility: the two places EbonBuilds shows itself in the world
 -- rather than in its own windows. (1) Unit tooltips: hovering a player
@@ -486,7 +488,5 @@ function EbonBuilds.WorldIntegration.Init()
     if WorldMapFrame and WorldMapFrame.HookScript then
         WorldMapFrame:HookScript("OnShow", Safe(RefreshMapPanel))
     end
-    local f = CreateFrame("Frame")
-    f:RegisterEvent("WORLD_MAP_UPDATE")
-    f:SetScript("OnEvent", Safe(RefreshMapPanel))
+    EbonBuilds.WoWEvents.On("WORLD_MAP_UPDATE", Safe(RefreshMapPanel), "WorldIntegration")
 end
