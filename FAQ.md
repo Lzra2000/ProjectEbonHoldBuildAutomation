@@ -286,6 +286,14 @@ The dialog scrolls if it ever grows past the window (same fix as the FAQ window 
 Yes (2.22). The `.toc` declared a hard `## Dependencies: ProjectEbonhold` -- WoW's client won't let you enable an addon at all if a hard dependency's exact folder name isn't found, and "ProjectEbonhold Enhanced" ships under a different folder name even though it provides the same API. Switched to `## OptionalDeps: ProjectEbonhold, ProjectEbonholdEnhanced`, which still makes sure whichever one you have loads first (so EbonBuilds sees it), but no longer blocks enabling EbonBuilds if the folder name doesn't match exactly. No more manually editing the `.toc` by hand after every update.
 ## Changelog
 
+### 3.65 (2026-07-21) -- Zone map: coordinate-pin system + toggle legend, ready for real location data
+
+Inspired by looking at how a rare-spawn map-overlay addon does it (hand-painted per-target overlay images, plus a toggle legend). That specific technique doesn't fit Tome Atlas's scale, but the toggle-legend idea and a proper coordinate-pin system do -- built now, dormant until real x/y data exists.
+
+- `EbonBuilds.WorldIntegration.SetSourceCoords(zoneName, sourceName, x, y)` registers a tome source's position on the zone map as a 0..1 fraction of width/height. No tome source has real coordinates yet, so this renders nothing today -- the moment a future data file calls it, that source's pin and legend row appear automatically.
+- When a zone's coordinates exist, zoomed-in view shows a small marker per source (hover for the name) plus a **Tome markers** legend panel with a checkbox per marker to hide ones you don't care about -- the checkbox toggle idea, adapted to a coordinate system instead of pre-baked images per target.
+- 3 new self-tests (17/17 total).
+
 ### 3.64 (2026-07-21) -- Sync/Affix event-spam warnings during heavy sync were false positives
 
 A player's debug log confirmed `Sync.EventFrame` and `Affix.EventFrame` tripping the new spam detector wasn't a bug -- it was dozens of nearby players actively syncing builds at once (`CHAT_MSG_ADDON` fires for every addon message on the client, not just ours, and heavy legitimate `BLD`/`WNT`/`RTX` sync traffic easily clears 120/sec in that situation).

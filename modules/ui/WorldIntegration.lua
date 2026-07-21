@@ -4,9 +4,12 @@
 -- your client has seen addon traffic from gets one line saying they run
 -- EbonBuilds, with their announced version when known. (2) The world
 -- map: while a zone with known tome sources is open, a compact overlay
--- lists every tome dropping there and who drops it -- the atlas data is
--- mob-and-zone keyed (no coordinates exist), so an honest zone panel
--- beats fake pin positions.
+-- lists every tome dropping there and who drops it. The atlas data is
+-- mob-and-zone keyed (no coordinates exist yet), so the zone panel is
+-- the primary view -- but a coordinate-pin system with a toggle legend
+-- (RSO-style) is also built and ready: the moment a data file calls
+-- SetSourceCoords for a source, its pin and legend row appear
+-- automatically, no other change needed here.
 
 EbonBuilds.WorldIntegration = {}
 
@@ -225,6 +228,7 @@ local function RefreshMapPanel()
         end
     end
     if not zoneName and GetZoneText then zoneName = GetZoneText() end
+    ShowZonePins(zoneName)
     local lines = EbonBuilds.WorldIntegration.BuildZoneTomeLines(zoneName)
     if #lines == 0 then
         mapPanel:Hide()
@@ -236,6 +240,208 @@ local function RefreshMapPanel()
     mapLines:SetText(table.concat(shown, "\n"))
     mapPanel:SetHeight(30 + #shown * 13)
     mapPanel:Show()
+end
+
+------------------------------------------------------------------------
+-- (4) Zone-level source pins + toggle legend
+------------------------------------------------------------------------
+-- Dormant coordinate-pin system: no tome source has real x/y data yet
+-- (see the file header), so SetSourceCoords is never called anywhere in
+-- the addon today and this renders nothing. The moment a data file
+-- registers a coordinate for a source, its pin and legend row appear
+-- automatically -- nothing else here needs touching. RSO-style toggle
+-- legend included: a checkbox per visible pin, persisted per-character,
+-- so a player can hide a marker they don't care about.
+
+local sourceCoords = {}   -- [zoneName] = { [sourceName] = {x=0..1, y=0..1} }
+local pinPool = {}        -- reusable pin+hit-area pairs on WorldMapDetailFrame
+local legendPanel, legendRows = nil, {}
+
+-- SetSourceCoords(zoneName, sourceName, x, y): registers where a tome
+-- source (by its display name, matching TomeAtlas's t.name) sits on the
+-- ZONE map (not continent), as fractions (0..1) of the zone map's width/
+-- height. Call this from a future data file to make a pin appear.
+function EbonBuilds.WorldIntegration.SetSourceCoords(zoneName, sourceName, x, y)
+    if not zoneName or not sourceName or type(x) ~= "number" or type(y) ~= "number" then return end
+    sourceCoords[zoneName] = sourceCoords[zoneName] or {}
+    sourceCoords[zoneName][sourceName] = { x = x, y = y }
+end
+
+local function PinHiddenKey(zoneName, sourceName)
+    return zoneName .. "/" .. sourceName
+end
+
+local function IsPinHidden(zoneName, sourceName)
+    local hidden = EbonBuildsCharDB and EbonBuildsCharDB.mapPinHidden
+    return hidden and hidden[PinHiddenKey(zoneName, sourceName)] == true
+end
+
+local function SetPinHidden(zoneName, sourceName, hide)
+    if not EbonBuildsCharDB then return end
+    EbonBuildsCharDB.mapPinHidden = EbonBuildsCharDB.mapPinHidden or {}
+    EbonBuildsCharDB.mapPinHidden[PinHiddenKey(zoneName, sourceName)] = hide and true or nil
+end
+
+-- PinsForZone(zoneName): which sources in this zone have a registered
+-- coordinate -- pure and injectable so the renderer and the legend
+-- always agree on the same list, and so this is testable without a real
+-- client. Sorted by name for a stable legend order.
+function EbonBuilds.WorldIntegration.PinsForZone(zoneName, listByZone)
+    listByZone = listByZone or (EbonBuilds.TomeAtlas and EbonBuilds.TomeAtlas.ListByZone)
+    local coordsForZone = zoneName and sourceCoords[zoneName]
+    if not coordsForZone or not listByZone then return {} end
+    local byZone = listByZone()
+    local entry
+    for _, z in ipairs(byZone or {}) do
+        if z.zone == zoneName then
+            entry = z
+            break
+        end
+    end
+    if not entry then return {} end
+    local pins = {}
+    for _, t in pairs(entry.tomes) do
+        local name = t.name or ("Tome " .. tostring(t.itemId))
+        local coord = coordsForZone[name]
+        if coord then
+            pins[#pins + 1] = { name = name, x = coord.x, y = coord.y }
+        end
+    end
+    table.sort(pins, function(a, b) return a.name < b.name end)
+    return pins
+end
+
+local function EnsurePin(index)
+    local pin = pinPool[index]
+    if pin then return pin end
+    pin = WorldMapDetailFrame:CreateTexture(nil, "OVERLAY")
+    pin:SetTexture("Interface\\Buttons\\WHITE8X8")
+    pin:SetSize(8, 8)
+    pin:SetVertexColor(unpack(EbonBuilds.Theme.ACCENT_GOLD))
+    if pin.SetDrawLayer then pin:SetDrawLayer("OVERLAY", 7) end
+    local hit = CreateFrame("Button", nil, WorldMapDetailFrame)
+    hit:SetSize(14, 14)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(hit, "WorldIntegration.PinHitArea")
+    end
+    pin.hit = hit
+    pinPool[index] = pin
+    return pin
+end
+
+local function EnsureLegendPanel()
+    if legendPanel then return end
+    local Theme = EbonBuilds.Theme
+    legendPanel = CreateFrame("Frame", "EbonBuildsMapPinLegend", WorldMapFrame)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(legendPanel, "WorldIntegration.LegendPanel")
+    end
+    legendPanel:SetFrameStrata("FULLSCREEN")
+    legendPanel:SetSize(200, 30)
+    legendPanel:SetPoint("TOPLEFT", WorldMapDetailFrame or WorldMapFrame, "TOPLEFT", 8, -8)
+    Theme.ApplyPanel(legendPanel)
+    local title = legendPanel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    title:SetPoint("TOPLEFT", legendPanel, "TOPLEFT", 8, -6)
+    title:SetText("Tome markers")
+    title:SetTextColor(unpack(Theme.ACCENT_GOLD))
+    Theme.AddHeaderRule(legendPanel, title, 180)
+    legendPanel:Hide()
+end
+
+local function EnsureLegendRow(index)
+    local row = legendRows[index]
+    if row then return row end
+    row = EbonBuilds.Theme.CreateCheckbox(legendPanel, "")
+    legendRows[index] = row
+    return row
+end
+
+local function ShowZonePins(zoneName)
+    local zoom = GetCurrentMapZone and GetCurrentMapZone() or 0
+    if not WorldMapDetailFrame or zoom == 0 then
+        for i = 1, #pinPool do pinPool[i]:Hide(); pinPool[i].hit:Hide() end
+        if legendPanel then legendPanel:Hide() end
+        return
+    end
+    local pins = EbonBuilds.WorldIntegration.PinsForZone(zoneName)
+    local w, h = WorldMapDetailFrame:GetWidth(), WorldMapDetailFrame:GetHeight()
+    local shown = 0
+    if w and w > 0 then
+        for _, p in ipairs(pins) do
+            if not IsPinHidden(zoneName, p.name) then
+                shown = shown + 1
+                local pin = EnsurePin(shown)
+                pin:ClearAllPoints()
+                pin:SetPoint("CENTER", WorldMapDetailFrame, "TOPLEFT", p.x * w, -p.y * h)
+                pin.hit:ClearAllPoints()
+                pin.hit:SetPoint("CENTER", pin, "CENTER", 0, 0)
+                pin.hit:SetScript("OnEnter", function(self)
+                    GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+                    GameTooltip:SetText(p.name)
+                    GameTooltip:Show()
+                end)
+                pin.hit:SetScript("OnLeave", function() GameTooltip:Hide() end)
+                pin:Show()
+                pin.hit:Show()
+            end
+        end
+    end
+    for i = shown + 1, #pinPool do
+        pinPool[i]:Hide()
+        pinPool[i].hit:Hide()
+    end
+
+    if #pins == 0 then
+        if legendPanel then legendPanel:Hide() end
+        return
+    end
+    EnsureLegendPanel()
+    for i, p in ipairs(pins) do
+        local row = EnsureLegendRow(i)
+        row:ClearAllPoints()
+        row:SetPoint("TOPLEFT", legendPanel, "TOPLEFT", 10, -(26 + (i - 1) * 22))
+        row._labelFS:SetText(p.name)
+        row:SetChecked(not IsPinHidden(zoneName, p.name))
+        row:SetScript("OnClick", function(self)
+            SetPinHidden(zoneName, p.name, not self:GetChecked())
+            ShowZonePins(zoneName)
+        end)
+        row:Show()
+    end
+    for i = #pins + 1, #legendRows do legendRows[i]:Hide() end
+    legendPanel:SetHeight(30 + #pins * 22)
+    legendPanel:Show()
+end
+EbonBuilds.WorldIntegration._ShowZonePinsForTests = ShowZonePins
+
+if EbonBuilds.Debug and EbonBuilds.Debug.RegisterTest then
+    local function StubListByZone()
+        return {
+            { zone = "Sholazar Basin", tomes = {
+                { name = "Tome of Ferocity", itemId = 1, total = 5, mobs = {} },
+                { name = "Tome of the Void", itemId = 2, total = 3, mobs = {} },
+            } },
+        }
+    end
+
+    EbonBuilds.Debug.RegisterTest("WorldIntegration.PinsForZone: no pins until a coordinate is registered", function()
+        local pins = EbonBuilds.WorldIntegration.PinsForZone("Sholazar Basin", StubListByZone)
+        if #pins ~= 0 then error("expected zero pins with no coordinates registered, got " .. #pins) end
+    end)
+
+    EbonBuilds.Debug.RegisterTest("WorldIntegration.PinsForZone: registered source appears, unregistered doesn't", function()
+        EbonBuilds.WorldIntegration.SetSourceCoords("Sholazar Basin", "Tome of Ferocity", 0.42, 0.61)
+        local pins = EbonBuilds.WorldIntegration.PinsForZone("Sholazar Basin", StubListByZone)
+        if #pins ~= 1 then error("expected exactly 1 pin, got " .. #pins) end
+        if pins[1].name ~= "Tome of Ferocity" or pins[1].x ~= 0.42 or pins[1].y ~= 0.61 then
+            error("registered pin has wrong name/coordinates")
+        end
+    end)
+
+    EbonBuilds.Debug.RegisterTest("WorldIntegration.PinsForZone: a different zone's coordinate doesn't leak in", function()
+        local pins = EbonBuilds.WorldIntegration.PinsForZone("Icecrown", StubListByZone)
+        if #pins ~= 0 then error("a coordinate registered for a different zone leaked into this one") end
+    end)
 end
 
 function EbonBuilds.WorldIntegration.Init()
