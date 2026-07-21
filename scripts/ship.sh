@@ -1,8 +1,10 @@
 #!/usr/bin/env sh
-# One-command release: runs scripts/release.sh, pushes main and the tag,
-# and publishes the GitHub Release. Exists because these were three
-# separate manual steps, and "pushed the tag but never published the
-# Release" has already happened once in this repo's history.
+# One-command release: runs scripts/release.sh, then pushes main and the
+# tag. The pushed tag triggers .github/workflows/release.yml, which
+# publishes the GitHub Release and uploads the zip asset. This script
+# exists because release/push/publish were three separate manual steps,
+# and "pushed the tag but never published the Release" has already
+# happened once in this repo's history.
 #
 #   GITHUB_TOKEN=ghp_xxx sh scripts/ship.sh 3.19
 #
@@ -35,8 +37,13 @@ git -c credential.helper='!f() { echo "username=x-access-token"; echo "password=
     push origin main "v$VERSION"
 
 echo ""
-echo "== 3/3  publish the GitHub Release =="
-sh scripts/publish-github-release.sh "$VERSION"
+echo "== 3/3  GitHub Release =="
+REPO="$(git remote get-url origin | sed -E 's#.*github\.com[:/]##; s#\.git$##')"
+echo "The pushed tag triggers the Release workflow:"
+echo "  https://github.com/$REPO/actions/workflows/release.yml"
+echo "It runs the checks, builds the zip, and publishes the Release with the asset."
+echo "Manual fallback if Actions is unavailable:"
+echo "  GITHUB_TOKEN=... sh scripts/publish-github-release.sh $VERSION"
 
 echo ""
 echo "Shipped $VERSION."

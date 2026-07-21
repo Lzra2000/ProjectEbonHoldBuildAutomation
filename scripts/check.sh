@@ -11,7 +11,7 @@ cd "$(dirname "$0")/.."
 
 overall_fail=0
 
-echo "== 1/4  Lua 5.1 syntax check (excludes tests/) =="
+echo "== 1/5  Lua 5.1 syntax check (excludes tests/) =="
 if ! command -v luac5.1 >/dev/null 2>&1; then
     echo "luac5.1 not found -- run: sh scripts/dev-setup.sh" >&2
     exit 1
@@ -27,7 +27,7 @@ done < /tmp/ebb_lua_files.txt
 if [ "$fail" -eq 0 ]; then echo "OK: no syntax errors"; else overall_fail=1; fi
 
 echo ""
-echo "== 2/4  Test suite (tests/run.sh) =="
+echo "== 2/5  Test suite (tests/run.sh) =="
 if ! command -v texlua >/dev/null 2>&1; then
     echo "texlua not found -- run: sh scripts/dev-setup.sh" >&2
     exit 1
@@ -39,7 +39,7 @@ else
 fi
 
 echo ""
-echo "== 3/4  Every .toc file exists on disk =="
+echo "== 3/5  Every .toc file exists on disk =="
 fail=0
 awk '{ sub(/\r$/, ""); if ($0 ~ /^[^[:space:]]+\.lua$/) print }' EbonBuilds.toc > /tmp/ebb_toc_files.txt
 while IFS= read -r line; do
@@ -48,10 +48,24 @@ done < /tmp/ebb_toc_files.txt
 if [ "$fail" -eq 0 ]; then echo "OK: all TOC files present"; else overall_fail=1; fi
 
 echo ""
-echo "== 4/4  No post-3.3.5a WoW API calls =="
+echo "== 4/5  No post-3.3.5a WoW API calls =="
 if ! sh scripts/check-335a-api.sh; then
     overall_fail=1
 fi
+
+echo ""
+echo "== 5/5  File header convention (core/ and modules/) =="
+# Every hand-written Lua file starts with the responsibility header from
+# CONTRIBUTING.md; generated data files are exempt via their own
+# "-- Generated" marker (regeneration would drop a hand-added header).
+fail=0
+for f in $(find core modules -name "*.lua"); do
+    if ! head -5 "$f" | grep -qE "^-- (EbonBuilds:|Generated)"; then
+        echo "MISSING HEADER: $f (expected '-- EbonBuilds: <path>' or '-- Generated ...' in the first 5 lines)"
+        fail=1
+    fi
+done
+if [ "$fail" -eq 0 ]; then echo "OK: all file headers present"; else overall_fail=1; fi
 
 echo ""
 if [ "$overall_fail" -eq 0 ]; then

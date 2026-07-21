@@ -1,0 +1,8 @@
+# Keeps the pinned GitHub Actions up to date. The addon itself has zero
+# code dependencies, so this is the only ecosystem worth watching.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"

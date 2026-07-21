@@ -1,7 +1,9 @@
 #!/usr/bin/env sh
-# Publishes an actual GitHub Release (release notes page under /releases) for
-# a version that's already tagged locally -- a `git tag` + `git push` alone
-# does NOT create a GitHub Release, only a ref. This closes that gap.
+# MANUAL FALLBACK -- the normal path is .github/workflows/release.yml,
+# which publishes the Release automatically when a v* tag is pushed. Use
+# this script only when Actions is unavailable. It creates the Release
+# (a pushed tag alone is NOT a GitHub Release, only a ref) and uploads
+# dist/EbonBuilds.zip as a release asset.
 #
 #   GITHUB_TOKEN=ghp_xxx sh scripts/publish-github-release.sh 3.06
 #
@@ -34,9 +36,9 @@ if ! git rev-parse "$TAG" >/dev/null 2>&1; then
     exit 1
 fi
 
-if ! git cat-file -e "$TAG:dist/EbonBuilds.zip" 2>/dev/null; then
-    echo "dist/EbonBuilds.zip is not present in the $TAG commit -- run scripts/build-dist.sh and include it in the release commit before publishing (scripts/release.sh does this automatically)." >&2
-    exit 1
+if [ ! -f dist/EbonBuilds.zip ]; then
+    echo "dist/EbonBuilds.zip not found -- building it now."
+    sh scripts/build-dist.sh
 fi
 
 # Pull the notes: from "### $VERSION" up to (not including) the next "### ".
@@ -54,9 +56,9 @@ fi
 TITLE="$(printf '%s\n' "$NOTES" | head -1 | sed 's/^### //')"
 CHANGES="$(printf '%s\n' "$NOTES" | tail -n +2)"
 
-# Pinned to the tag (not "main"), so the link always serves the zip that
-# actually matches this release, even after later commits move main on.
-DOWNLOAD_URL="https://github.com/$REPO/raw/$TAG/dist/EbonBuilds.zip"
+# The asset download URL is deterministic; the asset itself is uploaded
+# right after the release is created below.
+DOWNLOAD_URL="https://github.com/$REPO/releases/download/$TAG/EbonBuilds.zip"
 BODY="**Install:** [Download EbonBuilds.zip]($DOWNLOAD_URL)$(printf '\n')Extract it and drop the \`EbonBuilds\` folder into \`Interface/AddOns/\`.
 $(printf '%s' "$CHANGES")"
 
@@ -79,6 +81,19 @@ URL="$(printf '%s' "$RESPONSE" | python3 -c "import json,sys; d=json.load(sys.st
 if [ -z "$URL" ]; then
     echo "Failed to create release. Response:" >&2
     echo "$RESPONSE" >&2
+    exit 1
+fi
+
+UPLOAD_URL="$(printf '%s' "$RESPONSE" | python3 -c "import json,sys; print(json.load(sys.stdin)['upload_url'].split('{')[0])")"
+ASSET="$(curl -s -X POST \
+    -H "Authorization: token $GITHUB_TOKEN" \
+    -H "Content-Type: application/zip" \
+    --data-binary @dist/EbonBuilds.zip \
+    "$UPLOAD_URL?name=EbonBuilds.zip")"
+ASSET_STATE="$(printf '%s' "$ASSET" | python3 -c "import json,sys; print(json.load(sys.stdin).get('state',''))" 2>/dev/null || true)"
+if [ "$ASSET_STATE" != "uploaded" ]; then
+    echo "Release created but asset upload failed -- upload dist/EbonBuilds.zip manually on the release page. Response:" >&2
+    echo "$ASSET" >&2
     exit 1
 fi
 
