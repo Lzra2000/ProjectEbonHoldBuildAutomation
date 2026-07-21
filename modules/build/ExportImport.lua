@@ -480,6 +480,9 @@ local exportDialog
 
 local function CreateExportDialog()
 	local f = CreateFrame("Frame", "EbonBuildsExportBuildDialog", UIParent)
+	if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+		EbonBuilds.Debug.ProtectScript(f, "ExportImport.ExportDialog")
+	end
 	f:SetSize(700, 420)
 	f:SetPoint("CENTER")
 	EbonBuilds.Theme.ApplyBackdropDefinition(f)
@@ -511,6 +514,9 @@ local function CreateExportDialog()
 	scroll:SetPoint("RIGHT",  f,     "RIGHT", -14,  0)
 
 	local box = CreateFrame("EditBox", nil, scroll)
+	if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+		EbonBuilds.Debug.ProtectScript(box, "ExportImport.ExportBox")
+	end
 	box:SetMultiLine(true)
 	box:SetMaxLetters(0)
 	box:SetFont("Fonts\\FRIZQT__.TTF", 11, "")
@@ -942,6 +948,9 @@ local importDialog
 
 local function CreateImportDialog()
 	local f = CreateFrame("Frame", "EbonBuildsImportBuildDialog", UIParent)
+	if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+		EbonBuilds.Debug.ProtectScript(f, "ExportImport.ImportDialog")
+	end
 	f:SetSize(700, 420)
 	f:SetPoint("CENTER")
 	EbonBuilds.Theme.ApplyBackdropDefinition(f)
@@ -990,6 +999,9 @@ local function CreateImportDialog()
 	scroll:SetPoint("RIGHT",  f,      "RIGHT", -14,  0)
 
 	local box = CreateFrame("EditBox", nil, scroll)
+	if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+		EbonBuilds.Debug.ProtectScript(box, "ExportImport.ImportBox")
+	end
 	box:SetMultiLine(true)
 	box:SetMaxLetters(0)
 	box:SetFont("Fonts\\FRIZQT__.TTF", 11, "")

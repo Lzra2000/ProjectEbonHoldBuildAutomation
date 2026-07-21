@@ -286,6 +286,12 @@ The dialog scrolls if it ever grows past the window (same fix as the FAQ window 
 Yes (2.22). The `.toc` declared a hard `## Dependencies: ProjectEbonhold` -- WoW's client won't let you enable an addon at all if a hard dependency's exact folder name isn't found, and "ProjectEbonhold Enhanced" ships under a different folder name even though it provides the same API. Switched to `## OptionalDeps: ProjectEbonhold, ProjectEbonholdEnhanced`, which still makes sure whichever one you have loads first (so EbonBuilds sees it), but no longer blocks enabling EbonBuilds if the folder name doesn't match exactly. No more manually editing the `.toc` by hand after every update.
 ## Changelog
 
+### 3.57 (2026-07-21) -- Handler protection: PublicBuildsView.lua, ExportImport.lua
+
+- `modules/ui/PublicBuildsView.lua` -- 3 frames now opt into `EbonBuilds.Debug.ProtectScript` at creation (icon button, main scroll frame, refresh-throttle OnUpdate timer).
+- `modules/build/ExportImport.lua` -- 4 frames now opt into `ProtectScript` at creation (export and import dialogs, their respective text edit boxes).
+- Remaining files: EchoPicker, AffixView, BonusView.
+
 ### 3.56 (2026-07-21) -- Fix: Auto-Sell keep-list window crashed on open
 
 The keep-list window added in 3.49 used `Region:SetShown()` to toggle the placeholder text and the empty-list message. That method doesn't exist in 3.3.5a -- it was added in Cataclysm (4.0.1) -- so opening the window threw `attempt to call method 'SetShown' (a nil value)` every time.

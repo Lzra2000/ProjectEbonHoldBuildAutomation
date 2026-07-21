@@ -171,6 +171,9 @@ end
 
 local function CreateIconButton(parent, size)
     local btn = CreateFrame("Button", nil, parent)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(btn, "PublicBuildsView.IconButton")
+    end
     btn:SetWidth(size)
     btn:SetHeight(size)
     local icon = btn:CreateTexture(nil, "ARTWORK")
@@ -638,6 +641,9 @@ local function BuildViewFrame(parent)
 
     -- Scroll area
     scrollFrame = CreateFrame("ScrollFrame", nil, f)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(scrollFrame, "PublicBuildsView.ScrollFrame")
+    end
     scrollFrame:SetPoint("TOPLEFT",     filterBar, "BOTTOMLEFT",  0, -4)
     scrollFrame:SetPoint("BOTTOMRIGHT", bottomBar, "TOPRIGHT",    0,  8)
 
@@ -721,6 +727,9 @@ function EbonBuilds.PublicBuildsView.RefreshIfMounted()
     pendingRefresh = true
     if not refreshThrottleFrame then
         refreshThrottleFrame = CreateFrame("Frame")
+        if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+            EbonBuilds.Debug.ProtectScript(refreshThrottleFrame, "PublicBuildsView.RefreshThrottleTimer")
+        end
         refreshThrottleFrame:SetScript("OnUpdate", function(self, dt)
             self._elapsed = (self._elapsed or 0) + dt
             if self._elapsed < REFRESH_THROTTLE then return end
