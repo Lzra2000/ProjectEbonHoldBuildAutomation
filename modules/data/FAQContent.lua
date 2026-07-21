@@ -655,6 +655,19 @@ EbonBuilds.FAQContent = { PAGES = {
     },
 },
 {
+    title = "How do I search and sort Public Builds?",
+    category = "Sync, Sharing & Public Builds",
+    lines = {
+        "A search box above the list filters by title or author as you type. The",
+        "sort dropdown next to it offers Most Votes (default), Newest, Item Level",
+        "(average, from the author's character snapshot -- builds without one sort",
+        "to the bottom), and Trending, which weighs votes by how recently the",
+        "build was updated so a build picking up votes right now outranks an old",
+        "build sitting on a larger but stale total; a build with zero votes never",
+        "counts as trending just for being new.",
+    },
+},
+{
     title = "How do upvotes on Public Builds work? Can someone fake votes?",
     category = "Sync, Sharing & Public Builds",
     lines = {

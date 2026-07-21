@@ -223,6 +223,9 @@ The gear score is directional build guidance, not a best-in-slot verdict. Uncach
 
 ## Sync, Sharing & Public Builds
 
+### How do I search and sort Public Builds?
+A search box above the list filters by title or author as you type. The sort dropdown next to it offers **Most Votes** (default), **Newest**, **Item Level** (average, from the author's character snapshot -- builds without one sort to the bottom), and **Trending**, which weighs votes by how recently the build was updated so a build picking up votes right now outranks an old build sitting on a larger but stale total; a build with zero votes never counts as trending just for being new.
+
 ### How do upvotes on Public Builds work? Can someone fake votes?
 Click a card in Public Builds to open a read-only inspect view -- class/spec, the author's intent notes, locked Echoes, and the top configured priorities -- so you can make an informed decision before voting or importing. The vote button (top-right of the card, or inside inspect) shows a chevron icon that fills gold once you've voted, next to the count; one vote per character, click again to remove it.
 
