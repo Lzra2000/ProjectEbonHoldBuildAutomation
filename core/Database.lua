@@ -21,6 +21,7 @@ local CHARACTER_PREFERENCE_DEFAULTS = {
     clickTraceEnabled = false,
     gearTooltipEnabled = true,
     mapZonePanelEnabled = true,
+    syncVerboseLogEnabled = false,
 }
 
 local function CharacterKey()

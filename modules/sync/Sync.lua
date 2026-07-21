@@ -58,6 +58,22 @@ local SYNC_VERSION  = 1
 local VALIDATION_REQUIRED = true
 local VERBOSE_LOG = false
 
+-- Was only a bare /ebbsync verbose toggle -- not discoverable, and not
+-- persisted, so a player who turned it on (or on some sessions forgot
+-- they had) had no obvious way to find it again short of retyping the
+-- same command. Now a real Settings checkbox (Automation -> "Verbose
+-- sync logging"); the slash command still works and stays in sync with it.
+function EbonBuilds.Sync.IsVerboseLogEnabled()
+    return VERBOSE_LOG
+end
+
+function EbonBuilds.Sync.SetVerboseLogEnabled(enabled)
+    VERBOSE_LOG = enabled and true or false
+    if EbonBuilds.Database and EbonBuilds.Database.SetCharacterPreference then
+        EbonBuilds.Database.SetCharacterPreference("syncVerboseLogEnabled", VERBOSE_LOG)
+    end
+end
+
 local syncFrame
 local syncChannelIndex
 local inflight = {}
@@ -1090,6 +1106,9 @@ function EbonBuilds.Sync.RequestSyncAllClasses()
 end
 
 function EbonBuilds.Sync.Init()
+    if EbonBuilds.Database and EbonBuilds.Database.GetCharacterPreference then
+        VERBOSE_LOG = EbonBuilds.Database.GetCharacterPreference("syncVerboseLogEnabled")
+    end
     syncFrame = CreateFrame("Frame")
     if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
         -- spam-exempt: this frame's OnEvent legitimately fires very often
@@ -1277,7 +1296,7 @@ SlashCmdList["EBBSYNC"] = function(cmd)
         EbonBuildsDB.remoteBuilds = {}
         Log("Sync cooldown and lastSyncDate reset. Remote builds cleared.")
     elseif cmd == "verbose" then
-        VERBOSE_LOG = not VERBOSE_LOG
+        EbonBuilds.Sync.SetVerboseLogEnabled(not VERBOSE_LOG)
         Log("Verbose logging " .. (VERBOSE_LOG and "enabled" or "disabled") .. ".")
     else
         Log("EbonBuilds Sync commands:")

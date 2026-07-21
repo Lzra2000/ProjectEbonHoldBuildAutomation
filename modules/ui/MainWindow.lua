@@ -308,6 +308,7 @@ local function BuildSettingsPopup(ownerFrame)
             clickTrace = Bool(source.clickTrace),
             gearTooltip = Bool(source.gearTooltip),
             mapZonePanel = Bool(source.mapZonePanel),
+            syncVerboseLog = Bool(source.syncVerboseLog),
             locale = source.locale or "enUS",
             uiScale = tonumber(source.uiScale) or 1,
         }
@@ -330,6 +331,8 @@ local function BuildSettingsPopup(ownerFrame)
             gearTooltip = ReadModuleToggle(EbonBuilds.GearTooltip),
             mapZonePanel = Bool(EbonBuilds.WorldIntegration and EbonBuilds.WorldIntegration.IsMapPanelEnabled
                 and EbonBuilds.WorldIntegration.IsMapPanelEnabled()),
+            syncVerboseLog = Bool(EbonBuilds.Sync and EbonBuilds.Sync.IsVerboseLogEnabled
+                and EbonBuilds.Sync.IsVerboseLogEnabled()),
             locale = (EbonBuilds.Locale and EbonBuilds.Locale.GetActiveLocale and EbonBuilds.Locale.GetActiveLocale()) or gs.localeOverride or "enUS",
             uiScale = math.max(0.9, math.min(1.2, tonumber(gs.uiScale) or 1)),
         }
@@ -353,6 +356,7 @@ local function BuildSettingsPopup(ownerFrame)
         if Bool(draft.clickTrace) ~= Bool(baseline.clickTrace) then count = count + 1 end
         if Bool(draft.gearTooltip) ~= Bool(baseline.gearTooltip) then count = count + 1 end
         if Bool(draft.mapZonePanel) ~= Bool(baseline.mapZonePanel) then count = count + 1 end
+        if Bool(draft.syncVerboseLog) ~= Bool(baseline.syncVerboseLog) then count = count + 1 end
         if tostring(draft.locale or "") ~= tostring(baseline.locale or "") then count = count + 1 end
         if not SameNumber(draft.uiScale, baseline.uiScale) then count = count + 1 end
         return count
@@ -513,6 +517,7 @@ local function BuildSettingsPopup(ownerFrame)
         if controls.clickTraceCB then controls.clickTraceCB:SetChecked(draft.clickTrace) end
         if controls.gearTooltipCB then controls.gearTooltipCB:SetChecked(draft.gearTooltip) end
         if controls.mapZonePanelCB then controls.mapZonePanelCB:SetChecked(draft.mapZonePanel) end
+        if controls.syncVerboseLogCB then controls.syncVerboseLogCB:SetChecked(draft.syncVerboseLog) end
         RefreshLocaleButtons()
         RefreshScaleButtons()
         loadingDraft = false
@@ -706,7 +711,7 @@ local function BuildSettingsPopup(ownerFrame)
             -110, 0.5, 8.0, "toastDuration")
     end)
 
-    BuildCategory("automation", 570, function(panel)
+    BuildCategory("automation", 640, function(panel)
         AddSectionTitle(panel, "CONVENIENCE & DIAGNOSTICS", -2)
         controls.autoSellCB = AddCheckbox(panel,
             "Auto-sell junk at vendors",
@@ -744,6 +749,10 @@ local function BuildSettingsPopup(ownerFrame)
             "Gear upgrade hints on tooltips",
             "Adds a line to item tooltips saying whether the item scores as an upgrade for the active build's spec.",
             -536, "gearTooltip")
+        controls.syncVerboseLogCB = AddCheckbox(panel,
+            "Verbose sync logging",
+            "Prints a chat line every time a build is received from or requested by another player. Off by default; mostly useful for troubleshooting sync.",
+            -604, "syncVerboseLog")
     end)
 
     BuildCategory("interface", 290, function(panel)
@@ -972,6 +981,9 @@ local function BuildSettingsPopup(ownerFrame)
         if EbonBuilds.GearTooltip and EbonBuilds.GearTooltip.SetEnabled then EbonBuilds.GearTooltip.SetEnabled(draft.gearTooltip) end
         if EbonBuilds.WorldIntegration and EbonBuilds.WorldIntegration.SetMapPanelEnabled then
             EbonBuilds.WorldIntegration.SetMapPanelEnabled(draft.mapZonePanel)
+        end
+        if EbonBuilds.Sync and EbonBuilds.Sync.SetVerboseLogEnabled then
+            EbonBuilds.Sync.SetVerboseLogEnabled(draft.syncVerboseLog)
         end
         local localeChanged = baseline and draft.locale ~= baseline.locale
         if localeChanged and EbonBuilds.Locale and EbonBuilds.Locale.SetLocale then
