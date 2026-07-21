@@ -1,3 +1,5 @@
+# Localization
+
 UI strings go through `EbonBuilds.L["English string"]` -- a lookup table that returns the active language's translation, or the English key itself when none exists. A partial translation never breaks anything; untranslated strings simply show English.
 
 Seven languages ship today: English, German, Spanish, French, Polish, Brazilian Portuguese, Russian. The addon follows the client's own language, overridable in Settings -> Interface (takes effect after `/reload`).
