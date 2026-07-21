@@ -41,7 +41,7 @@ fi
 echo ""
 echo "== 3/3  Every .toc file exists on disk =="
 fail=0
-grep -E '^\S+\.lua$' EbonBuilds.toc > /tmp/ebb_toc_files.txt
+awk '{ sub(/\r$/, ""); if ($0 ~ /^[^[:space:]]+\.lua$/) print }' EbonBuilds.toc > /tmp/ebb_toc_files.txt
 while IFS= read -r line; do
     [ -f "$line" ] || { echo "MISSING: $line (listed in EbonBuilds.toc)"; fail=1; }
 done < /tmp/ebb_toc_files.txt

@@ -286,6 +286,14 @@ The dialog scrolls if it ever grows past the window (same fix as the FAQ window 
 Yes (2.22). The `.toc` declared a hard `## Dependencies: ProjectEbonhold` -- WoW's client won't let you enable an addon at all if a hard dependency's exact folder name isn't found, and "ProjectEbonhold Enhanced" ships under a different folder name even though it provides the same API. Switched to `## OptionalDeps: ProjectEbonhold, ProjectEbonholdEnhanced`, which still makes sure whichever one you have loads first (so EbonBuilds sees it), but no longer blocks enabling EbonBuilds if the folder name doesn't match exactly. No more manually editing the `.toc` by hand after every update.
 ## Changelog
 
+### 3.55 (2026-07-21) -- Unified Echo identity and exact class eligibility
+
+- **Overtime Conversion eligibility corrected centrally.** Mage and every supported class except Paladin can use spell `200756`; the generic correction-fact pipeline validates the expected identity and source mask before applying the reviewed correction.
+- **Crimson Reprisal and Blood Mirror remain separate Echoes.** Crimson Reprisal (`200246`, `g:10`) uses its canonical identity even though the runtime spell name collides with Blood Mirror (`201388`, `g:296`). Their weights, policies, locks, search results, recommendations, and exports are independent.
+- **Every Echo consumer now uses one exact-variant projection.** Wizard, editor, weights, missing lists, scoring, automation, EWL, import/export, recommendations, and community validation no longer apply their own class-mask or name fallback logic.
+- **Saved configuration is non-destructive.** Echo schema 3 preserves valid references regardless of temporary availability, restores prior `CROSS_CLASS_REFERENCE` entries, and quarantines ambiguous legacy name-only data instead of guessing.
+- **Future false-negative server masks can self-correct locally.** Validated offers, replacements, successful selections, and live discovery evidence widen only the exact spell/class pair observed; full projection and pooled UI refreshes remain deferred outside combat.
+
 ### 3.54 (2026-07-20) -- FAQ organized into categories; login panel fixed up
 
 **FAQ (GitHub and in-game):** all 51 questions were one flat list with no grouping at all. Sorted into 7 categories -- Getting Started, Automation & Decision Models, Stats/Logbook & Missing Tab, Tome Atlas, Affixes & Character, Sync/Sharing & Public Builds, and Settings/Diagnostics & Troubleshooting. The in-game FAQ window gets a new **Jump to** dropdown that jumps straight to a category's first page instead of clicking Next through up to 50 pages to find one topic.
