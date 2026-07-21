@@ -13,6 +13,7 @@ local queues = { {}, {}, {}, {} }
 local dueScratch = { {}, {}, {}, {} }
 local taskCount = 0
 local frame = CreateFrame("Frame")
+EbonBuilds.Debug.ProtectScript(frame, "Scheduler.Frame")
 frame:Hide()
 
 Scheduler.CRITICAL    = PRIORITY_CRITICAL

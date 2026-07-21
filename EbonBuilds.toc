@@ -6,6 +6,8 @@
 ## SavedVariablesPerCharacter: EbonBuildsCharDB
 
 core/Init.lua
+core/ErrorLog.lua
+core/Debug.lua
 core/EventHub.lua
 core/Scheduler.lua
 core/RingBuffer.lua
@@ -99,8 +101,6 @@ modules/talents/TalentAutoLearn.lua
 modules/ui/BagAffixDots.lua
 modules/ui/SessionHistory.lua
 modules/automation/DebugLog.lua
-core/ErrorLog.lua
-core/Debug.lua
 modules/vendor/AutoSell.lua
 modules/automation/Calibration.lua
 modules/automation/EchoSamples.lua

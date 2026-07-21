@@ -54,6 +54,9 @@ local function CreateNumberField(parent, width)
     EbonBuilds.Theme.ApplyInput(container)
 
     local box = CreateFrame("EditBox", nil, container)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(box, "BonusView.EditBox")
+    end
     box:SetPoint("TOPLEFT", container, "TOPLEFT", 4, -3)
     box:SetPoint("BOTTOMRIGHT", container, "BOTTOMRIGHT", -4, 3)
     box:SetFont("Fonts\\FRIZQT__.TTF", 12, "")
@@ -270,6 +273,9 @@ local function BuildViewFrame(parent)
     sub:SetTextColor(unpack(EbonBuilds.Theme.TEXT_MUTED))
 
     scrollFrame = CreateFrame("ScrollFrame", nil, f)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(scrollFrame, "BonusView.ScrollFrame")
+    end
     scrollFrame:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -44)
     scrollFrame:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -22, 8)
 

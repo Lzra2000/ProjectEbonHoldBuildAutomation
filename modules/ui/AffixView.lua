@@ -43,6 +43,9 @@ end
 
 local function CreateRow(parent)
     local row = CreateFrame("Frame", nil, parent)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(row, "AffixView.Row")
+    end
     row:SetHeight(ROW_HEIGHT)
     row:SetPoint("LEFT", parent, "LEFT", 0, 0)
     row:SetPoint("RIGHT", parent, "RIGHT", 0, 0)
