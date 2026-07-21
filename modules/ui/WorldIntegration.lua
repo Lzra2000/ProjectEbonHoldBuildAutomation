@@ -109,6 +109,15 @@ function EbonBuilds.WorldIntegration.SetMapPanelEnabled(enabled)
     elseif EbonBuildsCharDB then
         EbonBuildsCharDB.mapZonePanelEnabled = enabled
     end
+    -- Apply live, mirroring SetMapEnabled: re-enabling from Settings while
+    -- the map is open shows the panel immediately; disabling hides it.
+    if enabled then
+        if WorldMapFrame and WorldMapFrame.IsShown and WorldMapFrame:IsShown() then
+            RefreshMapPanel()
+        end
+    elseif mapPanel then
+        mapPanel:Hide()
+    end
 end
 
 -- Pure data step, injectable for tests: zone name -> sorted display
@@ -548,6 +557,16 @@ if EbonBuilds.Debug and EbonBuilds.Debug.RegisterTest then
             } },
         }
     end
+
+    EbonBuilds.Debug.RegisterTest("WorldIntegration.SetMapPanelEnabled roundtrips and stays independent of the master toggle", function()
+        local before = EbonBuilds.WorldIntegration.IsMapPanelEnabled()
+        EbonBuilds.WorldIntegration.SetMapPanelEnabled(false)
+        if EbonBuilds.WorldIntegration.IsMapPanelEnabled() then error("panel still enabled after SetMapPanelEnabled(false)") end
+        if not EbonBuilds.WorldIntegration.IsMapEnabled() and before then error("panel toggle must not touch the master toggle") end
+        EbonBuilds.WorldIntegration.SetMapPanelEnabled(true)
+        if not EbonBuilds.WorldIntegration.IsMapPanelEnabled() then error("panel still disabled after SetMapPanelEnabled(true)") end
+        EbonBuilds.WorldIntegration.SetMapPanelEnabled(before and true or false)
+    end)
 
     EbonBuilds.Debug.RegisterTest("WorldIntegration.PinsForZone: no pins until a coordinate is registered", function()
         local pins = EbonBuilds.WorldIntegration.PinsForZone("Sholazar Basin", StubListByZone)

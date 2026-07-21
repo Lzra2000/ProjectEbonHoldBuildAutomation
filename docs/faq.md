@@ -170,6 +170,12 @@ The Tuning Advisor has a second checkbox: **Track DPS by echo** (opt-in per char
 This is deliberately approximate, not a controlled measurement: echoes stack together and fight difficulty/duration/execution vary a lot run to run, so it can't isolate any single echo's true causal effect. Treat it as a rough supplementary signal to combine with the scoring model and Tuning Advisor data, not a replacement for either. If Details! isn't installed, the checkbox tells you and won't enable.
 
 ## Tome Atlas
+
+### How do I turn off the tome map integration -- or just the zone list panel?
+Two switches in Settings under Addon-wide features. **Tome Atlas map integration** is the master: it controls everything on the world map at once -- the green continent highlights, the "Tomes in this zone" list, pins, and legends. **Zone tome list on the world map** controls only the list panel, per character; the panel's own X button unchecks it, and re-checking it in Settings brings the panel back.
+
+If disabling felt like it "only worked half way" before 3.75: closing the zone panel (X or toggle) intentionally leaves the continent highlights alone -- they belong to the master switch -- but the Settings checkbox to bring the panel back had gone missing in the 3.70 settings rework, so the X was a one-way door. Fixed: the checkbox is back, and both switches apply immediately while the map is open.
+
 Finding where to farm the tomes you don't have yet.
 
 ### How does the Tome Atlas work? (new in 2.2)
