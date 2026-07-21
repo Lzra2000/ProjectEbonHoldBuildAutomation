@@ -4,18 +4,16 @@
 
 EbonBuilds.FAQContent = { PAGES = {
 {
-    title = "What's new: 3.60 (2026-07-21) -- Handler protection: EchoTable, BuildTabs, Toast, ShowcaseView, DebugLog",
+    title = "What's new: 3.61 (2026-07-21) -- Handler protection rollout complete",
     category = "What's New",
     lines = {
         "",
-        "- modules/ui/EchoTable.lua -- scroll frame.",
-        "- modules/ui/BuildTabs.lua -- view frame.",
-        "- modules/ui/Toast.lua -- toast notification frame.",
-        "- modules/ui/ShowcaseView.lua -- drag region.",
-        "- modules/automation/DebugLog.lua -- drag region and edit box.",
-        "- Remaining files without coverage: WelcomeView, TalentAutoLearn,",
-        "Talents, Session, EchoEligibilityEvidence, EchoCatalog, EWL, Sync, Affix,",
-        "TomeAtlas, ClickTrace.",
+        "Last 10 files from the repo-wide scan: TalentAutoLearn, Talents, Session,",
+        "EchoEligibilityEvidence, EchoCatalog, EWL, Sync, Affix, TomeAtlas,",
+        "ClickTrace all now opt into EbonBuilds.Debug.ProtectScript. Every frame",
+        "in the addon that registers an event or UI handler is now error-isolated",
+        "-- a bug in one handler can no longer take down others on the same frame",
+        "or spam a red error toast.",
     },
 },
 {
