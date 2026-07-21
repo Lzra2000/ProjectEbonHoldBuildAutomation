@@ -15,7 +15,7 @@ jobs:
       - name: Install toolchain
         run: sh scripts/dev-setup.sh
 
-      - name: Run scripts/check.sh (syntax, test suite, .toc verification)
+      - name: Run scripts/check.sh (syntax, test suite, .toc verification, 3.3.5a API check)
         run: sh scripts/check.sh
 
       - name: Verify dist/EbonBuilds.zip builds cleanly

@@ -11,7 +11,7 @@ cd "$(dirname "$0")/.."
 
 overall_fail=0
 
-echo "== 1/3  Lua 5.1 syntax check (excludes tests/) =="
+echo "== 1/4  Lua 5.1 syntax check (excludes tests/) =="
 if ! command -v luac5.1 >/dev/null 2>&1; then
     echo "luac5.1 not found -- run: sh scripts/dev-setup.sh" >&2
     exit 1
@@ -27,7 +27,7 @@ done < /tmp/ebb_lua_files.txt
 if [ "$fail" -eq 0 ]; then echo "OK: no syntax errors"; else overall_fail=1; fi
 
 echo ""
-echo "== 2/3  Test suite (tests/run.sh) =="
+echo "== 2/4  Test suite (tests/run.sh) =="
 if ! command -v texlua >/dev/null 2>&1; then
     echo "texlua not found -- run: sh scripts/dev-setup.sh" >&2
     exit 1
@@ -39,13 +39,19 @@ else
 fi
 
 echo ""
-echo "== 3/3  Every .toc file exists on disk =="
+echo "== 3/4  Every .toc file exists on disk =="
 fail=0
 awk '{ sub(/\r$/, ""); if ($0 ~ /^[^[:space:]]+\.lua$/) print }' EbonBuilds.toc > /tmp/ebb_toc_files.txt
 while IFS= read -r line; do
     [ -f "$line" ] || { echo "MISSING: $line (listed in EbonBuilds.toc)"; fail=1; }
 done < /tmp/ebb_toc_files.txt
 if [ "$fail" -eq 0 ]; then echo "OK: all TOC files present"; else overall_fail=1; fi
+
+echo ""
+echo "== 4/4  No post-3.3.5a WoW API calls =="
+if ! sh scripts/check-335a-api.sh; then
+    overall_fail=1
+fi
 
 echo ""
 if [ "$overall_fail" -eq 0 ]; then

@@ -281,7 +281,7 @@ local function RefreshKeepListWindow()
             row:Hide()
         end
     end
-    keepListWindow._emptyState:SetShown(#names == 0)
+    if #names == 0 then keepListWindow._emptyState:Show() else keepListWindow._emptyState:Hide() end
 end
 
 local function BuildKeepListRow(parent, index)
@@ -380,7 +380,7 @@ local function BuildKeepListWindow()
     placeholder:SetText("Exact item name...")
     placeholder:SetTextColor(unpack(T.TEXT_MUTED))
     keepListInput:HookScript("OnTextChanged", function(self)
-        placeholder:SetShown(self:GetText() == "")
+        if self:GetText() == "" then placeholder:Show() else placeholder:Hide() end
     end)
 
     local function AddCurrentInput()
