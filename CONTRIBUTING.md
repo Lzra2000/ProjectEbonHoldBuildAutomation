@@ -9,6 +9,8 @@ sh scripts/dev-setup.sh      # installs lua5.1, texlive-binaries (texlua), zip
 sh scripts/install-hooks.sh  # optional: runs scripts/check.sh before every commit
 ```
 
+`dev-setup.sh` uses `apt-get`, so it targets Debian/Ubuntu. On Windows, run everything through WSL; on other distros, install `lua5.1`, `texlive-binaries`, and `zip` with your package manager.
+
 That's it. No build step for day-to-day development -- the repo root is already the addon folder structure `Interface/AddOns/` expects, so you can symlink or copy it straight in and reload.
 
 ## Before opening a PR
@@ -17,7 +19,7 @@ That's it. No build step for day-to-day development -- the repo root is already 
 sh scripts/check.sh
 ```
 
-Runs the same three checks CI runs: Lua 5.1 syntax check, the full test suite (`tests/run.sh`), and a check that every file listed in `EbonBuilds.toc` actually exists. If `scripts/install-hooks.sh` is set up this runs automatically on commit (skip once with `git commit --no-verify`).
+Runs the same checks CI runs: Lua 5.1 syntax check, the full test suite (`tests/run.sh`), a check that every file listed in `EbonBuilds.toc` actually exists, the 3.3.5a API blocklist, and the file-header convention check. If `scripts/install-hooks.sh` is set up this runs automatically on commit (skip once with `git commit --no-verify`).
 
 The PR template has a short checklist -- FAQ.md entry for user-facing changes, translation keys for new UI strings, that kind of thing.
 
@@ -42,7 +44,7 @@ The test suite also includes `tests/test_sync_fuzz.lua`: 4000 deterministic host
 - **Test hooks.** If something needs to be tested but isn't naturally reachable (a closure inside a button's `OnClick`, module-local state), expose it as `EbonBuilds.Module._DoTheThing = DoTheThing` -- see `EbonBuilds.Session`'s test helpers or `EbonBuilds.BuildTabs._TriggerExportAI` for the pattern. Prefix with `_` so it reads as "test/integration only," not part of the real API.
 - **Errors that should be visible.** Wrap a handler in `EbonBuilds.ErrorLog.Protect("Source.Name", fn)` if it's reachable from user interaction and isn't trivially safe -- an unprotected error goes straight to WoW's own (usually disabled) Lua error display and never reaches the Error log (Settings -- Windows & tools). Most of the codebase predates this and isn't wrapped; wrapping more of it as you touch nearby code is welcome.
 - **Changelog.** User-facing changes get a `### <version>` entry at the top of `FAQ.md`'s Changelog section. Look at recent entries for the tone: specific about what changed and why, no marketing language.
-- **Releases.** Version bumps go through `sh scripts/release.sh <version>` (bumps `EbonBuilds.toc` + `FAQ.md`, runs `scripts/check.sh`, rebuilds `dist/EbonBuilds.zip`, commits, tags) followed by `sh scripts/publish-github-release.sh <version>` (an actual GitHub Release, not just a tag -- see the script for why that's a separate step). Not something a regular PR needs to touch.
+- **Releases.** Version bumps go through `sh scripts/release.sh <version>` (bumps `EbonBuilds.toc` + `FAQ.md`, runs `scripts/check.sh`, commits, tags). Pushing the tag triggers `.github/workflows/release.yml`, which publishes the GitHub Release and uploads the zip as a release asset; `scripts/publish-github-release.sh` is the manual fallback. Not something a regular PR needs to touch.
 
 ## Adding a translation
 
