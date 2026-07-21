@@ -16,8 +16,9 @@ to match, or vice versa.
 
 Requires Pillow (already a project dependency for other tooling).
 Usage: python3 scripts/generate-media.py
-Writes media/minimap_icon.tga (128x128, 32-bit uncompressed TGA --
-same format/depth as the file it replaces, verified client-compatible).
+Writes media/minimap_icon.tga (128x128) and media/vote_icon.tga +
+media/vote_icon_off.tga (32x32, filled/outline chevron pair for the
+Public Builds vote button) -- all 32-bit uncompressed TGA.
 """
 
 import os
@@ -73,6 +74,51 @@ def render_icon(size, supersample=SUPERSAMPLE):
     return im.resize((size, size), Image.LANCZOS)
 
 
+
+# ------------------------------------------------------------------------
+# Vote icon: an upward chevron for the Public Builds vote button (issue
+# #8's UI shipped with a plain "^" text glyph as a placeholder -- this
+# replaces it with a real icon). Two states, matching the on/off pattern
+# WoW button textures use: filled gold when the player has voted, dim
+# outline otherwise -- clearer at a glance than color alone at 14px.
+# ------------------------------------------------------------------------
+
+VOTE_GOLD_FILL  = (0xe6, 0xc4, 0x53)   # matches CORE_COLOR above
+VOTE_GOLD_EDGE  = (0xd4, 0xaf, 0x37)   # matches RINGS[1]'s color
+VOTE_DIM_EDGE   = (0x9a, 0x84, 0x4a)
+
+
+def _chevron_points(cx, cy, S):
+    w = S * 0.34
+    top = cy - S * 0.30
+    midY = cy - S * 0.02
+    stemW = S * 0.13
+    stemBottom = cy + S * 0.32
+    return [
+        (cx, top),
+        (cx + w, midY),
+        (cx + stemW, midY),
+        (cx + stemW, stemBottom),
+        (cx - stemW, stemBottom),
+        (cx - stemW, midY),
+        (cx - w, midY),
+    ]
+
+
+def render_vote_icon(size, filled, supersample=SUPERSAMPLE):
+    S = size * supersample
+    im = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    cx = cy = S / 2
+    points = _chevron_points(cx, cy, S)
+    if filled:
+        d.polygon(points, fill=VOTE_GOLD_FILL + (255,), outline=VOTE_GOLD_EDGE + (255,),
+                   width=max(1, int(S * 0.045)))
+    else:
+        d.polygon(points, outline=VOTE_DIM_EDGE + (255,), width=max(1, int(S * 0.05)))
+    return im.resize((size, size), Image.LANCZOS)
+
+
 def main():
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     out_path = os.path.join(repo_root, "media", "minimap_icon.tga")
@@ -82,6 +128,12 @@ def main():
     # already used, so no client-compatibility change.
     icon.save(out_path)
     print("Wrote %s (%dx%d)" % (out_path, *icon.size))
+
+    vote_size = 32
+    for filled, name in ((True, "vote_icon.tga"), (False, "vote_icon_off.tga")):
+        vote_path = os.path.join(repo_root, "media", name)
+        render_vote_icon(vote_size, filled).save(vote_path)
+        print("Wrote %s (%dx%d)" % (vote_path, vote_size, vote_size))
 
 
 if __name__ == "__main__":
