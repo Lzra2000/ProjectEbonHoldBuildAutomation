@@ -514,20 +514,60 @@ local function BuildInspectFrame(parent)
     local intentLabel = EbonBuilds.Theme.CreateSectionLabel(f, "Intent", classIcon, -18)
     f._intentLabel = intentLabel
 
-    local intentText = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    intentText:SetPoint("TOPLEFT", intentLabel, "BOTTOMLEFT", 0, -4)
-    intentText:SetPoint("RIGHT", f, "RIGHT", -18, 0)
+    -- Everything from Intent through Weighted Priorities lives inside ONE
+    -- scrollable region instead of being anchored directly on the panel.
+    -- Intent is free-form author text with no length limit (see the
+    -- "DK Solo eco" build report: gear/talent/leveling notes running to
+    -- a dozen paragraphs) -- fixed-position anchoring below it meant a
+    -- long Intent pushed Locked Echoes, the Character section, and the
+    -- priorities list arbitrarily far down, past the panel's own fixed-
+    -- height backdrop, with nothing clipping the overflow: it rendered
+    -- straight through onto the game world behind the panel. One scroll
+    -- region bounds ALL of it to the panel's actual visible area,
+    -- regardless of how long any single build's Intent is.
+    local contentScroll = CreateFrame("ScrollFrame", nil, f)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(contentScroll, "PublicBuildsView.Inspect.ContentScroll")
+    end
+    contentScroll:SetPoint("TOPLEFT", intentLabel, "BOTTOMLEFT", 0, -4)
+    contentScroll:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -34, 52)
+    f._contentScroll = contentScroll
+
+    local contentChild = CreateFrame("Frame", nil, contentScroll)
+    contentChild:SetWidth(1)
+    contentChild:SetHeight(1)
+    contentScroll:SetScrollChild(contentChild)
+    f._contentChild = contentChild
+
+    local contentBar = EbonBuilds.Theme.CreateScrollBar(f)
+    contentBar:SetPoint("TOPLEFT", contentScroll, "TOPRIGHT", 4, 0)
+    contentBar:SetPoint("BOTTOMLEFT", contentScroll, "BOTTOMRIGHT", 4, 0)
+    contentBar:SetValueStep(20)
+    contentBar:SetMinMaxValues(0, 0)
+    contentBar:SetValue(0)
+    contentBar:SetScript("OnValueChanged", function(_, value)
+        contentChild:ClearAllPoints()
+        contentChild:SetPoint("TOPLEFT", contentScroll, "TOPLEFT", 0, value)
+    end)
+    f._contentBar = contentBar
+    EbonBuilds.Theme.BindScrollWheel(contentScroll, contentBar, 24)
+
+    contentScroll:SetScript("OnSizeChanged", function()
+        if f._currentBuild and f._RefreshInspectContent then f._RefreshInspectContent() end
+    end)
+
+    local intentText = contentChild:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     intentText:SetJustifyH("LEFT")
     intentText:SetJustifyV("TOP")
     intentText:SetNonSpaceWrap(true)
     f._intentText = intentText
 
-    local lockedLabel = EbonBuilds.Theme.CreateSectionLabel(f, "Locked Echoes")
+    local lockedLabel = EbonBuilds.Theme.CreateSectionLabel(contentChild, "Locked Echoes")
     f._lockedLabel = lockedLabel
 
     f._lockedBtns = {}
     for i = 1, EbonBuilds.Build.LOCKED_SLOTS do
-        local btn = CreateIconButton(f, 26)
+        local btn = CreateIconButton(contentChild, 26)
         f._lockedBtns[i] = btn
     end
 
@@ -535,23 +575,21 @@ local function BuildInspectFrame(parent)
     -- (only present if the author used "Adopt snapshot"), so this reads
     -- gracefully whether or not the data exists rather than showing an
     -- empty section.
-    local charLabel = EbonBuilds.Theme.CreateSectionLabel(f, "Character")
+    local charLabel = EbonBuilds.Theme.CreateSectionLabel(contentChild, "Character")
     f._charLabel = charLabel
 
-    local talentsText = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    talentsText:SetPoint("RIGHT", f, "RIGHT", -18, 0)
+    local talentsText = contentChild:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     talentsText:SetJustifyH("LEFT")
     f._talentsText = talentsText
 
-    local gearText = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    gearText:SetPoint("RIGHT", f, "RIGHT", -18, 0)
+    local gearText = contentChild:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     gearText:SetJustifyH("LEFT")
     f._gearText = gearText
 
     -- Opens the full talent tree / gear paperdoll / glyphs view -- the
     -- exact same renderer the build editor uses, mounted read-only
     -- against this build's snapshot instead of the live character.
-    local viewCharBtn = EbonBuilds.Theme.CreateButton(f)
+    local viewCharBtn = EbonBuilds.Theme.CreateButton(contentChild)
     viewCharBtn:SetWidth(150)
     viewCharBtn:SetHeight(20)
     viewCharBtn:SetText("View full character")
@@ -560,7 +598,7 @@ local function BuildInspectFrame(parent)
         if f._build and ShowCharacterDetail then ShowCharacterDetail(f._build) end
     end)
 
-    local priLabel = EbonBuilds.Theme.CreateSectionLabel(f, "Weighted Priorities")
+    local priLabel = EbonBuilds.Theme.CreateSectionLabel(contentChild, "Weighted Priorities")
     f._priLabel = priLabel
 
     local importBtn = EbonBuilds.Theme.CreateButton(f)
@@ -569,52 +607,11 @@ local function BuildInspectFrame(parent)
     importBtn:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -18, 16)
     f._importBtn = importBtn
 
-    -- Scrollable priority list: the old version showed at most 8 flat
-    -- text lines ("1. Name (12)"), nothing like the icon + quality-color
-    -- rows the editor uses for the same data. This mirrors that instead,
-    -- and shows every configured priority rather than a hard cap.
-    local priScroll = CreateFrame("ScrollFrame", nil, f)
-    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
-        EbonBuilds.Debug.ProtectScript(priScroll, "PublicBuildsView.Inspect.PriScroll")
-    end
-    -- BOTTOMRIGHT anchored to f's actual bottom-right corner (not the
-    -- horizontally-centered BOTTOM point) with room left for the
-    -- scrollbar (34px) and the Import button below (52px).
-    priScroll:SetPoint("TOPLEFT", priLabel, "BOTTOMLEFT", 0, -6)
-    priScroll:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -34, 52)
-    f._priScroll = priScroll
-
-    local priChild = CreateFrame("Frame", nil, priScroll)
-    priChild:SetWidth(1)
-    priChild:SetHeight(1)
-    priScroll:SetScrollChild(priChild)
-    f._priChild = priChild
-
-    local priBar = EbonBuilds.Theme.CreateScrollBar(f)
-    priBar:SetPoint("TOPLEFT", priScroll, "TOPRIGHT", 4, 0)
-    priBar:SetPoint("BOTTOMLEFT", priScroll, "BOTTOMRIGHT", 4, 0)
-    priBar:SetValueStep(20)
-    priBar:SetMinMaxValues(0, 0)
-    priBar:SetValue(0)
-    priBar:SetScript("OnValueChanged", function(_, value)
-        priChild:ClearAllPoints()
-        priChild:SetPoint("TOPLEFT", priScroll, "TOPLEFT", 0, value)
-    end)
-    f._priBar = priBar
-    EbonBuilds.Theme.BindScrollWheel(priScroll, priBar, 24)
-
-    priScroll:SetScript("OnSizeChanged", function()
-        local w = priScroll:GetWidth()
-        if w and w > 0 and f._priRowPool then
-            priChild:SetWidth(w)
-            for _, row in ipairs(f._priRowPool) do row:SetWidth(w) end
-        end
-        if f._currentBuild and f._RefreshPriorities then f._RefreshPriorities() end
-    end)
-
+    -- Priority rows: icon + quality-colored name + weight, same as the
+    -- editor -- pooled and parented to the single content scroll child
+    -- above (no longer a separate nested scroll region of their own).
     f._priRowPool = {}
-    f._priEmpty = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    f._priEmpty:SetPoint("TOPLEFT", priLabel, "BOTTOMLEFT", 0, -6)
+    f._priEmpty = contentChild:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     f._priEmpty:SetText("No weighted priorities configured.")
 
     if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
@@ -653,80 +650,101 @@ local function CreatePriorityRow(parent)
     return row
 end
 
--- Fills the pooled, scrollable priority list from AllPriorities(build).
--- Same icon-lookup convention as the Locked Echoes row (GetSpellInfo's
--- 3rd return is the icon texture).
-local function PopulateInspectPriorities(f, build)
-    f._currentBuild = build
-    f._RefreshPriorities = function() PopulateInspectPriorities(f, build) end
-    local rows = AllPriorities(build)
-    if #rows == 0 then f._priEmpty:Show() else f._priEmpty:Hide() end
-    if #rows > 0 then f._priScroll:Show() else f._priScroll:Hide() end
-    if #rows > 0 then f._priBar:Show() else f._priBar:Hide() end
+-- RefreshInspectContent(f): the single pass that lays out and sizes
+-- EVERYTHING inside the scrollable content region -- Intent, Locked
+-- Echoes, Character summary, and Weighted Priorities -- back to back,
+-- each section's start position depending on the ACTUAL rendered
+-- height of the one before it (GetStringHeight() only returns a real
+-- number after SetText + a resolved width, hence this all runs as one
+-- populate-then-measure-then-position pass rather than fixed offsets).
+-- Called after any content changes (new build shown, character-summary
+-- text set, priority rows repopulated) and on scroll-frame resize.
+local function RefreshInspectContent(f, build)
+    local w = f._contentScroll:GetWidth()
+    if not w or w <= 0 then return end
+    f._contentChild:SetWidth(w)
 
-    for i, entry in ipairs(rows) do
-        local row = f._priRowPool[i]
-        if not row then
-            row = CreatePriorityRow(f._priChild)
-            f._priRowPool[i] = row
-        end
-        row:ClearAllPoints()
-        row:SetPoint("TOPLEFT", f._priChild, "TOPLEFT", 0, -(i - 1) * PRI_ROW_HEIGHT)
-        row:SetPoint("RIGHT", f._priChild, "RIGHT", 0, 0)
-        if entry.spellId then
-            row._icon:SetTexture(select(3, GetSpellInfo(entry.spellId)))
-            row._icon:Show()
-        else
-            row._icon:Hide()
-        end
-        local r, g, b = EbonBuilds.Quality.GetRGB(entry.quality)
-        row._name:SetText(entry.name)
-        row._name:SetTextColor(r, g, b, 1)
-        row._weight:SetText(tostring(entry.weight))
-        row:Show()
-    end
-    for i = #rows + 1, #f._priRowPool do
-        f._priRowPool[i]:Hide()
-    end
+    f._intentText:SetWidth(w)
+    f._intentText:ClearAllPoints()
+    f._intentText:SetPoint("TOPLEFT", f._contentChild, "TOPLEFT", 0, 0)
+    local y = -(f._intentText:GetStringHeight() or 14)
 
-    local w = f._priScroll:GetWidth()
-    if w and w > 0 then f._priChild:SetWidth(w) end
-    local totalHeight = math.max(1, #rows * PRI_ROW_HEIGHT)
-    f._priChild:SetHeight(totalHeight)
-    local visible = f._priScroll:GetHeight() or 0
-    local maxScroll = math.max(0, totalHeight - visible)
-    f._priBar:SetMinMaxValues(0, maxScroll)
-    f._priBar:SetValue(0)
-    f._priChild:ClearAllPoints()
-    f._priChild:SetPoint("TOPLEFT", f._priScroll, "TOPLEFT", 0, 0)
-end
-
--- Locked Echo icon count never changes (EbonBuilds.Build.LOCKED_SLOTS is
--- a constant), so this only needs to run once per frame, not per
--- ShowInspect call -- but it's cheap and idempotent, so keeping it here
--- keeps the "re-layout on every open" pattern the rest of the file uses.
-local function LayoutInspectRows(f)
     f._lockedLabel:ClearAllPoints()
-    f._lockedLabel:SetPoint("TOPLEFT", f._intentText, "BOTTOMLEFT", 0, -16)
+    f._lockedLabel:SetPoint("TOPLEFT", f._contentChild, "TOPLEFT", 0, y - 16)
+    y = y - 16 - 14
+
     local x = 0
     for i, btn in ipairs(f._lockedBtns) do
         btn:ClearAllPoints()
         btn:SetPoint("TOPLEFT", f._lockedLabel, "BOTTOMLEFT", x, -6)
         x = x + 32
     end
+    y = y - 6 - 26
+
     f._charLabel:ClearAllPoints()
-    f._charLabel:SetPoint("TOPLEFT", f._lockedLabel, "BOTTOMLEFT", 0, -40)
+    f._charLabel:SetPoint("TOPLEFT", f._contentChild, "TOPLEFT", 0, y - 24)
+    y = y - 24 - 14
+
     f._viewCharBtn:ClearAllPoints()
-    f._viewCharBtn:SetPoint("TOPRIGHT", f, "TOPRIGHT", -18, 0)
-    f._viewCharBtn:SetPoint("TOP", f._charLabel, "TOP", 0, 4)
+    f._viewCharBtn:SetPoint("TOPRIGHT", f._contentChild, "TOPRIGHT", -6, y - 24)
+
     f._talentsText:ClearAllPoints()
-    f._talentsText:SetPoint("TOPLEFT", f._charLabel, "BOTTOMLEFT", 0, -4)
-    f._talentsText:SetPoint("RIGHT", f, "RIGHT", -18, 0)
+    f._talentsText:SetPoint("TOPLEFT", f._contentChild, "TOPLEFT", 0, y - 4)
+    f._talentsText:SetWidth(w - 160)
+    y = y - 4 - (f._talentsText:GetStringHeight() or 14)
+
     f._gearText:ClearAllPoints()
-    f._gearText:SetPoint("TOPLEFT", f._talentsText, "BOTTOMLEFT", 0, -2)
-    f._gearText:SetPoint("RIGHT", f, "RIGHT", -18, 0)
+    f._gearText:SetPoint("TOPLEFT", f._contentChild, "TOPLEFT", 0, y - 2)
+    f._gearText:SetWidth(w - 160)
+    y = y - 2 - (f._gearText:GetStringHeight() or 14)
+
     f._priLabel:ClearAllPoints()
-    f._priLabel:SetPoint("TOPLEFT", f._gearText, "BOTTOMLEFT", 0, -14)
+    f._priLabel:SetPoint("TOPLEFT", f._contentChild, "TOPLEFT", 0, y - 14)
+    y = y - 14 - 14
+
+    local rows = build and AllPriorities(build) or {}
+    if #rows == 0 then
+        f._priEmpty:ClearAllPoints()
+        f._priEmpty:SetPoint("TOPLEFT", f._contentChild, "TOPLEFT", 0, y - 6)
+        f._priEmpty:Show()
+        y = y - 6 - 14
+    else
+        f._priEmpty:Hide()
+        for i, entry in ipairs(rows) do
+            local row = f._priRowPool[i]
+            if not row then
+                row = CreatePriorityRow(f._contentChild)
+                f._priRowPool[i] = row
+            end
+            row:ClearAllPoints()
+            row:SetPoint("TOPLEFT", f._contentChild, "TOPLEFT", 0, y - 6 - (i - 1) * PRI_ROW_HEIGHT)
+            row:SetPoint("RIGHT", f._contentChild, "RIGHT", 0, 0)
+            if entry.spellId then
+                row._icon:SetTexture(select(3, GetSpellInfo(entry.spellId)))
+                row._icon:Show()
+            else
+                row._icon:Hide()
+            end
+            local r, g, b = EbonBuilds.Quality.GetRGB(entry.quality)
+            row._name:SetText(entry.name)
+            row._name:SetTextColor(r, g, b, 1)
+            row._weight:SetText(tostring(entry.weight))
+            row:Show()
+        end
+        y = y - 6 - #rows * PRI_ROW_HEIGHT
+    end
+    for i = #rows + 1, #f._priRowPool do
+        f._priRowPool[i]:Hide()
+    end
+
+    local totalHeight = math.max(1, -y)
+    f._contentChild:SetHeight(totalHeight)
+    local visible = f._contentScroll:GetHeight() or 0
+    local maxScroll = math.max(0, totalHeight - visible)
+    f._contentBar:SetMinMaxValues(0, maxScroll)
+    f._contentBar:SetValue(0)
+    f._contentChild:ClearAllPoints()
+    f._contentChild:SetPoint("TOPLEFT", f._contentScroll, "TOPLEFT", 0, 0)
 end
 
 ------------------------------------------------------------------------
@@ -852,6 +870,8 @@ ShowInspect = function(build)
     end
 
     inspectFrame._build = build
+    inspectFrame._currentBuild = build
+    inspectFrame._RefreshInspectContent = function() RefreshInspectContent(inspectFrame, build) end
 
     local summary = CharacterSummary(build.characterSnapshot)
     if summary then
@@ -863,8 +883,6 @@ ShowInspect = function(build)
         inspectFrame._gearText:SetText("")
         inspectFrame._viewCharBtn:Disable()
     end
-
-    PopulateInspectPriorities(inspectFrame, build)
 
     if isOwn then
         inspectFrame._importBtn:SetText("Yours")
@@ -889,11 +907,17 @@ ShowInspect = function(build)
         end
     end
 
-    LayoutInspectRows(inspectFrame)
     inspectFrame:ClearAllPoints()
     inspectFrame:SetAllPoints(viewFrame)
     inspectFrame:Show()
+    -- Sized after Show(): GetWidth() on the scroll frame can report a
+    -- stale/zero value before the panel has actually laid out, and this
+    -- is exactly the measurement RefreshInspectContent depends on.
+    RefreshInspectContent(inspectFrame, build)
 end
+
+EbonBuilds.PublicBuildsView._ShowInspectForTest = ShowInspect
+EbonBuilds.PublicBuildsView._GetInspectFrameForTest = function() return inspectFrame end
 
 ------------------------------------------------------------------------
 -- Render
@@ -1557,6 +1581,44 @@ if EbonBuilds.Debug and EbonBuilds.Debug.RegisterTest then
         end
         if scoreOf(3600, 0) ~= 0 then
             error("a build with zero votes must always score zero, regardless of age")
+        end
+    end)
+
+    EbonBuilds.Debug.RegisterTest("PublicBuildsView.Inspect handles a very long Intent without breaking the layout", function()
+        -- Regression test for a real report: a build with a long,
+        -- multi-paragraph Intent (gear/talent/leveling notes crammed into
+        -- one field) pushed every section below it -- Locked Echoes,
+        -- Character, Weighted Priorities -- past the panel's own fixed
+        -- bounds, unclipped, rendering straight through onto whatever was
+        -- behind the panel. Fixed by moving everything below the header
+        -- into one scrollable region (RefreshInspectContent) instead of
+        -- fixed-offset anchoring off Intent's actual (unbounded) height.
+        local container = CreateFrame("Frame")
+        container:SetWidth(600)
+        container:SetHeight(500)
+        EbonBuilds.PublicBuildsView.Mount(container)
+
+        local longIntent = {}
+        for i = 1, 60 do
+            longIntent[i] = "Paragraph " .. i .. ": a long line of author notes about gear, talents, and leveling routes."
+        end
+        local build = {
+            id = "inspect-overflow-test", title = "Overflow Test Build", class = "NONEXISTENT_CLASS_TOKEN", spec = 1,
+            author = "Test Author", lastModified = "2026-07-21 12:00:00",
+            comments = table.concat(longIntent, "\n"),
+            lockedEchoes = { 1, 2, 3 },
+        }
+        EbonBuilds.PublicBuildsView._ShowInspectForTest(build)
+
+        local f = EbonBuilds.PublicBuildsView._GetInspectFrameForTest()
+        if not f then error("expected a built inspect frame") end
+        local childHeight = f._contentChild:GetHeight()
+        if type(childHeight) ~= "number" or childHeight <= 0 then
+            error("expected a positive content height, got " .. tostring(childHeight))
+        end
+        local minVal, maxVal = f._contentBar:GetMinMaxValues()
+        if minVal ~= 0 or type(maxVal) ~= "number" or maxVal < 0 then
+            error(string.format("expected a well-ordered scrollbar range, got min=%s max=%s", tostring(minVal), tostring(maxVal)))
         end
     end)
 end
