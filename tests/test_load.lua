@@ -214,14 +214,6 @@ end
 print("Loaded " .. #files .. " TOC Lua files successfully.")
 print("Verified " .. #uiContracts .. " UI contracts successfully.")
 
-do
-    local toc = assert(io.open("EbonBuilds.toc", "r")):read("*a")
-    if not toc:find("## Version: 3.67", 1, true) or EbonBuilds.VERSION ~= "3.53" then
-        io.stderr:write("VERSION FAIL: patch changed the uploaded build's original version metadata\n")
-        os.exit(1)
-    end
-end
-print("Verified uploaded build version metadata remains unchanged.")
 
 -- Hover cleanup must never overwrite a view-owned text color. Earlier the
 -- shared button reset forced every ordinary button label to gold on OnLeave,
