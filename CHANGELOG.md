@@ -4,6 +4,14 @@ One `### <version>` entry per release, newest first. scripts/release.sh
 refuses to tag unless this file changed, and the Release workflow and the
 in-game "What's new" page both read the newest entry from here.
 
+### 3.82 (2026-07-21) -- Public Builds: full character view, search, and sort
+
+Two rounds of Public Builds improvements land together.
+
+- **Full character view in Inspect:** the compact "talent points / gear count" summary now has a "View full character" button that opens the complete talent tree, gear paper doll, and glyphs -- the exact same view your own Character tab uses, read-only against the author's shared snapshot.
+- **Search:** a search box above the build list filters by title or author as you type.
+- **Sort:** choose how the list is ordered -- **Most Votes** (previous default), **Newest**, **Item Level** (average, from the author's snapshot), or **Trending** (recent votes outrank a larger but stale total; a build needs actual votes to trend, not just to be new).
+
 ### 3.81 (2026-07-21) -- Talents and gear now show up in Public Builds Inspect
 
 Inspect (added in 3.77) showed a build's intent, locked Echoes, and weighted priorities -- but nothing about the character it was built for.
