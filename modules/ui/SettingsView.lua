@@ -77,7 +77,7 @@ local statLabels = {}
 local actionControls = {}
 local modelButtons = {}
 local advancedButton, advancedPanel
-local syncChatMessagesCheckbox, tomeAtlasMapCheckbox
+local syncChatMessagesCheckbox, tomeAtlasMapCheckbox, mapZonePanelCheckbox
 local guardControl, penaltyControl
 local familyButtons = {}
 local familyWarning
@@ -739,7 +739,7 @@ local function BuildGlobalFeaturesPanel(parent, y)
         "These controls affect the whole addon, not only the build currently being edited.")
     panel:SetPoint("TOPLEFT", parent, "TOPLEFT", 4, y)
     panel:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -4, y)
-    panel:SetHeight(132)
+    panel:SetHeight(166)
 
     syncChatMessagesCheckbox = Theme.CreateCheckbox(panel, "Sync chat messages")
     syncChatMessagesCheckbox:SetPoint("TOPLEFT", panel, "TOPLEFT", 14, -54)
@@ -755,12 +755,29 @@ local function BuildGlobalFeaturesPanel(parent, y)
         SetTomeAtlasMapEnabled(self:GetChecked() and true or false)
     end)
     Theme.AttachTooltip(tomeAtlasMapCheckbox, "Tome Atlas map integration",
-        "Shows Tome Atlas highlights, source lists, pins, and legends on the world map. The Tome Atlas window and collected data remain available.")
+        "Master switch for everything Tome Atlas puts on the world map: the green continent highlights, the zone tome list, pins, and legends. The Tome Atlas window and collected data remain available.")
+
+    -- Restores the per-character zone-panel toggle the v3.70 Settings
+    -- reconciliation lost: the panel's own close (X) button writes this
+    -- preference, and without a checkbox here there was no visible way to
+    -- ever get the panel back (issue #15).
+    mapZonePanelCheckbox = Theme.CreateCheckbox(panel, "Zone tome list on the world map")
+    mapZonePanelCheckbox:SetPoint("TOPLEFT", panel, "TOPLEFT", 34, -122)
+    mapZonePanelCheckbox:SetScript("OnClick", function(self)
+        if EbonBuilds.WorldIntegration and EbonBuilds.WorldIntegration.SetMapPanelEnabled then
+            EbonBuilds.WorldIntegration.SetMapPanelEnabled(self:GetChecked() and true or false)
+        end
+    end)
+    Theme.AttachTooltip(mapZonePanelCheckbox, "Zone tome list on the world map",
+        "Only the \"Tomes in this zone\" list panel (per character). The panel's X button unchecks this. The green continent highlights are governed by the master switch above.")
 end
 
 local function RefreshGlobalFeatureControls()
     if syncChatMessagesCheckbox then syncChatMessagesCheckbox:SetChecked(SyncChatMessagesEnabled()) end
     if tomeAtlasMapCheckbox then tomeAtlasMapCheckbox:SetChecked(TomeAtlasMapEnabled()) end
+    if mapZonePanelCheckbox and EbonBuilds.WorldIntegration and EbonBuilds.WorldIntegration.IsMapPanelEnabled then
+        mapZonePanelCheckbox:SetChecked(EbonBuilds.WorldIntegration.IsMapPanelEnabled() and true or false)
+    end
 end
 
 local function BuildAdvancedPanel(parent, y)

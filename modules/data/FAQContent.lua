@@ -499,6 +499,27 @@ EbonBuilds.FAQContent = { PAGES = {
     },
 },
 {
+    title = "How do I turn off the tome map integration -- or just the zone list panel?",
+    category = "Tome Atlas",
+    lines = {
+        "Two switches in Settings under Addon-wide features. Tome Atlas map",
+        "integration is the master: it controls everything on the world map at",
+        "once -- the green continent highlights, the \"Tomes in this zone\" list,",
+        "pins, and legends. Zone tome list on the world map controls only the list",
+        "panel, per character; the panel's own X button unchecks it, and",
+        "re-checking it in Settings brings the panel back.",
+        "",
+        "If disabling felt like it \"only worked half way\" before 3.75: closing the",
+        "zone panel (X or toggle) intentionally leaves the continent highlights",
+        "alone -- they belong to the master switch -- but the Settings checkbox to",
+        "bring the panel back had gone missing in the 3.70 settings rework, so the",
+        "X was a one-way door. Fixed: the checkbox is back, and both switches",
+        "apply immediately while the map is open.",
+        "",
+        "Finding where to farm the tomes you don't have yet.",
+    },
+},
+{
     title = "How does the Tome Atlas work? (new in 2.2)",
     category = "Tome Atlas",
     lines = {
