@@ -4,6 +4,10 @@ One `### <version>` entry per release, newest first. scripts/release.sh
 refuses to tag unless this file changed, and the Release workflow and the
 in-game "What's new" page both read the newest entry from here.
 
+### 3.78 (2026-07-21) -- Internal: minimap icon now has a real source (no visible change)
+
+The minimap icon's pixels are unchanged -- this is repo housekeeping. `media/minimap_icon.tga` existed only as a binary file with no source, generated from `scripts/generate-media.py` now instead, using the exact ring geometry the website's logo already defines. Also fixed two leftover mentions of `texlive-binaries` in the setup docs, dropped from the toolchain back in 3.73.
+
 ### 3.77 (2026-07-21) -- Upvotes and Inspect for Public Builds (#8)
 
 Requested by Zartris: a way to acknowledge a well-made build and tell it apart from someone's experiments. Delivered together with a new Inspect view, because an informed vote needs to see the build first.
