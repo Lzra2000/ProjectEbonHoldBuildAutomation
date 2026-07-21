@@ -1,0 +1,36 @@
+name: Bug report
+description: Something is broken or behaving unexpectedly
+labels: [bug]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you do, what did you expect, what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: error-log
+    attributes:
+      label: Error log output
+      description: >
+        Settings (gear icon in the main window) -> Windows & Tools -> Error log.
+        If a click seemed to do nothing, attach the Click Trace log from the
+        same place as well. Paste the raw text; it is the single most useful
+        thing in a report.
+      render: text
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: EbonBuilds version
+      description: Shown in the main window title and in the .toc.
+      placeholder: "3.72"
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else
+      description: Other addons involved, whether it happens every time, screenshots.
