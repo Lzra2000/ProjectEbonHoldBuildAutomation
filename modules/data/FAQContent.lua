@@ -7,15 +7,21 @@ local addonName, EbonBuilds = ...
 
 EbonBuilds.FAQContent = { PAGES = {
 {
-    title = "What's new: 3.80 (2026-07-21) -- A real icon on the Public Builds vote button",
+    title = "What's new: 3.81 (2026-07-21) -- Talents and gear now show up in Public Builds Inspect",
     category = "What's New",
     lines = {
         "",
-        "The vote button has shown a plain \"^\" character since it shipped. It's",
-        "now an actual chevron icon -- filled gold once you've voted, a dim",
-        "outline before -- generated from the same source and palette as the",
-        "minimap icon and the website logo, so all three are provably one design",
-        "instead of three separate guesses at it.",
+        "Inspect (added in 3.77) showed a build's intent, locked Echoes, and",
+        "weighted priorities -- but nothing about the character it was built for.",
+        "",
+        "- New Character section: talent point split across the three trees, and",
+        "equipped gear count with average item level -- a quick \"is this actually",
+        "specced and geared the way the title claims\" glance while browsing.",
+        "- Only appears when the author attached one (Character tab -> \"Adopt",
+        "snapshot\" when saving) -- it's optional, so plenty of public builds won't",
+        "have it, and Inspect says so plainly when that's the case.",
+        "- This is a summary, not the full talent tree or paper doll -- for the",
+        "exact picks and gear piece by piece, import the build.",
     },
 },
 {
