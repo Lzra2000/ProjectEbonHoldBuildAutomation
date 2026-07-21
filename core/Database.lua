@@ -22,6 +22,8 @@ local CHARACTER_PREFERENCE_DEFAULTS = {
     debugLogEnabled = false,
     clickTraceEnabled = false,
     gearTooltipEnabled = true,
+    mapZonePanelEnabled = true,
+    syncVerboseLogEnabled = false,
 }
 
 local adopted = false

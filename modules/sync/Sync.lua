@@ -60,6 +60,22 @@ local SYNC_VERSION  = 1
 local VALIDATION_REQUIRED = true
 local VERBOSE_LOG = false
 
+-- Was only a bare /ebbsync verbose toggle -- not discoverable, and not
+-- persisted, so a player who turned it on (or on some sessions forgot
+-- they had) had no obvious way to find it again short of retyping the
+-- same command. Now a real Settings checkbox (Automation -> "Verbose
+-- sync logging"); the slash command still works and stays in sync with it.
+function EbonBuilds.Sync.IsVerboseLogEnabled()
+    return VERBOSE_LOG
+end
+
+function EbonBuilds.Sync.SetVerboseLogEnabled(enabled)
+    VERBOSE_LOG = enabled and true or false
+    if EbonBuilds.Database and EbonBuilds.Database.SetCharacterPreference then
+        EbonBuilds.Database.SetCharacterPreference("syncVerboseLogEnabled", VERBOSE_LOG)
+    end
+end
+
 local syncChannelIndex
 local RefreshChannel
 local inflight = {}
@@ -1112,8 +1128,15 @@ function EbonBuilds.Sync.RequestSyncAllClasses()
 end
 
 function EbonBuilds.Sync.Init()
-    EbonBuilds.WoWEvents.On("CHAT_MSG_ADDON", function(_, ...) DispatchAddon(...) end, "Sync")
-    EbonBuilds.WoWEvents.On("CHAT_MSG_CHANNEL", function(_, ...) HandleChannelMessage(...) end, "Sync")
+    if EbonBuilds.Database and EbonBuilds.Database.GetCharacterPreference then
+        VERBOSE_LOG = EbonBuilds.Database.GetCharacterPreference("syncVerboseLogEnabled")
+    end
+    -- spam-exempt (5th arg): both events legitimately fire very often during
+    -- active sync with many nearby players (every CHAT_MSG_ADDON on the
+    -- client reaches this listener, not just ours, plus real BLD/WNT/RTX
+    -- traffic) -- that's the feature working, not over-broad registration.
+    EbonBuilds.WoWEvents.On("CHAT_MSG_ADDON", function(_, ...) DispatchAddon(...) end, "Sync", false, true)
+    EbonBuilds.WoWEvents.On("CHAT_MSG_CHANNEL", function(_, ...) HandleChannelMessage(...) end, "Sync", false, true)
     EbonBuilds.WoWEvents.On("CHAT_MSG_SYSTEM", function(_, ...) HandleSystemMessage(...) end, "Sync")
     EbonBuilds.WoWEvents.On("PLAYER_LEVEL_UP", function(_, newLevel)
         if newLevel == 80 then
@@ -1281,7 +1304,7 @@ SlashCmdList["EBBSYNC"] = function(cmd)
         EbonBuildsDB.remoteBuilds = {}
         CommandLog("Sync cooldown and lastSyncDate reset. Remote builds cleared.")
     elseif cmd == "verbose" then
-        VERBOSE_LOG = not VERBOSE_LOG
+        EbonBuilds.Sync.SetVerboseLogEnabled(not VERBOSE_LOG)
         CommandLog("Verbose logging " .. (VERBOSE_LOG and "enabled" or "disabled") .. ".")
     else
         CommandLog("EbonBuilds Sync commands:")

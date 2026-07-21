@@ -1,6 +1,6 @@
 # EbonBuilds — FAQ & Changelog
 
-*This file is updated with every release. Latest version: 3.67 — also available in-game via Settings (gear icon) under Windows & Tools.*
+*This file is updated with every release. Latest version: 3.69 — also available in-game via Settings (gear icon) under Windows & Tools.*
 
 ---
 
@@ -285,6 +285,20 @@ The dialog scrolls if it ever grows past the window (same fix as the FAQ window 
 ### EbonBuilds won't even enable / greyed out in the addon list with ProjectEbonhold Enhanced. Fixed?
 Yes (2.22). The `.toc` declared a hard `## Dependencies: ProjectEbonhold` -- WoW's client won't let you enable an addon at all if a hard dependency's exact folder name isn't found, and "ProjectEbonhold Enhanced" ships under a different folder name even though it provides the same API. Switched to `## OptionalDeps: ProjectEbonhold, ProjectEbonholdEnhanced`, which still makes sure whichever one you have loads first (so EbonBuilds sees it), but no longer blocks enabling EbonBuilds if the folder name doesn't match exactly. No more manually editing the `.toc` by hand after every update.
 ## Changelog
+
+### 3.69 (2026-07-21) -- Verbose sync logging is now a real Settings toggle
+
+Community report: a player had `/ebbsync verbose` on and had no idea how to turn off the resulting chat spam ("[EbonBuilds Sync] Build ... stored in remote" repeated for every build received) -- it was a bare, non-persisted slash command left over from before the addon consolidated its other toggles into Settings.
+
+- New checkbox: Settings -> Automation -> "Verbose sync logging" (off by default).
+- Now persisted per-character, so it survives a reload/relog and is discoverable without remembering a slash command.
+- `/ebbsync verbose` still works and stays in sync with the checkbox.
+- If you were seeing this spam: `/reload` clears it immediately either way, since the setting wasn't persisted before this version.
+
+### 3.68 (2026-07-21) -- Zone tome-list panel can now be hidden; Mapster map-tinting fix merged
+
+- **Fix (merged from PR #14):** continent zone tinting is now skipped entirely when Mapster is loaded, instead of rendering as oversized solid boxes. Mapster actively rescales the map frame between its windowed and quest-list presets, which desynced our cached zone-highlight geometry. The zone-level tome panel doesn't depend on that geometry and still works normally with Mapster active.
+- **New, from community feedback:** the "Tomes in this zone" panel had no way to dismiss it, and a long list (11 entries reported in Sholazar Basin) could cover a meaningful chunk of the map. It now has its own close (X) button, plus a matching Settings toggle (Interface -> World Map -> "Show tome list on the world map") -- either one stays in sync with the other.
 
 ### 3.67 (2026-07-21) -- Fix: world map crashed with 'attempt to call global ShowZonePins (a nil value)'
 

@@ -319,6 +319,8 @@ local function BuildSettingsPopup(ownerFrame)
             gearTooltip = Bool(source.gearTooltip),
             syncChatMessages = source.syncChatMessages ~= false,
             tomeAtlasMapEnabled = source.tomeAtlasMapEnabled ~= false,
+            mapZonePanel = Bool(source.mapZonePanel),
+            syncVerboseLog = Bool(source.syncVerboseLog),
             locale = source.locale or "enUS",
             uiScale = tonumber(source.uiScale) or 1,
         }
@@ -343,6 +345,10 @@ local function BuildSettingsPopup(ownerFrame)
                 and EbonBuilds.Sync.IsChatMessagesEnabled() or gs.syncChatMessages ~= false,
             tomeAtlasMapEnabled = EbonBuilds.WorldIntegration and EbonBuilds.WorldIntegration.IsMapEnabled
                 and EbonBuilds.WorldIntegration.IsMapEnabled() or gs.tomeAtlasMapEnabled ~= false,
+            mapZonePanel = Bool(EbonBuilds.WorldIntegration and EbonBuilds.WorldIntegration.IsMapPanelEnabled
+                and EbonBuilds.WorldIntegration.IsMapPanelEnabled()),
+            syncVerboseLog = Bool(EbonBuilds.Sync and EbonBuilds.Sync.IsVerboseLogEnabled
+                and EbonBuilds.Sync.IsVerboseLogEnabled()),
             locale = (EbonBuilds.Locale and EbonBuilds.Locale.GetActiveLocale and EbonBuilds.Locale.GetActiveLocale()) or gs.localeOverride or "enUS",
             uiScale = math.max(0.9, math.min(1.2, tonumber(gs.uiScale) or 1)),
         }
@@ -367,6 +373,8 @@ local function BuildSettingsPopup(ownerFrame)
         if Bool(draft.gearTooltip) ~= Bool(baseline.gearTooltip) then count = count + 1 end
         if Bool(draft.syncChatMessages) ~= Bool(baseline.syncChatMessages) then count = count + 1 end
         if Bool(draft.tomeAtlasMapEnabled) ~= Bool(baseline.tomeAtlasMapEnabled) then count = count + 1 end
+        if Bool(draft.mapZonePanel) ~= Bool(baseline.mapZonePanel) then count = count + 1 end
+        if Bool(draft.syncVerboseLog) ~= Bool(baseline.syncVerboseLog) then count = count + 1 end
         if tostring(draft.locale or "") ~= tostring(baseline.locale or "") then count = count + 1 end
         if not SameNumber(draft.uiScale, baseline.uiScale) then count = count + 1 end
         return count
@@ -528,6 +536,8 @@ local function BuildSettingsPopup(ownerFrame)
         if controls.gearTooltipCB then controls.gearTooltipCB:SetChecked(draft.gearTooltip) end
         if controls.syncChatMessagesCB then controls.syncChatMessagesCB:SetChecked(draft.syncChatMessages) end
         if controls.tomeAtlasMapCB then controls.tomeAtlasMapCB:SetChecked(draft.tomeAtlasMapEnabled) end
+        if controls.mapZonePanelCB then controls.mapZonePanelCB:SetChecked(draft.mapZonePanel) end
+        if controls.syncVerboseLogCB then controls.syncVerboseLogCB:SetChecked(draft.syncVerboseLog) end
         RefreshLocaleButtons()
         RefreshScaleButtons()
         loadingDraft = false
@@ -721,7 +731,7 @@ local function BuildSettingsPopup(ownerFrame)
             -110, 0.5, 8.0, "toastDuration")
     end)
 
-    BuildCategory("automation", 570, function(panel)
+    BuildCategory("automation", 640, function(panel)
         AddSectionTitle(panel, "CONVENIENCE & DIAGNOSTICS", -2)
         controls.autoSellCB = AddCheckbox(panel,
             "Auto-sell junk at vendors",
@@ -759,6 +769,10 @@ local function BuildSettingsPopup(ownerFrame)
             "Gear upgrade hints on tooltips",
             "Adds a line to item tooltips saying whether the item scores as an upgrade for the active build's spec.",
             -536, "gearTooltip")
+        controls.syncVerboseLogCB = AddCheckbox(panel,
+            "Verbose sync logging",
+            "Prints a chat line every time a build is received from or requested by another player. Off by default; mostly useful for troubleshooting sync.",
+            -604, "syncVerboseLog")
     end)
 
     BuildCategory("features", 166, function(panel)
@@ -773,7 +787,7 @@ local function BuildSettingsPopup(ownerFrame)
             -92, "tomeAtlasMapEnabled")
     end)
 
-    BuildCategory("interface", 238, function(panel)
+    BuildCategory("interface", 290, function(panel)
         AddSectionTitle(panel, "LANGUAGE", -2)
         local note = panel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
         note:SetPoint("TOPLEFT", panel, "TOPLEFT", 2, -26)
@@ -820,6 +834,15 @@ local function BuildSettingsPopup(ownerFrame)
             end)
             controls.scaleButtons[#controls.scaleButtons + 1] = button
         end
+
+        local mapTitle = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        mapTitle:SetPoint("TOPLEFT", panel, "TOPLEFT", 2, -198)
+        mapTitle:SetText("WORLD MAP")
+        mapTitle:SetTextColor(unpack(EbonBuilds.Theme.ACCENT_GOLD))
+        controls.mapZonePanelCB = AddCheckbox(panel,
+            "Show tome list on the world map",
+            "The 'Tomes in this zone' panel; can also be closed directly from its own X button on the map.",
+            -218, "mapZonePanel")
     end)
 
     BuildCategory("tools", 254, function(panel)
@@ -995,6 +1018,12 @@ local function BuildSettingsPopup(ownerFrame)
         end
         if EbonBuilds.WorldIntegration and EbonBuilds.WorldIntegration.SetMapEnabled then
             EbonBuilds.WorldIntegration.SetMapEnabled(draft.tomeAtlasMapEnabled)
+        end
+        if EbonBuilds.WorldIntegration and EbonBuilds.WorldIntegration.SetMapPanelEnabled then
+            EbonBuilds.WorldIntegration.SetMapPanelEnabled(draft.mapZonePanel)
+        end
+        if EbonBuilds.Sync and EbonBuilds.Sync.SetVerboseLogEnabled then
+            EbonBuilds.Sync.SetVerboseLogEnabled(draft.syncVerboseLog)
         end
         local localeChanged = baseline and draft.locale ~= baseline.locale
         if localeChanged and EbonBuilds.Locale and EbonBuilds.Locale.SetLocale then

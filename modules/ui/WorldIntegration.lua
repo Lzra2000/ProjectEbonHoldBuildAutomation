@@ -79,12 +79,36 @@ local function EnsureMapPanel()
     title:SetTextColor(unpack(Theme.ACCENT_GOLD))
     mapPanel.title = title
     Theme.AddHeaderRule(mapPanel, title, 224)
+    -- A long tome list can cover a meaningful chunk of the map (reported:
+    -- 11 entries in Sholazar Basin alone) with no way to get it out of the
+    -- way -- this closes it and remembers that choice via the same
+    -- Settings toggle, so closing here and re-enabling in Settings agree.
+    local closeBtn = Theme.CreateCloseButton(mapPanel)
+    closeBtn:SetScript("OnClick", function()
+        EbonBuilds.WorldIntegration.SetMapPanelEnabled(false)
+        mapPanel:Hide()
+    end)
     mapLines = mapPanel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     mapLines:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
     mapLines:SetJustifyH("LEFT")
     mapLines:SetWidth(224)
     mapLines:SetTextColor(unpack(Theme.TEXT_PRIMARY))
     mapPanel:Hide()
+end
+
+function EbonBuilds.WorldIntegration.IsMapPanelEnabled()
+    if EbonBuilds.Database and EbonBuilds.Database.GetCharacterPreference then
+        return EbonBuilds.Database.GetCharacterPreference("mapZonePanelEnabled")
+    end
+    return EbonBuildsCharDB and EbonBuildsCharDB.mapZonePanelEnabled ~= false
+end
+
+function EbonBuilds.WorldIntegration.SetMapPanelEnabled(enabled)
+    if EbonBuilds.Database and EbonBuilds.Database.SetCharacterPreference then
+        EbonBuilds.Database.SetCharacterPreference("mapZonePanelEnabled", enabled)
+    elseif EbonBuildsCharDB then
+        EbonBuildsCharDB.mapZonePanelEnabled = enabled
+    end
 end
 
 -- Pure data step, injectable for tests: zone name -> sorted display
@@ -200,6 +224,21 @@ local function HideMapFeatures()
     end
 end
 
+-- Mapster actively SetScale()'s WorldMapDetailFrame/WorldMapBlobFrame
+-- between its windowed and quest-list presets (Mapster.lua's
+-- setupQuestList/restoreMap) -- a live rescale vanilla WoW's own map
+-- never does. Our continent overlay geometry is sampled once per
+-- continent and cached (SampleContinent), so a rescale after that sample
+-- desyncs it from what's actually on screen: reported as the tint
+-- rendering as oversized solid boxes instead of zone-shaped highlights.
+-- Rather than fight a rescale we can't reliably observe, skip the
+-- overlay entirely when Mapster is loaded -- the zone panel (which
+-- doesn't depend on continent geometry) still works normally.
+local function MapsterLoaded()
+    return IsAddOnLoaded and IsAddOnLoaded("Mapster")
+end
+end
+
 local function ShowContinentOverlays()
     if not MapFeatureEnabled() then
         HideOverlays()
@@ -207,6 +246,16 @@ local function ShowContinentOverlays()
     end
     local parent = WorldMapButton or WorldMapDetailFrame
     if not parent then return end
+    if MapsterLoaded() then
+        HideOverlays()
+        if not legend then
+            legend = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+            legend:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -10, 10)
+        end
+        legend:SetText("|cff888888Zone tinting disabled (Mapster changes map scaling)|r")
+        legend:Show()
+        return
+    end
     local cont = GetCurrentMapContinent and GetCurrentMapContinent() or 0
     local zone = GetCurrentMapZone and GetCurrentMapZone() or 0
     if cont <= 0 or zone ~= 0 then
@@ -266,6 +315,10 @@ local function RefreshMapPanel()
     if not WorldMapFrame or not WorldMapFrame:IsShown() then return end
     ShowContinentOverlays()
     EnsureMapPanel()
+    if not EbonBuilds.WorldIntegration.IsMapPanelEnabled() then
+        mapPanel:Hide()
+        return
+    end
     -- Displayed zone's localized name (3.3.5a): resolve via the map
     -- zone index; fall back to the player's current zone text when the
     -- map shows a continent view.
