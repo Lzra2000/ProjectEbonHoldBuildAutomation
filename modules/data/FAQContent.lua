@@ -7,19 +7,15 @@ local addonName, EbonBuilds = ...
 
 EbonBuilds.FAQContent = { PAGES = {
 {
-    title = "What's new: 3.79 (2026-07-21) -- Fix: Inspect showed the build list through it, and only 8 priorities",
+    title = "What's new: 3.80 (2026-07-21) -- A real icon on the Public Builds vote button",
     category = "What's New",
     lines = {
         "",
-        "Reported right after 3.78 with a screenshot: opening Inspect on a public",
-        "build left the list visibly showing through underneath, and the",
-        "priorities section was capped at 8 flat text lines.",
-        "",
-        "- The Inspect panel now sits on a properly opaque top layer -- no more",
-        "list content bleeding through behind it.",
-        "- Priorities are shown the way the build editor shows them: an icon, the",
-        "name in its quality color, and the weight, for every configured priority",
-        "-- not just the top 8, and scrollable.",
+        "The vote button has shown a plain \"^\" character since it shipped. It's",
+        "now an actual chevron icon -- filled gold once you've voted, a dim",
+        "outline before -- generated from the same source and palette as the",
+        "minimap icon and the website logo, so all three are provably one design",
+        "instead of three separate guesses at it.",
     },
 },
 {
