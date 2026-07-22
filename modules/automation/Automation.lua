@@ -2,8 +2,8 @@ local addonName, EbonBuilds = ...
 
 -- EbonBuilds: modules/automation/Automation.lua
 -- Responsibility: evaluate offered echo choices against the active build's
--- automation thresholds and execute the optimal action (banish -> reroll ->
--- freeze -> select). Secure post-hooks suppress the native choice surface only
+-- automation thresholds and execute one freeze-first action at a time. Secure
+-- post-hooks suppress the native choice surface only
 -- while Autopilot owns the board and restore it on every fallback path.
 
 EbonBuilds.Automation = {}
@@ -16,17 +16,56 @@ local FAMILY_MAP = {
     None   = "No family",
 }
 
-local function GetEvalDelay()
-    return (EbonBuildsDB.globalSettings and EbonBuildsDB.globalSettings.evalDelay) or 2
+local INITIAL_ACTION_DELAY = 2.5
+local FREEZE_RECOVERY_POLL_DELAY = 0.75
+
+local function GetEvalDelay(minimum)
+    local delay = (EbonBuildsDB.globalSettings and EbonBuildsDB.globalSettings.evalDelay) or 2
+    if minimum and delay < minimum then return minimum end
+    return delay
 end
 
 local pendingChoices    = nil
 local trainingNoticeShown = false -- once-per-session Manual Training notice (see the eval timer)
 local hookInstalled       = false
-local freezeRoundActive    = false  -- true after freeze batch, cleared on select
-local locallyFrozenIndices = {}     -- indices frozen this round, for penalty tracking
 local cachedPeak           = nil    -- locked at first evaluation of the run
 local lastNoActionReason    = nil
+local initialActionDelayPending = false
+
+local function IsInitialRunLevel()
+    return type(UnitLevel) == "function" and tonumber(UnitLevel("player")) == 1
+end
+
+local Decision = EbonBuilds.AutomationBoardDecision
+local MAX_FREEZE_CONFIRM_POLLS = 3
+local MAX_FREEZE_RECOVERY_POLLS = 2
+local boardState = {
+    state = Decision.STATE.IDLE,
+    revision = 0,
+    fingerprint = nil,
+    identityFingerprint = nil,
+    frozenCount = 0,
+    frozenBySlot = {},
+    frozenEchoIDs = {},
+    frozenThisBoardBySlot = {},
+    frozenThisBoardEchoIDs = {},
+    pendingFreezeSlot = nil,
+    pendingFreezeEchoID = nil,
+    pendingFreezeFingerprint = nil,
+    pendingFreezeIdentity = nil,
+    pendingFreezeChecks = 0,
+    pendingFreezeUsedCount = nil,
+    pendingAction = nil,
+    pendingActionFingerprint = nil,
+    pendingActionIdentity = nil,
+    frozenStateUncertain = false,
+    uncertainFreezeSlot = nil,
+    uncertainFreezeEchoID = nil,
+    uncertainFreezeIdentity = nil,
+    uncertainFreezeChecks = 0,
+    uncertainFreezeUsedCount = nil,
+    failedFreezeBySlot = {},
+}
 
 ------------------------------------------------------------------------
 -- Native ProjectEbonhold choice-surface guard
@@ -214,9 +253,13 @@ end
 -- Internal helpers
 ------------------------------------------------------------------------
 
-local function StartEvalTimer()
+local function StartEvalTimer(delayOverride)
     RefreshNativeChoiceGuard()
-    EbonBuilds.Scheduler.After("automation.evaluate", GetEvalDelay(), function()
+    local delay = delayOverride or GetEvalDelay()
+    if initialActionDelayPending and delay < INITIAL_ACTION_DELAY then
+        delay = INITIAL_ACTION_DELAY
+    end
+    EbonBuilds.Scheduler.After("automation.evaluate", delay, function()
         local build = EbonBuilds.Build.GetActive()
         local wasActive = build and EbonBuilds.Build.IsAutomationEnabled(build)
         local isTraining = build and EbonBuilds.ManualTraining and EbonBuilds.ManualTraining.IsEnabled(build)
@@ -279,6 +322,13 @@ end
 function EbonBuilds.Automation.ResetPeakCache()
     cachedPeak = nil
     cachedStats = nil
+end
+
+function EbonBuilds.Automation.ResetInitialActionDelay()
+    -- A genuinely new run arms the one-shot pause at level 1. Once armed it
+    -- intentionally survives an instant boost to level 50, while reconstructing
+    -- a session later in the run cannot re-arm it.
+    initialActionDelayPending = IsInitialRunLevel()
 end
 
 -- Shared charge-based pacing: scales a threshold based on how many
@@ -445,24 +495,13 @@ local function CommitDecision(decision)
     local action = decision.action
     if action == "select" then
         RecordPick(decision.build, decision.entry)
-        locallyFrozenIndices = {}
-        freezeRoundActive = false
     elseif action == "banish" then
         RecordBanish(decision.build, decision.entry)
     elseif action == "reroll" then
         UpdateStat(decision.build, "rerollsUsed")
-    elseif action == "freeze" then
-        UpdateStat(decision.build, "freezesUsed")
-        locallyFrozenIndices[decision.targetIndex] = true
-        freezeRoundActive = true
-        local runData = GetRunData()
-        if runData and runData.usedFreezes ~= nil then
-            runData.usedFreezes = runData.usedFreezes + 1
-        end
     end
 
     LogAndToast(decision.scored, decision.displayAction, decision.targetIndex or 0)
-    if action == "freeze" then StartEvalTimer() end
 end
 
 local function SubmitAction(action, build, scored, targetIndex, entry, displayAction)
@@ -476,18 +515,9 @@ local function SubmitAction(action, build, scored, targetIndex, entry, displayAc
         accepted = api.RequestBanish((targetIndex or 1) - 1)
     elseif action == "reroll" then
         accepted = api.RequestReroll()
-    elseif action == "freeze" then
-        accepted = api.RequestFreeze((targetIndex or 1) - 1)
     end
     if not accepted then return false end
 
-    -- ProjectEbonhold's public service return value means the request was
-    -- accepted locally and sent. Do not hold the automation engine behind a
-    -- speculative acknowledgement watcher: older server builds expose no
-    -- reliable multi-listener result API, and a missed transition would block
-    -- every later level-up. Native service pending flags still prevent duplicate
-    -- requests, while the watchdog below restores manual controls if the server
-    -- never advances the board.
     CommitDecision({
         action = action,
         build = build,
@@ -505,47 +535,22 @@ end
 ------------------------------------------------------------------------
 
 local function IsActionable(s)
-    return s and not s.isFrozen and not s.isCarried and not locallyFrozenIndices[s.index] and not s.policyBlocked
+    return s and not s.isFrozen and not s.isCarried and not s.policyBlocked
 end
 
 local function TrySelect(scored, settings, build)
-    local nonBanned, eligible = {}, {}
+    local best, bestBanned
     for _, s in ipairs(scored) do
-        -- Conditional policies are hard selection rules. Unlike the legacy
-        -- ban list, they are never violated merely because every card happens
-        -- to be blocked on the current board.
-        if not locallyFrozenIndices[s.index] and not s.policyBlocked then
-            eligible[#eligible + 1] = s
-            if not EbonBuilds.Scoring.IsBanned(s.spellId, settings) then
-                nonBanned[#nonBanned + 1] = s
+        if IsActionable(s) then
+            local current = EbonBuilds.Scoring.IsBanned(s.spellId, settings) and bestBanned or best
+            if not current or (s.score or 0) > (current.score or 0)
+                or ((s.score or 0) == (current.score or 0) and s.index < current.index) then
+                if EbonBuilds.Scoring.IsBanned(s.spellId, settings) then bestBanned = s else best = s end
             end
         end
     end
-    -- Preserve the old freeze safety fallback only for locally frozen cards;
-    -- policy-blocked cards remain excluded.
-    if #eligible == 0 then
-        local anyPolicyBlocked = false
-        for _, s in ipairs(scored) do
-            if s.policyBlocked then
-                anyPolicyBlocked = true
-            else
-                eligible[#eligible + 1] = s
-                if not EbonBuilds.Scoring.IsBanned(s.spellId, settings) then nonBanned[#nonBanned + 1] = s end
-            end
-        end
-        if anyPolicyBlocked and #eligible == 0 then return false, nil, "policy_blocked" end
-    end
-    local candidates = #nonBanned > 0 and nonBanned or eligible
-    if #candidates == 0 then return false, nil end
-
-    table.sort(candidates, function(a, b) return a.score > b.score end)
-
-    local pick
-    if #nonBanned == 0 and settings.echoBanAllMode == "random" then
-        pick = candidates[math.random(1, #candidates)]
-    else
-        pick = candidates[1]
-    end
+    local pick = best or bestBanned
+    if not pick then return false, nil, "policy_blocked" end
 
     if SubmitAction("select", build, scored, pick.index, pick, "Select") then
         return true, pick
@@ -566,6 +571,7 @@ local function AnnotateScored(scored, settings, lockedList, selectedNames)
             s.policyEffect = policyApi.Resolve(s.policy, s.policySelected)
             s.policyBlocked = s.policyEffect == "banish" or s.policyEffect == "exclude"
         end
+        s.isAvoided = s.isBanned or s.policyBlocked
         s.isLocked      = false
         for _, lockedId in ipairs(lockedList) do
             if lockedId and lockedId == s.spellId then
@@ -594,10 +600,500 @@ local function RecordAppearanceChoices(choices)
     end
 end
 
+local function ClearMap(map)
+    for key in pairs(map) do map[key] = nil end
+end
+
+local function ClearPendingFreeze()
+    boardState.pendingFreezeSlot = nil
+    boardState.pendingFreezeEchoID = nil
+    boardState.pendingFreezeFingerprint = nil
+    boardState.pendingFreezeIdentity = nil
+    boardState.pendingFreezeChecks = 0
+    boardState.pendingFreezeUsedCount = nil
+end
+
+local function ClearPendingAction()
+    boardState.pendingAction = nil
+    boardState.pendingActionFingerprint = nil
+    boardState.pendingActionIdentity = nil
+end
+
+local function ClearFreezeUncertainty()
+    boardState.frozenStateUncertain = false
+    boardState.uncertainFreezeSlot = nil
+    boardState.uncertainFreezeEchoID = nil
+    boardState.uncertainFreezeIdentity = nil
+    boardState.uncertainFreezeChecks = 0
+    boardState.uncertainFreezeUsedCount = nil
+end
+
+local function MarkFrozenThisBoard(slot)
+    if not slot then return end
+    local index = tonumber(slot.index)
+    local echoID = tonumber(slot.spellId) or slot.echoId or slot.refKey
+    if index ~= nil then boardState.frozenThisBoardBySlot[index] = true end
+    if echoID ~= nil then boardState.frozenThisBoardEchoIDs[echoID] = true end
+end
+
+local function UnmarkFrozenThisBoard(index, echoID)
+    index = tonumber(index)
+    echoID = tonumber(echoID) or echoID
+    if index ~= nil then boardState.frozenThisBoardBySlot[index] = nil end
+    if echoID ~= nil then boardState.frozenThisBoardEchoIDs[echoID] = nil end
+end
+
+local function ResetObservedBoard(nextState)
+    boardState.state = nextState or Decision.STATE.IDLE
+    boardState.fingerprint = nil
+    boardState.identityFingerprint = nil
+    boardState.frozenCount = 0
+    ClearFreezeUncertainty()
+    ClearMap(boardState.frozenBySlot)
+    ClearMap(boardState.frozenEchoIDs)
+    ClearMap(boardState.frozenThisBoardBySlot)
+    ClearMap(boardState.frozenThisBoardEchoIDs)
+    ClearMap(boardState.failedFreezeBySlot)
+    ClearPendingFreeze()
+    ClearPendingAction()
+end
+
+local function Remaining(total, used)
+    return math.max(0, (tonumber(total) or 0) - (tonumber(used) or 0))
+end
+
+local function GetFreezeThreshold(settings, runData, peakScore)
+    local remaining = runData and Remaining(runData.totalFreezes, runData.usedFreezes) or 0
+    local pacing = ChargePacing(remaining, 6, 1.4, "above")
+    if (settings.rerollMode or "sum") == "ev" then
+        return EbonBuilds.Automation.GetOutcomeStats().evBest3
+            * (settings.freezeEVPct or 110) / 100 * pacing
+    end
+    return math.floor(peakScore * (settings.autoFreezePct or 0) / 100 * pacing)
+end
+
+local function GetBanishThreshold(settings, runData, peakScore)
+    local remaining = runData and (tonumber(runData.remainingBanishes) or 0) or 0
+    local pacing = ChargePacing(remaining, 8, 0.7, "below")
+    if (settings.rerollMode or "sum") == "ev" then
+        return EbonBuilds.Automation.GetOutcomeStats().mean
+            * (settings.banishEVPct or 60) / 100 * pacing
+    end
+    return math.floor(peakScore * (settings.autoBanishPct or 0) / 100 * pacing)
+end
+
+local function SetPickAcceptability(board, settings, runData, peakScore)
+    local pick = Decision.FindBestLegalPick(board)
+    if not pick then
+        board.pickIsAcceptable = false
+        return
+    end
+
+    local remaining = runData and Remaining(runData.totalRerolls, runData.usedRerolls) or 0
+    if remaining <= 0 then
+        board.pickIsAcceptable = true
+        return
+    end
+
+    local pacing = ChargePacing(remaining, 8, 0.6, "below")
+    if (settings.rerollMode or "sum") == "ev" then
+        board.rerollThreshold = EbonBuilds.Automation.GetRerollEV()
+            * (settings.rerollEVPct or 95) / 100 * pacing
+        board.pickIsAcceptable = (pick.score or 0) >= board.rerollThreshold
+        if peakScore > 0 and pacing > 0 and EbonBuilds.Calibration then
+            EbonBuilds.Calibration.RecordBestSample(((pick.score or 0) / peakScore * 100) / pacing)
+        end
+        return
+    end
+
+    local guardThreshold = math.floor(peakScore * (settings.rerollGuardPct or 90) / 100 * pacing)
+    local sum = 0
+    local guarded = false
+    for _, slot in ipairs(board.slots) do
+        if Decision._IsLegalSelection(slot, board) then
+            sum = sum + (slot.score or 0)
+            if (slot.score or 0) >= guardThreshold then guarded = true end
+        end
+    end
+    board.rerollThreshold = peakScore * (settings.autoRerollPct or 0) / 100 * pacing
+    board.pickIsAcceptable = guarded or sum >= board.rerollThreshold
+end
+
+local function NewRawBoard(choices)
+    local board = { slots = {}, isValid = type(choices) == "table", isStable = true }
+    if type(choices) ~= "table" then return board end
+    for i, choice in ipairs(choices) do
+        local spellId = tonumber(choice and choice.spellId)
+        board.slots[#board.slots + 1] = {
+            index = i,
+            spellId = spellId,
+            isFrozen = choice and choice.isFrozen and true or false,
+            isCarried = choice and choice.isCarried and true or false,
+        }
+        if not spellId then board.isValid = false end
+        if choice and choice.frozenStateKnown == false then board.isStable = false end
+    end
+    if #board.slots == 0 then board.isValid = false end
+    return board
+end
+
+local function CurrentBoardFingerprint()
+    local choices = EbonBuilds.ProjectAPI and EbonBuilds.ProjectAPI.GetCurrentChoice
+        and EbonBuilds.ProjectAPI.GetCurrentChoice() or nil
+    return Decision.Fingerprint(NewRawBoard(choices))
+end
+
+local function BuildBoard(choices, settings, build, runData, peakScore)
+    local scored = {}
+    local valid = type(choices) == "table" and #choices > 0
+    local stable = valid
+    for i, choice in ipairs(choices or {}) do
+        local s = ScoreChoice(choice, settings)
+        if s then
+            s.index = i
+            s.isValid = true
+            scored[#scored + 1] = s
+        else
+            valid = false
+        end
+        if choice and choice.frozenStateKnown == false then stable = false end
+    end
+    if #scored ~= #(choices or {}) then valid = false end
+
+    local selectedNames = EbonBuilds.EchoPolicy and EbonBuilds.EchoPolicy.SelectedNames() or {}
+    AnnotateScored(scored, settings, build.lockedEchoes or {}, selectedNames)
+
+    local board = {
+        slots = scored,
+        isValid = valid,
+        isStable = stable,
+        maxFrozen = Decision.MAX_FROZEN_PER_BOARD,
+        freezeThreshold = GetFreezeThreshold(settings, runData, peakScore),
+        freezeResources = runData and Remaining(runData.totalFreezes, runData.usedFreezes) or 0,
+        canReroll = runData and Remaining(runData.totalRerolls, runData.usedRerolls) > 0 or false,
+        canBanish = runData and (tonumber(runData.remainingBanishes) or 0) > 0 or false,
+        frozenThisBoardBySlot = boardState.frozenThisBoardBySlot,
+        frozenThisBoardEchoIDs = boardState.frozenThisBoardEchoIDs,
+    }
+    Decision.RefreshFrozenState(board)
+    board.banishThreshold = GetBanishThreshold(settings, runData, peakScore)
+    for _, slot in ipairs(board.slots) do
+        slot.banishEligible = not slot.isAvoided and (slot.score or 0) < board.banishThreshold
+    end
+    SetPickAcceptability(board, settings, runData, peakScore)
+    board.fingerprint = Decision.Fingerprint(board)
+    board.identityFingerprint = Decision.IdentityFingerprint(board)
+    return board
+end
+
+local function ObserveBoard(board)
+    if boardState.fingerprint ~= board.fingerprint then
+        boardState.revision = boardState.revision + 1
+    end
+    boardState.fingerprint = board.fingerprint
+    boardState.identityFingerprint = board.identityFingerprint
+    boardState.frozenCount = board.frozenCount
+    ClearMap(boardState.frozenBySlot)
+    ClearMap(boardState.frozenEchoIDs)
+    for key, value in pairs(board.frozenBySlot or {}) do boardState.frozenBySlot[key] = value end
+    for key, value in pairs(board.frozenEchoIDs or {}) do boardState.frozenEchoIDs[key] = value end
+    board.revision = boardState.revision
+end
+
+local function FindFreezeSlot(board, index, echoID)
+    for _, slot in ipairs(board.slots or {}) do
+        local slotID = tonumber(slot.spellId) or slot.echoId or slot.refKey
+        if tonumber(slot.index) == tonumber(index) and slotID == echoID then return slot end
+    end
+    return nil
+end
+
+local function FreezeResourceAdvanced(runData, usedCountSnapshot)
+    if not runData or usedCountSnapshot == nil or runData.usedFreezes == nil then return false end
+    return (tonumber(runData.usedFreezes) or 0) > (tonumber(usedCountSnapshot) or 0)
+end
+
+local function CommitConfirmedFreeze(build, board, runData, slot, usedCountSnapshot, late, source)
+    UpdateStat(build, "freezesUsed")
+    if runData and runData.usedFreezes ~= nil
+        and tonumber(runData.usedFreezes) == tonumber(usedCountSnapshot) then
+        runData.usedFreezes = (tonumber(runData.usedFreezes) or 0) + 1
+        board.freezeResources = math.max(0, (board.freezeResources or 0) - 1)
+    end
+    EbonBuilds.DebugLog.AddF("Freeze confirmed%s%s: [%d] %s (%s)",
+        late and " after recovery" or "",
+        source == "resource" and " by server resource counter" or "",
+        slot.index, slot.name, tostring(slot.spellId))
+    boardState.state = Decision.STATE.EVALUATING
+end
+
+local function ResolvePendingFreeze(build, board, runData)
+    if not boardState.pendingFreezeSlot then return "none" end
+    local pendingStatus, slot = Decision.ClassifyPendingFreeze(board,
+        boardState.pendingFreezeSlot, boardState.pendingFreezeEchoID, boardState.pendingFreezeIdentity)
+    local confirmationSource = "board"
+    if pendingStatus == "waiting"
+        and FreezeResourceAdvanced(runData, boardState.pendingFreezeUsedCount) then
+        slot = FindFreezeSlot(board, boardState.pendingFreezeSlot, boardState.pendingFreezeEchoID)
+        if slot then
+            pendingStatus = "confirmed"
+            confirmationSource = "resource"
+        end
+    end
+    if pendingStatus == "confirmed" then
+        local usedCountSnapshot = boardState.pendingFreezeUsedCount
+        ClearPendingFreeze()
+        ClearFreezeUncertainty()
+        CommitConfirmedFreeze(build, board, runData, slot, usedCountSnapshot, false, confirmationSource)
+        return "confirmed"
+    end
+
+    if pendingStatus == "board_changed" then
+        EbonBuilds.DebugLog.Add("Freeze confirmation failed: board changed after the request; stale target cleared")
+        ClearPendingFreeze()
+        ClearFreezeUncertainty()
+        boardState.state = Decision.STATE.EVALUATING
+        return "changed"
+    end
+
+    boardState.pendingFreezeChecks = boardState.pendingFreezeChecks + 1
+    if boardState.pendingFreezeChecks < MAX_FREEZE_CONFIRM_POLLS then
+        boardState.state = Decision.STATE.WAITING_FOR_FREEZE_CONFIRMATION
+        EbonBuilds.DebugLog.AddF("Pending action: Freeze slot %d; waiting for server confirmation (%d/%d)",
+            boardState.pendingFreezeSlot, boardState.pendingFreezeChecks, MAX_FREEZE_CONFIRM_POLLS)
+        EbonBuilds.DebugLog.Add("Reroll status: Blocked because freeze confirmation is pending")
+        StartEvalTimer()
+        return "waiting"
+    end
+
+    local failedSlot = boardState.pendingFreezeSlot
+    boardState.uncertainFreezeSlot = failedSlot
+    boardState.uncertainFreezeEchoID = boardState.pendingFreezeEchoID
+    boardState.uncertainFreezeIdentity = boardState.pendingFreezeIdentity
+    boardState.uncertainFreezeUsedCount = boardState.pendingFreezeUsedCount
+    boardState.uncertainFreezeChecks = 0
+    boardState.failedFreezeBySlot[failedSlot] = true
+    boardState.frozenStateUncertain = true
+    ClearPendingFreeze()
+    boardState.state = Decision.STATE.WAITING_FOR_FREEZE_CONFIRMATION
+    EbonBuilds.DebugLog.AddF("Freeze confirmation delayed: slot %d entered stable-board recovery; no request will be repeated", failedSlot)
+    EbonBuilds.DebugLog.Add("Reroll status: Blocked while frozen state is being rechecked")
+    StartEvalTimer(FREEZE_RECOVERY_POLL_DELAY)
+    return "recovering"
+end
+
+local function ResolveFreezeUncertainty(build, board, runData)
+    if not boardState.frozenStateUncertain or not boardState.uncertainFreezeSlot then return "none" end
+
+    local status, slot = Decision.ClassifyPendingFreeze(board,
+        boardState.uncertainFreezeSlot, boardState.uncertainFreezeEchoID,
+        boardState.uncertainFreezeIdentity)
+    local confirmationSource = "board"
+    if status == "waiting"
+        and FreezeResourceAdvanced(runData, boardState.uncertainFreezeUsedCount) then
+        slot = FindFreezeSlot(board, boardState.uncertainFreezeSlot, boardState.uncertainFreezeEchoID)
+        if slot then
+            status = "confirmed"
+            confirmationSource = "resource"
+        end
+    end
+    if status == "confirmed" then
+        local usedCountSnapshot = boardState.uncertainFreezeUsedCount
+        ClearFreezeUncertainty()
+        CommitConfirmedFreeze(build, board, runData, slot, usedCountSnapshot, true, confirmationSource)
+        return "confirmed"
+    end
+    if status == "board_changed" then
+        EbonBuilds.DebugLog.Add("Freeze uncertainty cleared: board identity changed")
+        ClearFreezeUncertainty()
+        boardState.state = Decision.STATE.EVALUATING
+        return "changed"
+    end
+
+    boardState.uncertainFreezeChecks = boardState.uncertainFreezeChecks + 1
+    if boardState.uncertainFreezeChecks < MAX_FREEZE_RECOVERY_POLLS then
+        boardState.state = Decision.STATE.WAITING_FOR_FREEZE_CONFIRMATION
+        EbonBuilds.DebugLog.AddF("Freeze recovery: stable unfrozen read %d/%d; reroll remains blocked",
+            boardState.uncertainFreezeChecks, MAX_FREEZE_RECOVERY_POLLS)
+        StartEvalTimer(FREEZE_RECOVERY_POLL_DELAY)
+        return "recovering"
+    end
+
+    local failedSlot = boardState.uncertainFreezeSlot
+    local failedEchoID = boardState.uncertainFreezeEchoID
+    UnmarkFrozenThisBoard(failedSlot, failedEchoID)
+    ClearFreezeUncertainty()
+    boardState.state = Decision.STATE.EVALUATING
+    EbonBuilds.DebugLog.AddF("Freeze recovery resolved: slot %d remained unfrozen across stable reads; continuing without retry", failedSlot)
+    return "resolved"
+end
+
+local function AttachRuntimeState(board)
+    board.pendingFreezeSlot = boardState.pendingFreezeSlot
+    board.pendingFreezeEchoID = boardState.pendingFreezeEchoID
+    board.frozenStateUncertain = boardState.frozenStateUncertain
+    board.failedFreezeBySlot = boardState.failedFreezeBySlot
+    board.frozenThisBoardBySlot = boardState.frozenThisBoardBySlot
+    board.frozenThisBoardEchoIDs = boardState.frozenThisBoardEchoIDs
+    board.pendingAction = boardState.pendingAction
+end
+
+local function ResolvePendingAction(board)
+    if not boardState.pendingAction then return "none" end
+    if board.identityFingerprint ~= boardState.pendingActionIdentity then
+        EbonBuilds.DebugLog.Add("Board update confirmed after " .. tostring(boardState.pendingAction))
+        ClearPendingAction()
+        boardState.state = Decision.STATE.EVALUATING
+        return "changed"
+    end
+    boardState.state = Decision.STATE.WAITING_FOR_BOARD_UPDATE
+    EbonBuilds.DebugLog.Add("Pending action: " .. tostring(boardState.pendingAction)
+        .. "; duplicate request blocked while waiting for board update")
+    return "waiting"
+end
+
+local function LogBoardDecision(board, decision)
+    if not EbonBuilds.DebugLog.IsEnabled() then return end
+    local visible = {}
+    for _, slot in ipairs(board.slots or {}) do
+        visible[#visible + 1] = string.format("[%d] %s(%s)=%.0f%s",
+            slot.index, slot.name or "?", tostring(slot.spellId or "?"), slot.score or 0,
+            (slot.isFrozen or slot.isCarried) and " FROZEN" or "")
+    end
+    local pick = Decision.FindBestLegalPick(board)
+    local freeze = Decision.FindBestFreezeCandidate(board, pick)
+    EbonBuilds.DebugLog.Add("Board: " .. table.concat(visible, ", "))
+    EbonBuilds.DebugLog.AddF("Frozen: %d/%d", board.frozenCount or 0, board.maxFrozen or 2)
+    EbonBuilds.DebugLog.Add("Pick target: " .. (pick and string.format("[%d] %s", pick.index, pick.name) or "none"))
+    EbonBuilds.DebugLog.Add("Freeze candidate: " .. (freeze and string.format("[%d] %s", freeze.index, freeze.name) or "none"))
+    EbonBuilds.DebugLog.Add("Pending action: " .. (board.pendingFreezeSlot and ("Freeze slot " .. board.pendingFreezeSlot) or "none"))
+    EbonBuilds.DebugLog.Add("Action: " .. tostring(decision.action) .. " -- " .. tostring(decision.reason))
+    if decision.action == "FREEZE" and pick then
+        EbonBuilds.DebugLog.Add("Selection delayed: a qualifying unfrozen Echo must be secured first")
+    end
+    if (board.frozenCount or 0) > 0 then
+        EbonBuilds.DebugLog.Add("Reroll status: Blocked because board contains a frozen Echo")
+    elseif board.pendingFreezeSlot then
+        EbonBuilds.DebugLog.Add("Reroll status: Blocked because freeze confirmation is pending")
+    elseif board.frozenStateUncertain then
+        EbonBuilds.DebugLog.Add("Reroll status: Blocked because frozen state is uncertain")
+    end
+end
+
+local function RequestFreeze(build, board, target)
+    if board.frozenCount >= (board.maxFrozen or 2) then
+        EbonBuilds.DebugLog.Add("Freeze blocked: board already contains two frozen Echoes")
+        return false
+    end
+    boardState.state = Decision.STATE.REQUESTING_FREEZE
+    boardState.pendingFreezeSlot = target.index
+    boardState.pendingFreezeEchoID = target.spellId
+    boardState.pendingFreezeFingerprint = board.fingerprint
+    boardState.pendingFreezeIdentity = board.identityFingerprint
+    boardState.pendingFreezeChecks = 0
+    local runData = GetRunData()
+    boardState.pendingFreezeUsedCount = runData and tonumber(runData.usedFreezes) or nil
+
+    local accepted = EbonBuilds.ProjectAPI.RequestFreeze(target.index - 1)
+    if not accepted then
+        boardState.failedFreezeBySlot[target.index] = true
+        ClearPendingFreeze()
+        ClearFreezeUncertainty()
+        boardState.state = Decision.STATE.RECOVERY
+        EbonBuilds.DebugLog.AddF("Freeze request rejected locally: [%d] %s; no uncertain server request remains", target.index, target.name)
+        lastNoActionReason = "Autopilot paused: Freeze request failed; choose manually"
+        return false
+    end
+
+    boardState.state = Decision.STATE.WAITING_FOR_FREEZE_CONFIRMATION
+    MarkFrozenThisBoard(target)
+    -- Record the accepted request immediately. Confirmation can arrive late (or
+    -- only through recovery), so using confirmation as the Logbook trigger can
+    -- silently lose the action. CommitConfirmedFreeze deliberately does not log
+    -- again; it only reconciles confirmed stats and resources.
+    LogAndToast(board.slots, "Freeze", target.index)
+    EbonBuilds.DebugLog.AddF("-> REQUEST FREEZE [%d] %s (score %.0f); waiting for confirmation",
+        target.index, target.name, target.score or 0)
+    EbonBuilds.DebugLog.Add("Reroll status: Blocked because freeze confirmation is pending")
+    ArmRequestFallback()
+    StartEvalTimer()
+    return true
+end
+
+local function ExecuteDecision(build, board, decision)
+    if decision.action == "WAIT" or decision.action == "WAIT_FOR_FREEZE" then return true end
+    if decision.action == "RECOVERY" then
+        boardState.state = Decision.STATE.RECOVERY
+        lastNoActionReason = "Autopilot paused: " .. tostring(decision.reason or "no safe action")
+        return false
+    end
+
+    if CurrentBoardFingerprint() ~= board.fingerprint then
+        boardState.state = Decision.STATE.WAITING_FOR_BOARD
+        EbonBuilds.DebugLog.Add("Action cancelled: board changed since evaluation; stale slot references cleared")
+        StartEvalTimer()
+        return true
+    end
+
+    if decision.action == "FREEZE" then
+        return RequestFreeze(build, board, decision.target)
+    end
+
+    if decision.action == "SELECT" then
+        if boardState.pendingFreezeSlot or boardState.frozenStateUncertain
+            or Decision.HasUnsecuredFreezeCandidate(board, decision.target) then
+            EbonBuilds.DebugLog.Add("Selection blocked: a freeze is pending or an unsecured freeze candidate remains")
+            StartEvalTimer()
+            return true
+        end
+        boardState.state = Decision.STATE.SELECTING
+        if SubmitAction("select", build, board.slots, decision.target.index, decision.target, "Select") then
+            boardState.pendingAction = "select"
+            boardState.pendingActionFingerprint = board.fingerprint
+            boardState.pendingActionIdentity = board.identityFingerprint
+            boardState.state = Decision.STATE.WAITING_FOR_BOARD_UPDATE
+            EbonBuilds.DebugLog.AddF("-> REQUEST SELECT [%d] %s (score %.0f)",
+                decision.target.index, decision.target.name, decision.target.score or 0)
+            return true
+        end
+    elseif decision.action == "BANISH" then
+        if board.frozenCount > 0 or boardState.pendingFreezeSlot or boardState.frozenStateUncertain then
+            EbonBuilds.DebugLog.Add("Banish blocked: frozen-board safety guard")
+            return false
+        end
+        boardState.state = Decision.STATE.BANISHING
+        if SubmitAction("banish", build, board.slots, decision.target.index, decision.target, "Banish") then
+            boardState.pendingAction = "banish"
+            boardState.pendingActionFingerprint = board.fingerprint
+            boardState.pendingActionIdentity = board.identityFingerprint
+            boardState.state = Decision.STATE.WAITING_FOR_BOARD_UPDATE
+            return true
+        end
+    elseif decision.action == "REROLL" then
+        local allowed, reason = Decision.CanReroll(board)
+        if not allowed then
+            EbonBuilds.DebugLog.Add("Reroll blocked: " .. tostring(reason))
+            return false
+        end
+        boardState.state = Decision.STATE.REROLLING
+        if SubmitAction("reroll", build, board.slots, 0, nil, "Reroll") then
+            boardState.pendingAction = "reroll"
+            boardState.pendingActionFingerprint = board.fingerprint
+            boardState.pendingActionIdentity = board.identityFingerprint
+            boardState.state = Decision.STATE.WAITING_FOR_BOARD_UPDATE
+            return true
+        end
+    end
+
+    boardState.state = Decision.STATE.RECOVERY
+    lastNoActionReason = "Autopilot request was rejected; choose manually"
+    return false
+end
+
 local evalInProgress = false
 
 function EbonBuilds.Automation.Evaluate()
-    if evalInProgress then return false end
+    if evalInProgress then return true end
     evalInProgress = true
 
     local function body()
@@ -605,361 +1101,57 @@ function EbonBuilds.Automation.Evaluate()
         local build = EbonBuilds.Build.GetActive()
         if not build then return false end
 
-        local choices = ProjectEbonhold.PerkService.GetCurrentChoice()
+        local choices = EbonBuilds.ProjectAPI.GetCurrentChoice()
         if not choices or #choices == 0 then return false end
 
-        -- First-offer analytics must run before every opt-out and before any
-        -- action mutates the board. Session.RecordInitialOffer writes once per
-        -- level, so repeated evaluations, rerolls, and banish replacements do
-        -- not inflate the Level 1-3 Epic statistics.
         if EbonBuilds.Session and EbonBuilds.Session.RecordInitialOffer then
             EbonBuilds.Session.RecordInitialOffer(choices)
         end
-
-        -- Appearance frequency is useful even while the player is choosing
-        -- manually, so record the offer before either opt-out path below.
         RecordAppearanceChoices(choices)
 
-        -- Manual Training Mode is independent of Autopilot. When enabled,
-        -- EbonBuilds observes the native manual pick but never acts.
         if EbonBuilds.ManualTraining and EbonBuilds.ManualTraining.IsEnabled(build) then return false end
         if not EbonBuilds.Build.IsAutomationEnabled(build) then return false end
 
-        local settings   = EbonBuilds.Scoring.GetEffectiveSettings()
-        local runData    = GetRunData()
-        local lockedList = build.lockedEchoes or {}
+        -- Consume the one-shot startup latch after the first valid automation
+        -- board. It may have been armed at level 1 before an instant level-50
+        -- boost; every later board uses normal timing.
+        initialActionDelayPending = false
 
+        local settings = EbonBuilds.Scoring.GetEffectiveSettings()
+        local runData = GetRunData()
         local peakScore = EbonBuilds.Automation.GetPeak()
+        local board = BuildBoard(choices, settings, build, runData, peakScore)
 
-        -- Score all offered choices
-        local scored = {}
-        for i, choice in ipairs(choices) do
-            local s = ScoreChoice(choice, settings)
-            if s then
-                s.index = i -- 1-based
-                scored[#scored + 1] = s
-            end
-        end
-        if #scored == 0 then return false end
-
-        -- Feed the Tuning Advisor: what does this build actually get
-        -- offered, in practice? Cheap append, no analysis happens here.
         if peakScore and peakScore > 0 and EbonBuilds.Calibration then
-            for _, s in ipairs(scored) do
-                if s.score then
-                    EbonBuilds.Calibration.RecordSample(s.score / peakScore * 100)
-                end
+            for _, s in ipairs(board.slots) do
+                if s.score then EbonBuilds.Calibration.RecordSample(s.score / peakScore * 100) end
             end
-            -- Opt-in, rate-limited: only actually does anything once every
-            -- TUNE_INTERVAL_SAMPLES calls, and only if the player enabled
-            -- continuous auto-tune in the Tuning Advisor window.
             EbonBuilds.Calibration.MaybeAutoTune()
         end
 
-        local selectedNames = EbonBuilds.EchoPolicy and EbonBuilds.EchoPolicy.SelectedNames() or {}
-        AnnotateScored(scored, settings, lockedList, selectedNames)
+        local pendingResult = ResolvePendingFreeze(build, board, runData)
+        if pendingResult == "waiting" or pendingResult == "recovering" then return true end
 
-        if EbonBuilds.DebugLog.IsEnabled() then
-            local banishRemainingDbg = (runData and runData.remainingBanishes) or 0
-            local rerollRemainingDbg = (runData and ((runData.totalRerolls or 0) - (runData.usedRerolls or 0))) or 0
-            local freezeRemainingDbg = (runData and ((runData.totalFreezes or 0) - (runData.usedFreezes or 0))) or 0
-            local banishPacingDbg = ChargePacing(banishRemainingDbg, 8, 0.7, "below")
-            local rerollPacingDbg = ChargePacing(rerollRemainingDbg, 8, 0.6, "below")
-            local freezePacingDbg = ChargePacing(freezeRemainingDbg, 6, 1.4, "above")
-            local isSmartDbg = (settings.rerollMode or "sum") == "ev"
+        local recoveryResult = ResolveFreezeUncertainty(build, board, runData)
+        if recoveryResult == "recovering" then return true end
 
-            local hdrBanish, hdrFreeze, hdrReroll, hdrMode
-            if isSmartDbg then
-                local st = EbonBuilds.Automation.GetOutcomeStats()
-                hdrMode   = "SMART"
-                hdrBanish = math.floor(st.mean * (settings.banishEVPct or 60) / 100 * banishPacingDbg)
-                hdrFreeze = math.floor(st.evBest3 * (settings.freezeEVPct or 110) / 100 * freezePacingDbg)
-                hdrReroll = math.floor(EbonBuilds.Automation.GetRerollEV() * (settings.rerollEVPct or 95) / 100 * rerollPacingDbg)
-            else
-                hdrMode   = "CLASSIC"
-                hdrBanish = math.floor(peakScore * (settings.autoBanishPct or 0) / 100 * banishPacingDbg)
-                hdrFreeze = math.floor(peakScore * (settings.autoFreezePct or 0) / 100 * freezePacingDbg)
-                hdrReroll = math.floor(peakScore * (settings.autoRerollPct or 0) / 100 * rerollPacingDbg)
-            end
-            -- Reroll Guard is only ever checked in Classic mode's reroll
-            -- logic (Smart mode compares "best offered" directly, so the
-            -- same protection is already implicit) -- showing a guard
-            -- value in Smart mode's header would be pure dead information
-            -- that could mislead debugging ("why didn't guard block that
-            -- reroll" when it was never evaluated for this mode at all).
-            if isSmartDbg then
-                EbonBuilds.DebugLog.AddF("=== EVAL [%s] peak=%d | banish<%d (pace %.2f) reroll<%d (pace %.2f) freeze>%d (pace %.2f) | charges B:%d R:%d F:%d",
-                    hdrMode, peakScore,
-                    hdrBanish, banishPacingDbg,
-                    hdrReroll, rerollPacingDbg,
-                    hdrFreeze, freezePacingDbg,
-                    banishRemainingDbg, rerollRemainingDbg, freezeRemainingDbg)
-            else
-                local hdrGuard = math.floor(peakScore * (settings.rerollGuardPct or 90) / 100 * rerollPacingDbg)
-                EbonBuilds.DebugLog.AddF("=== EVAL [%s] peak=%d | banish<%d (pace %.2f) reroll<%d (pace %.2f) guard>=%d (pace %.2f) freeze>%d (pace %.2f) | charges B:%d R:%d F:%d",
-                    hdrMode, peakScore,
-                    hdrBanish, banishPacingDbg,
-                    hdrReroll, rerollPacingDbg,
-                    hdrGuard, rerollPacingDbg,
-                    hdrFreeze, freezePacingDbg,
-                    banishRemainingDbg, rerollRemainingDbg, freezeRemainingDbg)
-            end
-            for _, s in ipairs(scored) do
-                EbonBuilds.DebugLog.AddF("  [%d] %s q=%d score=%.0f w=%d%s%s%s",
-                    s.index, s.name, s.quality or 0, s.score or 0,
-                    EbonBuilds.Weights.GetForSpell(build, s.spellId, s.quality) or 0,
-                    s.isFrozen and " FROZEN" or "",
-                    s.isCarried and " CARRIED" or "",
-                    locallyFrozenIndices[s.index] and " localFrozen" or "")
-                if s.policy and s.policy ~= "normal" then
-                    EbonBuilds.DebugLog.AddF("      policy=%s selected=%s effect=%s", s.policy, tostring(s.policySelected), tostring(s.policyEffect))
-                end
-            end
+        local actionResult = ResolvePendingAction(board)
+        if actionResult == "waiting" then return true end
+
+        if boardState.identityFingerprint and boardState.identityFingerprint ~= board.identityFingerprint then
+            ClearMap(boardState.failedFreezeBySlot)
+            ClearMap(boardState.frozenThisBoardBySlot)
+            ClearMap(boardState.frozenThisBoardEchoIDs)
+            boardState.frozenStateUncertain = false
+            Decision.RefreshFrozenState(board)
         end
+        ObserveBoard(board)
+        AttachRuntimeState(board)
+        boardState.state = Decision.STATE.EVALUATING
 
-        -- PRE-CHECK: if any offered echo matches a locked echo slot, select it
-        for _, s in ipairs(scored) do
-            for _, lockedId in ipairs(lockedList) do
-                if lockedId and lockedId == s.spellId and not s.policyBlocked then
-                    if SubmitAction("select", build, scored, s.index, s, "Select (Locked)") then
-                        EbonBuilds.DebugLog.AddF("-> REQUEST SELECT locked-match [%d] %s", s.index, s.name)
-                        return true
-                    end
-                end
-            end
-        end
-
-        --------------------------------------------------------------------
-        -- 1. TRY BANISH (highest action priority)
-        --------------------------------------------------------------------
-        if runData and (runData.remainingBanishes or 0) > 0 then
-            table.sort(scored, function(a, b) return a.score < b.score end)
-
-            -- Explicit conditional policy actions take precedence over the
-            -- legacy ban list and score threshold. A per-Echo policy is more
-            -- specific than family protection, so it is allowed to spend the
-            -- banish even when that family is otherwise protected.
-            for _, s in ipairs(scored) do
-                if IsActionable(s) == false and s.policyEffect == "banish"
-                    and not s.isFrozen and not s.isCarried and not locallyFrozenIndices[s.index] then
-                    table.sort(scored, function(a, b) return a.index < b.index end)
-                    if SubmitAction("banish", build, scored, s.index, s, "Banish") then
-                        EbonBuilds.DebugLog.AddF("-> REQUEST BANISH policy [%d] %s (%s)", s.index, s.name, tostring(s.policy))
-                        return true
-                    end
-                end
-            end
-
-            -- Ban-list echoes first (these have minimum priority)
-            for _, s in ipairs(scored) do
-                if IsActionable(s) and s.isBanned then
-                    if not s.isProtected then
-                        table.sort(scored, function(a, b) return a.index < b.index end)
-                        if SubmitAction("banish", build, scored, s.index, s, "Banish") then
-                            EbonBuilds.DebugLog.AddF("-> REQUEST BANISH [%d] %s (score %.0f)", s.index, s.name, s.score or 0)
-                            return true
-                        end
-                    end
-                end
-            end
-
-            -- Then echoes below the banish threshold. Smart mode: a banished
-            -- card is replaced by ONE random card, so banish anything worth
-            -- less than banishEVPct of an average card. Classic: % of peak.
-            -- Charge pacing: only clearly-bad echoes get banished once
-            -- charges run low, so the last few aren't wasted on borderline
-            -- picks early and then unavailable when it matters.
-            local banishRemaining = (runData and runData.remainingBanishes) or 0
-            local banishPacing = ChargePacing(banishRemaining, 8, 0.7, "below")
-            local threshold
-            if (settings.rerollMode or "sum") == "ev" then
-                threshold = EbonBuilds.Automation.GetOutcomeStats().mean * (settings.banishEVPct or 60) / 100 * banishPacing
-            else
-                threshold = math.floor(peakScore * settings.autoBanishPct / 100 * banishPacing)
-            end
-            for _, s in ipairs(scored) do
-                if IsActionable(s) and s.score < threshold then
-                    if not s.isProtected then
-                        table.sort(scored, function(a, b) return a.index < b.index end)
-                        if SubmitAction("banish", build, scored, s.index, s, "Banish") then
-                            EbonBuilds.DebugLog.AddF("-> REQUEST BANISH [%d] %s (score %.0f)", s.index, s.name, s.score or 0)
-                            return true
-                        end
-                    end
-                end
-            end
-        end
-
-        -- Restore original display order (left-to-right by index) after the
-        -- banish step may have re-sorted by score.
-        table.sort(scored, function(a, b) return a.index < b.index end)
-
-        --------------------------------------------------------------------
-        -- 2. TRY REROLL
-        --------------------------------------------------------------------
-        -- Never reroll while a freeze round is in flight: the reroll would
-        -- waste the freeze charge just spent this screen. Freeze/select
-        -- below must still run, so only this step is skipped.
-        if not freezeRoundActive and runData and (runData.totalRerolls or 0) - (runData.usedRerolls or 0) > 0 then
-            if (settings.rerollMode or "sum") == "ev" then
-                ----------------------------------------------------------------
-                -- Smart mode: reroll when the best actionable offer is worse
-                -- than X% of what an average reroll's best would be worth.
-                -- Frozen/carried echoes survive a reroll, so they neither
-                -- count as the "current best" nor argue against rerolling.
-                ----------------------------------------------------------------
-                local ev = EbonBuilds.Automation.GetRerollEV()
-                local best = 0
-                for _, s in ipairs(scored) do
-                    if IsActionable(s) then
-                        if s.score > best then best = s.score end
-                    end
-                end
-                -- Charge pacing: with plenty of rerolls be generous, with the
-                -- last few be picky. Scales the effective threshold from 100%
-                -- (>= 8 charges) down to 60% (1 charge left).
-                local remaining = (runData.totalRerolls or 0) - (runData.usedRerolls or 0)
-                local pacing = ChargePacing(remaining, 8, 0.6, "below")
-                local threshold = ev * (settings.rerollEVPct or 95) / 100 * pacing
-                -- Feed the Tuning Advisor: normalize out this evaluation's
-                -- pacing multiplier so samples from different charge states
-                -- are directly comparable (see Calibration.lua's
-                -- RecordBestSample for how this gets turned into a
-                -- suggestion).
-                if peakScore and peakScore > 0 and pacing > 0 and EbonBuilds.Calibration then
-                    EbonBuilds.Calibration.RecordBestSample((best / peakScore * 100) / pacing)
-                end
-                EbonBuilds.DebugLog.AddF("reroll check (EV): best=%.0f vs %.0f (EV %.0f x %d%% x pacing %.2f)",
-                    best, threshold, ev, settings.rerollEVPct or 95, pacing)
-                if best < threshold then
-                    if SubmitAction("reroll", build, scored, 0, nil, "Reroll") then
-                        EbonBuilds.DebugLog.Add("-> REQUEST REROLL (EV)")
-                        return true
-                    end
-                end
-            else
-                -- Legacy sum mode.
-                -- Reroll guard: skip if any single echo is above the guard threshold,
-                -- regardless of the sum. Prevents rerolling when one good echo is
-                -- offered alongside weak ones.
-                -- Charge pacing: with plenty of rerolls left, only a near-perfect
-                -- echo blocks a reroll (guard stays close to its base value);
-                -- with few left, a merely-good echo blocks it too (guard
-                -- threshold shrinks), since burning the last rerolls chasing a
-                -- marginally better screen is the costlier mistake once there's
-                -- nothing left over for whatever comes next.
-                local remaining = (runData.totalRerolls or 0) - (runData.usedRerolls or 0)
-                local guardPacing = ChargePacing(remaining, 8, 0.6, "below")
-                local guardPct = settings.rerollGuardPct or 90
-                local guardThreshold = math.floor(peakScore * guardPct / 100 * guardPacing)
-                local blockedByGuard = false
-                for _, s in ipairs(scored) do
-                    if IsActionable(s) and s.score >= guardThreshold then
-                        blockedByGuard = true
-                        EbonBuilds.DebugLog.AddF("reroll blocked by guard: [%d] %s %.0f >= %d (pacing %.2f)", s.index, s.name, s.score or 0, guardThreshold, guardPacing)
-                        break
-                    end
-                end
-                if not blockedByGuard then
-                    local sum = 0
-                    for _, s in ipairs(scored) do if IsActionable(s) then sum = sum + s.score end end
-                    -- Same charge pacing concept as Smart mode: get pickier
-                    -- as reroll charges run low, so it can't burn through
-                    -- everything early on borderline offers.
-                    local remaining = (runData.totalRerolls or 0) - (runData.usedRerolls or 0)
-                    local pacing = ChargePacing(remaining, 8, 0.6, "below")
-                    local rerollThreshold = peakScore * settings.autoRerollPct / 100 * pacing
-                    EbonBuilds.DebugLog.AddF("reroll check: sum=%.0f vs threshold=%.0f (pacing %.2f)", sum, rerollThreshold, pacing)
-                    if sum < rerollThreshold then
-                        if SubmitAction("reroll", build, scored, 0, nil, "Reroll") then
-                            EbonBuilds.DebugLog.Add("-> REQUEST REROLL")
-                            return true
-                        end
-                    end
-                end
-            end
-        end
-
-        --------------------------------------------------------------------
-        --------------------------------------------------------------------
-        -- 3. TRY FREEZE
-        --------------------------------------------------------------------
-        -- Freeze one echo per evaluation so the server has time to confirm
-        -- each freeze before the next one.  The timer re-invokes Evaluate()
-        -- which scores fresh (reflecting isFrozen / isCarried state) and
-        -- applies the penalty to locally-frozen echoes so their scores
-        -- degrade toward the eventual pick.
-        if runData and (runData.totalFreezes or 0) - (runData.usedFreezes or 0) > 0 then
-            local penalty = (settings.freezePenaltyPct or 0) / 100
-
-            -- Apply freeze penalty to echoes we already froze this round
-            -- so they are deprioritised in subsequent evaluations.
-            -- Only applied when the server hasn't confirmed isFrozen yet;
-            -- ScoreChoice already handles the penalty once isFrozen is true.
-            if penalty > 0 then
-                for _, s in ipairs(scored) do
-                    if locallyFrozenIndices[s.index] and not s.isFrozen then
-                        s.score = math.floor(s.score * (1 - penalty))
-                    end
-                end
-            end
-
-            local threshold
-            -- Charge pacing: only truly excellent echoes get frozen once
-            -- charges run low, reserving the last few for genuinely
-            -- exceptional finds instead of spending them on "pretty good".
-            local freezeRemaining = (runData.totalFreezes or 0) - (runData.usedFreezes or 0)
-            local freezePacing = ChargePacing(freezeRemaining, 6, 1.4, "above")
-            if (settings.rerollMode or "sum") == "ev" then
-                -- Freeze what beats the expected best of a future screen.
-                threshold = EbonBuilds.Automation.GetOutcomeStats().evBest3 * (settings.freezeEVPct or 110) / 100 * freezePacing
-            else
-                threshold = math.floor(peakScore * settings.autoFreezePct / 100 * freezePacing)
-            end
-
-            -- Offered choices above freeze threshold, excluding echoes that
-            -- are already frozen (server), carried, or locally frozen this round.
-            local aboveChoices = {}
-            for _, s in ipairs(scored) do
-                if IsActionable(s) and s.score > threshold then
-                    aboveChoices[#aboveChoices + 1] = s
-                end
-            end
-
-            EbonBuilds.DebugLog.AddF("freeze check: %d choice(s) above %d (need 2)", #aboveChoices, threshold)
-            -- Requires at least 2 offered choices above threshold so we can
-            -- freeze the lowest and still select a different highest one.
-            if #aboveChoices >= 2 then
-                table.sort(aboveChoices, function(a, b) return a.score > b.score end)
-
-                -- Freeze the single lowest-scored echo above the threshold.
-                -- (Multiple would race the server; one-per-eval is reliable.)
-                local lowest = aboveChoices[#aboveChoices]
-                if SubmitAction("freeze", build, scored, lowest.index, lowest, "Freeze") then
-                    EbonBuilds.DebugLog.AddF("-> REQUEST FREEZE [%d] %s (score %.0f)", lowest.index, lowest.name, lowest.score or 0)
-                    return true
-                end
-            end
-        end
-
-        --------------------------------------------------------------------
-        -- 4. SELECT (fallback)
-        --------------------------------------------------------------------
-        -- NOTE: locallyFrozenIndices must still be intact here so TrySelect
-        -- can exclude the echo frozen this round. It gets cleared after the
-        -- pick (a select ends this choice screen).
-        local ok, pick, failureReason = TrySelect(scored, settings, build)
-        if ok and pick then
-            EbonBuilds.DebugLog.AddF("-> REQUEST SELECT [%d] %s (score %.0f)", pick.index, pick.name, pick.score or 0)
-        elseif not ok then
-            if failureReason == "policy_blocked" then
-                lastNoActionReason = "Autopilot paused: all current offers are blocked by Echo policies"
-                EbonBuilds.DebugLog.Add("-> NO ACTION (all offers blocked by Echo policies)")
-            else
-                EbonBuilds.DebugLog.Add("-> NO ACTION (select failed or nothing eligible)")
-            end
-        end
-        return ok
+        local decision = Decision.Decide(board)
+        LogBoardDecision(board, decision)
+        return ExecuteDecision(build, board, decision)
     end
 
     local ok, result = pcall(body)
@@ -968,6 +1160,7 @@ function EbonBuilds.Automation.Evaluate()
         if EbonBuilds.ErrorLog and EbonBuilds.ErrorLog.Record then
             EbonBuilds.ErrorLog.Record("Automation.Evaluate", result)
         end
+        boardState.state = Decision.STATE.RECOVERY
         lastNoActionReason = "Automation error: choose manually"
         return false
     end
@@ -1002,9 +1195,6 @@ function EbonBuilds.Automation.Init()
         if build and build.stats and type(choices) == "table" then
             build.stats.echoesSeen = (build.stats.echoesSeen or 0) + #choices
         end
-        locallyFrozenIndices = {}
-        freezeRoundActive = false
-
         if ShouldSuppressNativeChoice() then
             SuppressNativeChoiceSurface()
             StartEvalTimer()
@@ -1040,12 +1230,24 @@ function EbonBuilds.Automation.Init()
             if EbonBuilds.Scheduler then EbonBuilds.Scheduler.Cancel("automation.evaluate") end
             pendingChoices = nil
             nativeChoiceSuppressed = false
+            ResetObservedBoard(Decision.STATE.IDLE)
             HideNativeEchoTooltip()
         end)
     end
 
     if type(PerkUI.ResetSelection) == "function" then
         hooksecurefunc(PerkUI, "ResetSelection", function()
+            if boardState.pendingFreezeSlot then
+                -- A freeze remains unresolved until the complete board reports
+                -- the target slot as frozen. Native reset ordering is not an
+                -- acknowledgement and must not release selection or reroll.
+                CancelRequestFallback()
+                if ShouldSuppressNativeChoice() and HasCurrentChoice() then
+                    SuppressNativeChoiceSurface()
+                    StartEvalTimer()
+                end
+                return
+            end
             if replacementResetPending then
                 -- Successful banish sequence:
                 --   UpdateSinglePerk -> ResetSelection
@@ -1091,13 +1293,21 @@ EbonBuilds.Automation._ScoreChoice       = ScoreChoice
 EbonBuilds.Automation._TrySelect         = TrySelect
 EbonBuilds.Automation._AnnotateScored    = AnnotateScored
 EbonBuilds.Automation._IsProtected       = IsFamilyProtected
-EbonBuilds.Automation._ResetFreezeRound  = function()
-    freezeRoundActive = false
-    locallyFrozenIndices = {}
+EbonBuilds.Automation._ResetFreezeRound  = ResetObservedBoard
+EbonBuilds.Automation._GetBoardStateForTests = function() return boardState end
+EbonBuilds.Automation._GetNextEvalDelayForTests = function()
+    local delay = GetEvalDelay()
+    if initialActionDelayPending and delay < INITIAL_ACTION_DELAY then
+        return INITIAL_ACTION_DELAY
+    end
+    return delay
 end
-EbonBuilds.Automation._SetLocallyFrozenForTests = function(index)
-    locallyFrozenIndices[index] = true
+EbonBuilds.Automation._MarkInitialActionDelayCompleteForTests = function()
+    initialActionDelayPending = false
 end
+EbonBuilds.Automation._RequestFreezeForTests = RequestFreeze
+EbonBuilds.Automation._ResolvePendingFreezeForTests = ResolvePendingFreeze
+EbonBuilds.Automation._ResolveFreezeUncertaintyForTests = ResolveFreezeUncertainty
 EbonBuilds.Automation._RefreshNativeChoiceGuardForTests = RefreshNativeChoiceGuard
 EbonBuilds.Automation._IsNativeChoiceSuppressedForTests = function()
     return nativeChoiceSuppressed

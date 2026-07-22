@@ -285,6 +285,8 @@ do
         { "modules/automation/Automation.lua", "not s.policyBlocked" },
         { "modules/automation/Automation.lua", 'return false, nil, "policy_blocked"' },
         { "modules/session/Session.lua", 'decision.reasonCode = "ECHO_POLICY_BANISH"' },
+        { "modules/session/Session.lua", "eligibilityRecorded = true" },
+        { "modules/session/Session.lua", 'decision.reasonCode = "ECHO_BAN_LIST"' },
     }
     for _, definition in ipairs(requiredSources) do
         local file = assert(io.open(definition[1], "r"))
@@ -1169,6 +1171,61 @@ do
     end
     if EbonBuilds.SessionHistory._IsImportant({ action = "Select", charges = {} }) then
         io.stderr:write("LOGBOOK REDESIGN FAIL: routine Select was incorrectly marked important\n")
+        os.exit(1)
+    end
+
+    local policySelectReason = EbonBuilds.SessionHistory._ReasonSentence({
+        action = "Select",
+        targetIndex = 1,
+        choices = {
+            { index = 1, name = "Quick Hands", score = 125, eligibilityRecorded = true },
+            { index = 2, name = "Glass Canon", score = 140, eligibilityRecorded = true,
+                policy = "never_pick", policyEffect = "exclude", policyBlocked = true, isAvoided = true },
+            { index = 3, name = "Rend", score = 85, eligibilityRecorded = true },
+        },
+        decision = { reasonCode = "HIGHEST_FINAL_SCORE" },
+    })
+    if policySelectReason ~= "Highest eligible; Glass Canon at 140 was ineligible under the Never Pick policy" then
+        io.stderr:write("LOGBOOK POLICY REASON FAIL: Select reason used an ineligible higher-valued Echo: " .. tostring(policySelectReason) .. "\n")
+        os.exit(1)
+    end
+
+    local banListReason = EbonBuilds.SessionHistory._ReasonSentence({
+        action = "Banish",
+        targetIndex = 1,
+        choices = {
+            { index = 1, name = "Priority Ban", score = 105, eligibilityRecorded = true, isBanned = true, isAvoided = true },
+            { index = 2, name = "Legal Echo", score = 40, eligibilityRecorded = true },
+        },
+        decision = { reasonCode = "ECHO_BAN_LIST", threshold = 31 },
+    })
+    if banListReason ~= "The priority ban list required this banish" then
+        io.stderr:write("LOGBOOK POLICY REASON FAIL: priority ban was presented as a threshold banish: " .. tostring(banListReason) .. "\n")
+        os.exit(1)
+    end
+
+    local conditionalBanishReason = EbonBuilds.SessionHistory._ReasonSentence({
+        action = "Banish",
+        targetIndex = 1,
+        choices = {
+            { index = 1, name = "Conditional Ban", score = 90, eligibilityRecorded = true,
+                policy = "banish_after_pick", policyEffect = "banish", policyBlocked = true, isAvoided = true },
+        },
+        decision = { reasonCode = "ECHO_POLICY_BANISH", threshold = 31 },
+    })
+    if conditionalBanishReason ~= "The Banish After Pick policy required this banish" then
+        io.stderr:write("LOGBOOK POLICY REASON FAIL: conditional policy was presented as a threshold banish: " .. tostring(conditionalBanishReason) .. "\n")
+        os.exit(1)
+    end
+
+    local thresholdBanishReason = EbonBuilds.SessionHistory._ReasonSentence({
+        action = "Banish",
+        targetIndex = 1,
+        choices = { { index = 1, name = "Low Echo", score = 25 } },
+        decision = { reasonCode = "BELOW_BANISH_THRESHOLD", threshold = 31 },
+    })
+    if thresholdBanishReason ~= "25 below threshold 31" then
+        io.stderr:write("LOGBOOK POLICY REASON FAIL: legacy threshold evidence changed: " .. tostring(thresholdBanishReason) .. "\n")
         os.exit(1)
     end
 

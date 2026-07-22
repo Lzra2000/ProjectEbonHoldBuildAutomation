@@ -160,11 +160,53 @@ local function TargetChoice(entry)
     return nil
 end
 
-local function BestAlternative(entry)
+local PolicyEvidence = {}
+
+function PolicyEvidence.IsKnown(choice)
+    if type(choice) ~= "table" then return false end
+    if choice.eligibilityRecorded == true then return true end
+    -- Older runs did record an active conditional policy effect, even though
+    -- they did not record the complete eligibility snapshot.
+    return choice.isBanned ~= nil or choice.isAvoided ~= nil or choice.policyBlocked ~= nil
+        or choice.policyEffect == "banish" or choice.policyEffect == "exclude"
+end
+
+function PolicyEvidence.IsEligible(choice)
+    if not PolicyEvidence.IsKnown(choice) then return true end
+    return not (choice.isBanned or choice.isAvoided or choice.policyBlocked
+        or choice.policyEffect == "banish" or choice.policyEffect == "exclude")
+end
+
+function PolicyEvidence.RuleLabel(choice)
+    if not choice then return "policy" end
+    if choice.isBanned then return "priority ban list" end
+    local api = EbonBuilds.EchoPolicy
+    local definition = api and api.Definition and choice.policy and api.Definition(choice.policy)
+    if definition and definition.label then return tostring(definition.label) .. " policy" end
+    if choice.policyEffect == "banish" then return "conditional banish policy" end
+    if choice.policyEffect == "exclude" or choice.policyBlocked then return "selection policy" end
+    if choice.isAvoided then return "avoid rule" end
+    return "policy"
+end
+
+local function BestAlternative(entry, eligibleOnly)
     local target, targetArrayIndex = TargetChoice(entry)
     local best
     for arrayIndex, choice in ipairs((entry and entry.choices) or {}) do
-        if choice ~= target and arrayIndex ~= targetArrayIndex then
+        if choice ~= target and arrayIndex ~= targetArrayIndex
+            and (not eligibleOnly or PolicyEvidence.IsEligible(choice)) then
+            if not best or (tonumber(choice.score) or 0) > (tonumber(best.score) or 0) then best = choice end
+        end
+    end
+    return best
+end
+
+function PolicyEvidence.BestIneligibleAlternative(entry)
+    local target, targetArrayIndex = TargetChoice(entry)
+    local best
+    for arrayIndex, choice in ipairs((entry and entry.choices) or {}) do
+        if choice ~= target and arrayIndex ~= targetArrayIndex
+            and PolicyEvidence.IsKnown(choice) and not PolicyEvidence.IsEligible(choice) then
             if not best or (tonumber(choice.score) or 0) > (tonumber(best.score) or 0) then best = choice end
         end
     end
@@ -178,6 +220,7 @@ local REASON_TEXT = {
     HIGHEST_FINAL_SCORE = "Highest eligible final score",
     MANUAL_CHOICE = "Player made this choice manually",
     ECHO_POLICY_BANISH = "A conditional Echo policy required this banish",
+    ECHO_BAN_LIST = "The priority ban list required this banish",
 }
 
 local function IsImportant(entry)
@@ -208,21 +251,41 @@ local function ReasonSentence(entry)
     entry = entry or {}
     local action = NormalizeAction(entry.action)
     local decision = entry.decision or {}
-    local target, alternative = TargetChoice(entry), BestAlternative(entry)
+    local target = TargetChoice(entry)
+    local alternative = BestAlternative(entry, true)
+    local ineligible = PolicyEvidence.BestIneligibleAlternative(entry)
     local threshold = tonumber(decision.threshold)
     local reason = REASON_TEXT[decision.reasonCode]
 
     if action == "Banish" and target then
+        if decision.reasonCode == "ECHO_BAN_LIST" or (PolicyEvidence.IsKnown(target) and target.isBanned) then
+            return REASON_TEXT.ECHO_BAN_LIST
+        end
+        if decision.reasonCode == "ECHO_POLICY_BANISH" or target.policyEffect == "banish" then
+            return string.format("The %s required this banish", PolicyEvidence.RuleLabel(target))
+        end
         if threshold then return string.format("%.0f below threshold %.0f", tonumber(target.score) or 0, threshold) end
         return reason or "Removed the chosen low-value Echo"
     elseif action == "Reroll" then
-        if alternative then return string.format("Best current option: %s at %.0f", alternative.name or "Echo", tonumber(alternative.score) or 0) end
+        if alternative then return string.format("Best eligible current option: %s at %.0f", alternative.name or "Echo", tonumber(alternative.score) or 0) end
+        if ineligible then
+            return string.format("No eligible current option; %s at %.0f was ineligible under the %s",
+                ineligible.name or "Echo", tonumber(ineligible.score) or 0, PolicyEvidence.RuleLabel(ineligible))
+        end
         return reason or "Replaced the current offer"
     elseif action == "Freeze" and target then
         if threshold then return string.format("%.0f exceeded threshold %.0f", tonumber(target.score) or 0, threshold) end
         return reason or "Preserved a strong Echo for later"
     elseif (action == "Select" or action == "Manual") and target then
-        if alternative then return string.format("Next-best: %s at %.0f", alternative.name or "Echo", tonumber(alternative.score) or 0) end
+        local targetScore = tonumber(target.score) or 0
+        if alternative and (tonumber(alternative.score) or 0) > targetScore then
+            return string.format("Higher eligible option: %s at %.0f", alternative.name or "Echo", tonumber(alternative.score) or 0)
+        end
+        if ineligible and (tonumber(ineligible.score) or 0) > targetScore then
+            return string.format("Highest eligible; %s at %.0f was ineligible under the %s",
+                ineligible.name or "Echo", tonumber(ineligible.score) or 0, PolicyEvidence.RuleLabel(ineligible))
+        end
+        if alternative then return string.format("Next eligible: %s at %.0f", alternative.name or "Echo", tonumber(alternative.score) or 0) end
         return reason or "Selected the highest eligible Echo"
     end
     return reason or "Detailed reason was not recorded"
@@ -234,7 +297,7 @@ local function DecisionLabel(entry)
     local target = TargetChoice(entry)
     if target then return target.name or "Unknown Echo", tonumber(target.score) or 0, tonumber(target.quality) or 0, target end
     if action == "Reroll" then
-        local best = BestAlternative(entry)
+        local best = BestAlternative(entry, true)
         return best and ("Offer · best " .. (best.name or "Echo")) or "Offer rerolled", best and (tonumber(best.score) or 0) or 0, best and (tonumber(best.quality) or 0) or 0, best
     end
     return action, 0, 0, nil
@@ -1751,7 +1814,7 @@ function H.ShowDecisionDetail(entry)
     local action = NormalizeAction(entry.action)
     local name = DecisionLabel(entry)
     detailTitle:SetText(string.format("%s · %s", string.upper(action), tostring(name or "Decision")))
-    detailReason:SetText(REASON_TEXT[decision.reasonCode] or ReasonSentence(entry))
+    detailReason:SetText(ReasonSentence(entry))
 
     local meta = { "Level " .. tostring(entry.level or "?"), FormatTimestamp(entry.timestamp), DecisionSource(entry) }
     if decision.threshold ~= nil then meta[#meta + 1] = string.format("Threshold %.0f", decision.threshold) end

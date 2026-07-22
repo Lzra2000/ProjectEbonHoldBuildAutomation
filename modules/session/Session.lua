@@ -88,6 +88,9 @@ local function CreateSession()
     if EbonBuilds.Automation and EbonBuilds.Automation.ResetPeakCache then
         EbonBuilds.Automation.ResetPeakCache()
     end
+    if EbonBuilds.Automation and EbonBuilds.Automation.ResetInitialActionDelay then
+        EbonBuilds.Automation.ResetInitialActionDelay()
+    end
 
     NotifyHistoryChanged()
     if EbonBuilds.EventHub then EbonBuilds.EventHub.Bump("RUN_STARTED", session.id, session.buildId) end
@@ -413,6 +416,14 @@ function EbonBuilds.Session.LogAction(scored, action, targetIndex, source)
             policy        = s.policy,
             policyEffect  = s.policyEffect,
             policySelected = s.policySelected,
+            -- Keep the eligibility verdict with the decision evidence.  The
+            -- Logbook cannot safely reconstruct these build/run-specific
+            -- flags later, after the active build or selected Echoes change.
+            eligibilityRecorded = true,
+            isBanned      = s.isBanned and true or false,
+            isAvoided     = s.isAvoided and true or false,
+            policyBlocked = s.policyBlocked and true or false,
+            isProtected   = s.isProtected and true or false,
         }
     end
 
@@ -433,6 +444,9 @@ function EbonBuilds.Session.LogAction(scored, action, targetIndex, source)
     if policyTarget and policyTarget.policyEffect == "banish" and tostring(action or ""):find("^Banish") then
         decision.reasonCode = "ECHO_POLICY_BANISH"
         decision.policy = policyTarget.policy
+        decision.threshold = nil
+    elseif policyTarget and policyTarget.isBanned and tostring(action or ""):find("^Banish") then
+        decision.reasonCode = "ECHO_BAN_LIST"
         decision.threshold = nil
     elseif policyTarget and policyTarget.policy and policyTarget.policy ~= "normal" then
         decision.policy = policyTarget.policy

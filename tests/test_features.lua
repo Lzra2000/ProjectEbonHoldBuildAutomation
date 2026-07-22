@@ -160,6 +160,7 @@ assert(loadfile("modules/automation/Calibration.lua"))("EbonBuilds", EbonBuilds)
 assert(loadfile("modules/automation/EchoSamples.lua"))("EbonBuilds", EbonBuilds)
 assert(loadfile("modules/automation/EchoPerformance.lua"))("EbonBuilds", EbonBuilds)
 assert(loadfile("modules/automation/ManualTraining.lua"))("EbonBuilds", EbonBuilds)
+assert(loadfile("modules/automation/BoardDecision.lua"))("EbonBuilds", EbonBuilds)
 assert(loadfile("modules/automation/Automation.lua"))("EbonBuilds", EbonBuilds)
 
 EbonBuilds.EchoCatalog.Init()
