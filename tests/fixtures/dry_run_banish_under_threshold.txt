@@ -1,0 +1,24 @@
+# WP4 fixture: banish weak avoided Echoes below freeze threshold
+# Scenario: no acceptable pick and no freeze candidate -> banish the worst
+# eligible avoided slot; guaranteed build-slot card is skipped.
+
+@board threshold=120 freezeResources=2 canReroll=1 canBanish=1 pickIsAcceptable=0
+1:801:10:guaranteed:avoided
+2:802:5:avoided:banish
+
+@expect action=banish target=2 boardState=OPEN
+
+# All slots below threshold: banish lowest-score eligible slot
+@board threshold=120 freezeResources=2 canReroll=1 canBanish=1 pickIsAcceptable=0
+1:811:15:avoided:banish
+2:812:8:avoided:banish
+3:813:25:avoided
+
+@expect action=banish target=2 boardState=OPEN
+
+# Sub-threshold board with no banish-eligible slots -> select best legal fallback
+@board threshold=120 freezeResources=2 canReroll=0 canBanish=1 pickIsAcceptable=0
+1:821:15
+2:822:8
+
+@expect action=SELECT target=1 boardState=OPEN

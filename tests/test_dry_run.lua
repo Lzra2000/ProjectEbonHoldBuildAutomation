@@ -190,16 +190,22 @@ end
 ------------------------------------------------------------------------
 -- Fixture replay (#38-class transcript)
 ------------------------------------------------------------------------
-do
-    local results = DR.ReplayFile("tests/fixtures/dry_run_issue38_class.txt")
-    check(results ~= nil, "fixture replay returns results")
-    if results.errors and #results.errors > 0 then
+local function AssertFixtureReplay(path, label, minSteps)
+    local results = DR.ReplayFile(path)
+    check(results ~= nil, label .. " fixture replay returns results")
+    if results and results.errors and #results.errors > 0 then
         for _, err in ipairs(results.errors) do
-            io.stderr:write("FIXTURE: " .. err .. "\n")
+            io.stderr:write(label .. " FIXTURE: " .. err .. "\n")
         end
     end
-    equal(#results.errors, 0, "issue38-class fixture has no replay errors")
-    check(#results.steps >= 5, "fixture defines multiple replay steps")
+    equal(#results.errors, 0, label .. " fixture has no replay errors")
+    check(#results.steps >= minSteps, label .. " fixture defines multiple replay steps")
+end
+
+do
+    AssertFixtureReplay("tests/fixtures/dry_run_issue38_class.txt", "issue38-class", 5)
+    AssertFixtureReplay("tests/fixtures/dry_run_guaranteed_select.txt", "guaranteed-select", 3)
+    AssertFixtureReplay("tests/fixtures/dry_run_banish_under_threshold.txt", "banish-under-threshold", 3)
 end
 
 if failures > 0 then

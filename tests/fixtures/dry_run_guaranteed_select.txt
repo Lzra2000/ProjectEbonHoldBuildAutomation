@@ -1,0 +1,25 @@
+# WP4 fixture: guaranteed build-slot card must stay selectable
+# Scenario: injected guaranteed Echo is never frozen; autopilot selects the
+# best legal non-guaranteed pick when a valuable board exists.
+
+@board threshold=120 freezeResources=2 canReroll=1 canBanish=1 pickIsAcceptable=1
+1:901:160
+2:902:130:guaranteed
+3:903:20:avoided
+
+@expect action=SELECT target=1 boardState=OPEN
+
+# Guaranteed card is selectable when it is the only legal sub-threshold pick
+@board threshold=120 freezeResources=2 canReroll=1 canBanish=1 pickIsAcceptable=1
+1:911:45:guaranteed
+2:912:30:avoided
+3:913:25:avoided
+
+@expect action=SELECT target=1 boardState=OPEN
+
+# Guaranteed card must not block reroll when every pick is unacceptable
+@board threshold=120 freezeResources=2 canReroll=1 canBanish=1 pickIsAcceptable=0
+1:921:10:guaranteed:avoided
+2:922:5:avoided
+
+@expect action=reroll target=- boardState=OPEN
