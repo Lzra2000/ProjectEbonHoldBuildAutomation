@@ -583,7 +583,8 @@ local function HandleRequest(requester, classFilter)
             else
                 -- Exclude oversized exports from LST so peers never WNT/RTX
                 -- them (avoids ErrorLog spam + wasted whisper budget).
-                local b64 = EbonBuilds.ExportImport.ExportBuild(build)
+                local exportFn = EbonBuilds.ExportImport and EbonBuilds.ExportImport.ExportBuild
+                local b64 = exportFn and exportFn(build)
                 if not b64 or #b64 > MAX_BUILD_TRANSFER then
                     ReportOversizedBuild(build, b64 and #b64 or 0)
                     VerboseLog("  build " .. (build.title or "?") .. " skipped: exceeds transfer limit")
