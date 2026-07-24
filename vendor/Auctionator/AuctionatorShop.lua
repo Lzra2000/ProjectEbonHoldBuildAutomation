@@ -15,6 +15,10 @@ local gCurrentSList;
 
 function Atr_ShoppingListsInit ()
 
+	if (type (AUCTIONATOR_SHOPPING_LISTS) ~= "table") then
+		AUCTIONATOR_SHOPPING_LISTS = {};
+	end
+
 	local num = #AUCTIONATOR_SHOPPING_LISTS;
 	local x;
 	
@@ -27,6 +31,11 @@ end
 -----------------------------------------
 
 function Atr_SList.create (name, isRecents)
+
+	-- SavedVariables / early Bridge calls can reach create before Atr_Init.
+	if (type (AUCTIONATOR_SHOPPING_LISTS) ~= "table") then
+		AUCTIONATOR_SHOPPING_LISTS = {};
+	end
 
 	local slist = {};
 	setmetatable (slist,Atr_SList);
@@ -41,7 +50,9 @@ function Atr_SList.create (name, isRecents)
 	table.insert (AUCTIONATOR_SHOPPING_LISTS, slist);
 
 	table.sort (AUCTIONATOR_SHOPPING_LISTS, Atr_SortSlists);
-	Atr_DropDownSL_Initialize ();
+	if (type (Atr_DropDownSL_Initialize) == "function") then
+		pcall (Atr_DropDownSL_Initialize);
+	end
 	
 	return slist;
 end
@@ -272,6 +283,10 @@ end
 -----------------------------------------
 
 function Atr_DropDownSL_Initialize()
+
+	if (type (AUCTIONATOR_SHOPPING_LISTS) ~= "table") then
+		return;
+	end
 
 	local info = UIDropDownMenu_CreateInfo();
 

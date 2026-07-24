@@ -74,18 +74,57 @@ local created
 local capturedQuery
 _G.Atr_SList = {}
 function _G.Atr_SList.create(name)
+    -- Mirror AuctionatorShop.lua: init shopping lists before insert.
+    if type(_G.AUCTIONATOR_SHOPPING_LISTS) ~= "table" then
+        _G.AUCTIONATOR_SHOPPING_LISTS = {}
+    end
+    created = { name = name, items = {} }
+    function created.AddItem(self, item) table.insert(self.items, item) end
+    table.insert(_G.AUCTIONATOR_SHOPPING_LISTS, created)
+    return created
+end
+_G.AUCTIONATOR_SHOPPING_LISTS = nil
+
+local syncOk, count = Bridge.SyncMissingAffixShoppingList()
+assertTrue(syncOk, "shopping list sync with nil SV table")
+assertEq(count, 1, "one missing affix synced")
+assertEq(created.name, "EbonBuilds Affixes", "list name")
+assertEq(created.items[1], "of Keen Strikes III", "synced search term")
+assertTrue(type(_G.AUCTIONATOR_SHOPPING_LISTS) == "table", "SV table initialized")
+
+-- Soft-fail when PE shopping list cannot be created (fresh Bridge instance).
+local addonSoft = { Affix = addon.Affix }
+local chunkSoft, errSoft = loadfile("modules/integration/AuctionatorBridge.lua")
+if not chunkSoft then fail(errSoft) end
+local okSoft, loadErrSoft = pcall(chunkSoft, "EbonBuilds", addonSoft)
+if not okSoft then fail("reload AuctionatorBridge: " .. tostring(loadErrSoft)) end
+local BridgeSoft = addonSoft.AuctionatorBridge
+_G.Atr_SList = {}
+function _G.Atr_SList.create()
+    error("create unavailable")
+end
+_G.AUCTIONATOR_SHOPPING_LISTS = nil
+local softOk, softReason = BridgeSoft.SyncMissingAffixShoppingList()
+assertTrue(not softOk, "sync soft-fails when create errors")
+assertEq(softReason, "list", "list-missing reason")
+assertNil(_G.AUCTIONATOR_SHOPPING_LISTS, "nil SV left untouched on create failure")
+
+-- Restore happy-path create for remaining open-search tests
+_G.Atr_SList = {}
+function _G.Atr_SList.create(name)
+    if type(_G.AUCTIONATOR_SHOPPING_LISTS) ~= "table" then
+        _G.AUCTIONATOR_SHOPPING_LISTS = {}
+    end
     created = { name = name, items = {} }
     function created.AddItem(self, item) table.insert(self.items, item) end
     table.insert(_G.AUCTIONATOR_SHOPPING_LISTS, created)
     return created
 end
 _G.AUCTIONATOR_SHOPPING_LISTS = {}
-
-local syncOk, count = Bridge.SyncMissingAffixShoppingList()
-assertTrue(syncOk, "shopping list sync")
-assertEq(count, 1, "one missing affix synced")
-assertEq(created.name, "EbonBuilds Affixes", "list name")
-assertEq(created.items[1], "of Keen Strikes III", "synced search term")
+Bridge = BridgeSoft
+local syncOk2, count2 = Bridge.SyncMissingAffixShoppingList()
+assertTrue(syncOk2, "shopping list sync after soft-fail recovery")
+assertEq(count2, 1, "one missing affix synced after recovery")
 
 _G.Atr_SelectPane = function() end
 _G.Atr_Search_Box = { SetText = function(_, text) capturedQuery = text end }
