@@ -12,6 +12,8 @@ local LOCK_LIMIT = 6
 local PRIORITY_LIMIT = 24
 local OPTIONAL_LIMIT = 8
 local AVOID_LIMIT = 8
+local MIN_FULL_ORIGINS = 3
+local SNAPSHOT_SCHEMA = 7
 
 local function Permille(value, total)
     if total <= 0 then return 0 end
@@ -21,16 +23,24 @@ end
 local function Confidence(originCount)
     if originCount >= 20 then return "high" end
     if originCount >= 8 then return "medium" end
-    return "low"
+    if originCount >= MIN_FULL_ORIGINS then return "low" end
+    if originCount >= 1 then return "very_low" end
+    return "none"
 end
 
 function Aggregator.Begin(classToken, spec, sourceRevision)
+    local sources, meta = EbonBuilds.CommunityEligibility.ResolveSources(classToken, spec)
+    meta = meta or {}
     return {
         class = tostring(classToken or "UNKNOWN"):upper(),
         spec = math.max(1, math.min(3, tonumber(spec) or 1)),
         cohortKey = EbonBuilds.CommunityEligibility.CohortKey(classToken, spec),
         sourceRevision = tonumber(sourceRevision) or 1,
-        sources = EbonBuilds.CommunityEligibility.CollectSources(classToken, spec),
+        sources = sources,
+        cohortScope = meta.cohortScope or "exact",
+        scopeLabel = meta.scopeLabel,
+        exactOriginCount = tonumber(meta.exactOriginCount) or 0,
+        widened = meta.widened and true or false,
         cursor = 1,
         origins = {},
         authorCounts = {},
@@ -166,7 +176,10 @@ end
 
 function Aggregator.Finalize(work)
     local locked, priorities, optional, avoid = {}, {}, {}, {}
-    if work.originCount >= 3 then
+    -- Sparse cohorts (n=1–2) still emit real evidence with disclosed confidence.
+    -- Never invent votes — only classify signals that exist in synced builds.
+    if work.originCount >= 1 then
+        local sparse = work.originCount < MIN_FULL_ORIGINS
         for _, candidate in pairs(work.candidates) do
             local positive = Permille(candidate.positive, work.originCount)
             local negative = Permille(candidate.negative, work.originCount)
@@ -213,7 +226,9 @@ function Aggregator.Finalize(work)
                 end
             end
 
-            local minimumNegativeOrigins = math.max(2, math.ceil(work.originCount * 0.10))
+            -- Avoid needs two corroborating origins in full samples; sparse
+            -- cohorts may surface a single clear negative with very-low badge.
+            local minimumNegativeOrigins = sparse and 1 or math.max(2, math.ceil(work.originCount * 0.10))
             if candidate.negative >= minimumNegativeOrigins and negative >= 100
                 and candidate.negative > candidate.positive then
                 local avoidScore = 4 * candidate.negative - candidate.positive - candidate.locked
@@ -240,25 +255,32 @@ function Aggregator.Finalize(work)
     end
     for _, item in ipairs(locked) do item.recommendedByDefault = true end
 
+    local hasCore = #priorities > 0 or #locked > 0
     local reasonCode
     if work.originCount == 0 then reasonCode = "NO_MATCHING_BUILDS"
-    elseif work.originCount < 3 then reasonCode = "NOT_ENOUGH_ORIGINS"
-    elseif #priorities == 0 and #locked == 0 then reasonCode = "NO_STABLE_CORE"
+    elseif work.originCount < MIN_FULL_ORIGINS and not hasCore then reasonCode = "NOT_ENOUGH_ORIGINS"
+    elseif work.originCount < MIN_FULL_ORIGINS then reasonCode = "SPARSE_READY"
+    elseif not hasCore then reasonCode = "NO_STABLE_CORE"
     else reasonCode = "COMMUNITY_READY" end
 
     local confidenceLevel = "insufficient"
     if work.originCount >= 20 then confidenceLevel = "strong"
     elseif work.originCount >= 8 then confidenceLevel = "moderate"
-    elseif work.originCount >= 3 then confidenceLevel = "limited" end
+    elseif work.originCount >= MIN_FULL_ORIGINS then confidenceLevel = "limited"
+    elseif work.originCount >= 1 then confidenceLevel = "very_low" end
 
     return {
-        schema = 6,
+        schema = SNAPSHOT_SCHEMA,
         cohortKey = work.cohortKey,
         class = work.class,
         spec = work.spec,
         sourceRevision = work.sourceRevision,
         originCount = work.originCount,
         observedRecordCount = work.observedRecordCount,
+        exactOriginCount = work.exactOriginCount or 0,
+        cohortScope = work.cohortScope or "exact",
+        scopeLabel = work.scopeLabel,
+        widened = work.widened and true or false,
         confidence = Confidence(work.originCount),
         confidenceLevel = confidenceLevel,
         reasonCode = reasonCode,

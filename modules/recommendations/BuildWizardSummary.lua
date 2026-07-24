@@ -60,8 +60,17 @@ function Summary.Compute(draft)
     out.intentLabel = EbonBuilds.WizardPresets and EbonBuilds.WizardPresets.Label(draft.intentKey) or tostring(draft.intentKey or "Community")
     out.scoringLabel = draft.scoringStyle or "Recommendation-focused"
     out.confidenceLevel = draft.confidence or "insufficient"
+    out.scopeLabel = draft.scopeLabel or (draft.snapshot and draft.snapshot.scopeLabel) or nil
+    out.widened = draft.widened or (draft.snapshot and draft.snapshot.widened) or false
     if EbonBuilds.BuildWizardEvidence then
-        local _, label = EbonBuilds.BuildWizardEvidence.CohortConfidence(draft.originCount or 0)
+        local snap = draft.snapshot or {
+            originCount = draft.originCount,
+            widened = out.widened,
+            cohortScope = draft.cohortScope,
+            scopeLabel = out.scopeLabel,
+        }
+        local level, label = EbonBuilds.BuildWizardEvidence.ConfidenceBadge(snap)
+        out.confidenceLevel = draft.confidence or level
         out.confidenceText = label
     else
         out.confidenceText = tostring(draft.originCount or 0) .. " origins"
