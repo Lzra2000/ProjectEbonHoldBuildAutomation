@@ -213,4 +213,17 @@ assertTrue(schedulerFrame.visible, "PLAYER_REGEN_ENABLED did not wake parked wor
 schedulerFrame.scripts.OnUpdate(schedulerFrame, 0)
 assertTrue(ranDeferred, "parked scheduler job did not run after combat")
 
+-- Generated FAQ must include what's-new plus every docs/faq.md question.
+-- build-faq-pages.sh reads "# FAQ" / "## FAQ"; a MkDocs-only title change once
+-- dropped all FAQ pages and shipped with only the changelog page.
+do
+    local faq = read("modules/data/FAQContent.lua")
+    local pages = 0
+    for _ in faq:gmatch("title%s*=") do
+        pages = pages + 1
+    end
+    assertTrue(pages >= 50,
+        "FAQContent.lua has " .. tostring(pages) .. " pages; expected 50+ (what's new + FAQ). Run scripts/build-faq-pages.sh")
+end
+
 print("Architecture invariants passed: private namespace, centralized events (RegisterEvent ban), post-3.3.5a API ban, stable dispatch, native UI fallback, sync ownership, RefreshMapPanel forward-decl, and the `and nil or` toggle ban.")
