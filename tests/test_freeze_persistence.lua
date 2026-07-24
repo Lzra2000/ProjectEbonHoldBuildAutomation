@@ -286,13 +286,14 @@ do
     local state = A._GetBoardStateForTests()
     check(state.frozenEchoIDs[1602], "accepted request already run-persistent")
 
-    A._ResetObservedBoardForTests()
-    check(state.frozenEchoIDs[1602], "board hide/show before confirm kept run mark")
-
     local confirmed = Board({ Slot(1, 1601, 160), Slot(2, 1602, 130, { isFrozen = true }) })
     equal(A._ResolvePendingFreezeForTests(build, confirmed, { totalFreezes = 3, usedFreezes = 0 }),
         "confirmed", "pending freeze was not confirmed")
     check(state.frozenEchoIDs[1602], "confirmed freeze retained run-persistent mark")
+
+    -- ResetObservedBoard clears in-flight pending flags; run marks survive board hide/show.
+    A._ResetObservedBoardForTests()
+    check(state.frozenEchoIDs[1602], "board hide/show after confirm kept run mark")
 end
 
 ------------------------------------------------------------------------
