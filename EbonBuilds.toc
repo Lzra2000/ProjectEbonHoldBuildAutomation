@@ -30,6 +30,7 @@ modules/data/Families.lua
 modules/data/TalentCatalogData.lua
 modules/data/TalentCatalog.lua
 modules/build/CharacterSnapshot.lua
+modules/build/CharacterViewData.lua
 modules/talents/Talents.lua
 modules/data/Quality.lua
 core/TomeAtlas.lua
