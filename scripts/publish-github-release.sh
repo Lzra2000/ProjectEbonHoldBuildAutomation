@@ -65,14 +65,6 @@ if [ -f dist/Details.zip ]; then
     DET_URL="https://github.com/$REPO/releases/download/$TAG/Details.zip"
     EXTRA_LINES="${EXTRA_LINES}$(printf '\n')**Details! suite (recommended):** [Download Details.zip]($DET_URL) — full pack (Details core + plugins + TinyThreat + ProjectEbonhold). Extract so each folder lands top-level under \`Interface/AddOns/\`."
 fi
-if [ -f dist/Details_TinyThreat.zip ]; then
-    TT_URL="https://github.com/$REPO/releases/download/$TAG/Details_TinyThreat.zip"
-    EXTRA_LINES="${EXTRA_LINES}$(printf '\n')Legacy single-plugin: [Details_TinyThreat.zip]($TT_URL) — prefer Details.zip when available."
-fi
-if [ -f dist/Details_ProjectEbonhold.zip ]; then
-    PE_URL="https://github.com/$REPO/releases/download/$TAG/Details_ProjectEbonhold.zip"
-    EXTRA_LINES="${EXTRA_LINES}$(printf '\n')Legacy single-plugin: [Details_ProjectEbonhold.zip]($PE_URL) — prefer Details.zip when available."
-fi
 BODY="**Install:** [Download EbonBuilds.zip]($DOWNLOAD_URL)$(printf '\n')Extract it and drop the \`EbonBuilds\` folder into \`Interface/AddOns/\`.$EXTRA_LINES
 $(printf '\n')$(printf '%s' "$NOTES")"
 
@@ -119,7 +111,5 @@ upload_zip() {
 upload_zip EbonBuilds.zip dist/EbonBuilds.zip
 [ -f dist/Auctionator.zip ] && upload_zip Auctionator.zip dist/Auctionator.zip
 [ -f dist/Details.zip ] && upload_zip Details.zip dist/Details.zip
-[ -f dist/Details_TinyThreat.zip ] && upload_zip Details_TinyThreat.zip dist/Details_TinyThreat.zip
-[ -f dist/Details_ProjectEbonhold.zip ] && upload_zip Details_ProjectEbonhold.zip dist/Details_ProjectEbonhold.zip
 
 echo "Published: $URL"

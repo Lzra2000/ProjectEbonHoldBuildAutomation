@@ -9,8 +9,6 @@
 # Optional companions:
 #   vendor/Auctionator/             -> dist/Auctionator.zip
 #   vendor/Details/ (+ suite)       -> dist/Details.zip  (primary Details asset)
-#   vendor/Details_TinyThreat/      -> dist/Details_TinyThreat.zip (legacy single)
-#   vendor/Details_ProjectEbonhold/ -> dist/Details_ProjectEbonhold.zip (legacy single)
 set -eu
 cd "$(dirname "$0")/.."
 
@@ -19,24 +17,18 @@ DETAILS_SUITE_ADDONS="Details Details_3DModelsPaths Details_ChartViewer Details_
 BUILD_FIRST=0
 SKIP_AUCTIONATOR=0
 SKIP_DETAILS_SUITE=0
-SKIP_DETAILS_TINYTHREAT=0
-SKIP_DETAILS_PE=0
 while [ $# -gt 0 ]; do
     case "$1" in
         --build) BUILD_FIRST=1; shift ;;
         --skip-auctionator) SKIP_AUCTIONATOR=1; shift ;;
         --skip-details-suite) SKIP_DETAILS_SUITE=1; shift ;;
-        --skip-details-tinythreat) SKIP_DETAILS_TINYTHREAT=1; shift ;;
-        --skip-details-pe) SKIP_DETAILS_PE=1; shift ;;
         --help|-h)
             cat <<'EOF'
-Usage: sh scripts/verify-package.sh [--build] [--skip-auctionator] [--skip-details-suite] [--skip-details-tinythreat] [--skip-details-pe]
+Usage: sh scripts/verify-package.sh [--build] [--skip-auctionator] [--skip-details-suite]
 
   --build                    Run scripts/build-dist.sh first if dist/EbonBuilds.zip is missing
   --skip-auctionator         Do not validate dist/Auctionator.zip even when present
   --skip-details-suite       Do not validate dist/Details.zip even when present
-  --skip-details-tinythreat  Do not validate dist/Details_TinyThreat.zip even when present
-  --skip-details-pe          Do not validate dist/Details_ProjectEbonhold.zip even when present
 EOF
             exit 0 ;;
         *)
@@ -211,33 +203,6 @@ elif [ "$SKIP_DETAILS_SUITE" -eq 0 ] && [ "$DETAILS_SUITE_EXPECTED" -eq 1 ] && [
     fail=1
 fi
 
-if [ "$SKIP_DETAILS_TINYTHREAT" -eq 0 ] && [ -f dist/Details_TinyThreat.zip ]; then
-    echo ""
-    echo "== Verifying optional dist/Details_TinyThreat.zip =="
-    unzip -q dist/Details_TinyThreat.zip -d "$STAGE"
-    TT_ROOT="$STAGE/Details_TinyThreat"
-    verify_toc_package "$TT_ROOT/Details_TinyThreat.toc" "$TT_ROOT" "Details_TinyThreat"
-    echo "Optional Details_TinyThreat bundle verified — see vendor/Details_TinyThreat/CREDITS.md"
-elif [ -d vendor/Details_TinyThreat ] && [ -f vendor/Details_TinyThreat/Details_TinyThreat.toc ] && [ ! -f dist/Details_TinyThreat.zip ]; then
-    echo ""
-    echo "WARN: vendor/Details_TinyThreat present but dist/Details_TinyThreat.zip was not built" >&2
-    annotate "vendor/Details_TinyThreat present but dist/Details_TinyThreat.zip missing"
-    fail=1
-fi
-
-if [ "$SKIP_DETAILS_PE" -eq 0 ] && [ -f dist/Details_ProjectEbonhold.zip ]; then
-    echo ""
-    echo "== Verifying optional dist/Details_ProjectEbonhold.zip =="
-    unzip -q dist/Details_ProjectEbonhold.zip -d "$STAGE"
-    PE_ROOT="$STAGE/Details_ProjectEbonhold"
-    verify_toc_package "$PE_ROOT/Details_ProjectEbonhold.toc" "$PE_ROOT" "Details_ProjectEbonhold"
-    echo "Optional Details_ProjectEbonhold bundle verified — see vendor/Details_ProjectEbonhold/CREDITS.md"
-elif [ -d vendor/Details_ProjectEbonhold ] && [ -f vendor/Details_ProjectEbonhold/Details_ProjectEbonhold.toc ] && [ ! -f dist/Details_ProjectEbonhold.zip ]; then
-    echo ""
-    echo "WARN: vendor/Details_ProjectEbonhold present but dist/Details_ProjectEbonhold.zip was not built" >&2
-    annotate "vendor/Details_ProjectEbonhold present but dist/Details_ProjectEbonhold.zip missing"
-    fail=1
-fi
 
 if [ "$fail" -ne 0 ]; then
     echo ""
@@ -252,10 +217,4 @@ if [ -f dist/Auctionator.zip ]; then
 fi
 if [ -f dist/Details.zip ]; then
     echo "Primary Details.zip included — full PE-selective Details suite; see vendor/Details/CREDITS.md"
-fi
-if [ -f dist/Details_TinyThreat.zip ]; then
-    echo "Legacy Details_TinyThreat.zip included — prefer Details.zip; see vendor/Details_TinyThreat/CREDITS.md"
-fi
-if [ -f dist/Details_ProjectEbonhold.zip ]; then
-    echo "Legacy Details_ProjectEbonhold.zip included — prefer Details.zip; see vendor/Details_ProjectEbonhold/CREDITS.md"
 fi
