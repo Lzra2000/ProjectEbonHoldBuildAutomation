@@ -232,6 +232,8 @@ local uiContracts = {
     { "BuildTabs.MarkDirty", EbonBuilds.BuildTabs and EbonBuilds.BuildTabs.MarkDirty },
     { "BuildTabs.ClearDirty", EbonBuilds.BuildTabs and EbonBuilds.BuildTabs.ClearDirty },
     { "EchoPicker.Show", EbonBuilds.EchoPicker and EbonBuilds.EchoPicker.Show },
+    { "EchoPicker.Open", EbonBuilds.EchoPicker and EbonBuilds.EchoPicker.Open },
+    { "EchoPicker.ToggleSelectionState", EbonBuilds.EchoPicker and EbonBuilds.EchoPicker.ToggleSelectionState },
     { "SettingsView.Refresh", EbonBuilds.SettingsView and EbonBuilds.SettingsView.Refresh },
     { "SettingsView.ValidateAndCommitAll", EbonBuilds.SettingsView and EbonBuilds.SettingsView.ValidateAndCommitAll },
     { "MainWindow.RefreshContext", EbonBuilds.MainWindow and EbonBuilds.MainWindow.RefreshContext },

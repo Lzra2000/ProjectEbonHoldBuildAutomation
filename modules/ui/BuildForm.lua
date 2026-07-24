@@ -387,15 +387,28 @@ local function BuildDescriptionField(parent, x, y, height)
     insertBtn:SetPoint("TOPLEFT", parent, "TOPLEFT", x + 90, y + 2)
     insertBtn:SetText("+ Insert Echo Link")
     insertBtn:SetScript("OnClick", function()
-        EbonBuilds.EchoPicker.Show(function(spellId, quality, name)
-            local color = QUALITY_COLOR[quality] or "ffffff"
-            local link  = "|cff" .. color .. "|Hecho:" .. spellId .. "|h[" .. name .. "]|h|r"
-            if commentsBox:HasFocus() then
-                commentsBox:Insert(link)
-            else
-                commentsBox:SetText((commentsBox:GetText() or "") .. link)
-            end
-        end, nil, state.class)
+        EbonBuilds.EchoPicker.Open({
+            multi = true,
+            classToken = state.class,
+            onConfirm = function(list)
+                local parts = {}
+                for i = 1, #(list or {}) do
+                    local entry = list[i]
+                    if entry and entry.spellId then
+                        local color = QUALITY_COLOR[entry.quality] or "ffffff"
+                        local name = entry.displayName or entry.name or ("Echo #" .. tostring(entry.spellId))
+                        parts[#parts + 1] = "|cff" .. color .. "|Hecho:" .. entry.spellId .. "|h[" .. name .. "]|h|r"
+                    end
+                end
+                if #parts == 0 then return end
+                local blob = table.concat(parts, " ")
+                if commentsBox:HasFocus() then
+                    commentsBox:Insert(blob)
+                else
+                    commentsBox:SetText((commentsBox:GetText() or "") .. blob)
+                end
+            end,
+        })
     end)
     insertBtn:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")

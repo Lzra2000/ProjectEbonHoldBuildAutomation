@@ -16,7 +16,19 @@ instructions and download links also live on
 [GitHub Releases](https://github.com/Lzra2000/ProjectEbonHoldBuildAutomation/releases)
 and on the [Releases page](https://lzra2000.github.io/ProjectEbonHoldBuildAutomation/releases/).
 
-[Unreleased]: https://github.com/Lzra2000/ProjectEbonHoldBuildAutomation/compare/v3.86.3...HEAD
+[Unreleased]: https://github.com/Lzra2000/ProjectEbonHoldBuildAutomation/compare/v3.86.4...HEAD
+
+### 3.86.4 (2026-07-24) -- Echo picker multi-select QoL
+
+#### Added
+- Choose an Echo picker supports multi-select: toggle rows, Select visible / Clear, and Add selected (N). Esc/X still cancels without applying.
+- New `EchoPicker.Open({ multi, onConfirm, onPick, dataSource, classToken })` API; existing `Show` / `ShowForLock` / `ShowForPriority` stay single-select for lock slots.
+
+#### Changed
+- Priority bans "Add Echo" and Build Form "+ Insert Echo Link" use multi-select so several Echoes can be added in one pass.
+
+#### Tests
+- `tests/test_echo_picker_multi.lua` covers selection keying, toggle, order, select-all, and clear helpers.
 
 ### Unreleased
 
