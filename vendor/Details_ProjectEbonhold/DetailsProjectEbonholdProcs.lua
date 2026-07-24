@@ -96,19 +96,22 @@ end
 function Procs.GetProcRows()
     return Core.BuildProcRows(attribution, function(id)
         return PE.GetSpellName(id)
+    end, function(id)
+        return PE.GetSpellIcon(id)
     end)
 end
 
 local function AnnotateProcSpell(procId, sourceName)
     local base = PE.GetSpellName(procId)
     -- Strip prior attribution suffixes for a clean re-label.
-    base = base:gsub(" %(← .-%)", ""):gsub(" %(Proc%)", ""):gsub(" %(Echo%)", "")
+    base = base:gsub(" %(← .-%)", ""):gsub(" %(<%- .-%)", ""):gsub(" %(Proc%)", ""):gsub(" %(Echo%)", "")
     local label
     if Core.IsPeCustomSpellId(procId) then
-        -- Prefer "EchoName (Echo) (← SourceCast)" in the spell breakdown.
+        -- Prefer "EchoName (Echo) (<- SourceCast)" in the spell breakdown.
         label = Core.FormatEchoLabel(base)
-        if type(sourceName) == "string" and sourceName ~= "" then
-            label = string.format("%s (← %s)", label, sourceName)
+        local suffix = Core.FormatProcSourceSuffix(sourceName)
+        if suffix ~= "" then
+            label = label .. suffix
         end
     else
         label = Core.FormatProcLabel(base, sourceName)
@@ -169,7 +172,33 @@ local function OnCombatLog(_, _, timestamp, subevent, srcGUID, srcName, srcFlags
 end
 
 local CUSTOM_NAME = "PE Proc Sources"
-local CUSTOM_VERSION = 1
+local CUSTOM_VERSION = 2
+-- Soft minimum height so more proc rows are visible without scrolling immediately.
+local CUSTOM_MIN_HEIGHT = 260
+
+local function EnsureReadableInstance(instance)
+    if type(instance) ~= "table" then
+        return
+    end
+    -- Keep percent visible so Details does not render "97.6K()" with empty brackets.
+    if type(instance.row_info) == "table" and type(instance.row_info.textR_show_data) == "table" then
+        instance.row_info.textR_show_data[3] = true
+    end
+    local frame = instance.baseframe or instance.BaseFrame
+    if type(frame) == "table" and type(frame.GetHeight) == "function" and type(frame.SetHeight) == "function" then
+        local ok, height = pcall(frame.GetHeight, frame)
+        if ok and type(height) == "number" and height > 0 and height < CUSTOM_MIN_HEIGHT then
+            pcall(frame.SetHeight, frame, CUSTOM_MIN_HEIGHT)
+            if type(instance.SetSize) == "function" then
+                pcall(instance.SetSize, instance)
+            elseif type(instance.BaseFrameAnchors) == "function" then
+                pcall(instance.BaseFrameAnchors, instance)
+            end
+        end
+    end
+end
+
+Procs.EnsureReadableInstance = EnsureReadableInstance
 
 local function InstallCustomDisplay()
     if Db().installCustomDisplays == false then
@@ -196,35 +225,70 @@ local pe = DetailsProjectEbonhold
 if not pe or not pe.Procs or not pe.Procs.GetProcRows then
     return 0, 0, 0
 end
+if pe.Procs.EnsureReadableInstance then
+    pe.Procs.EnsureReadableInstance(instance)
+end
 local rows = pe.Procs.GetProcRows()
 for i = 1, #rows do
     local row = rows[i]
     local value = row.amount or 0
     if value > 0 then
-        local actor = { nome = row.key, name = row.key, classe = "UNKNOW" }
-        instance_container:AddValue(actor, value)
+        local procId = tonumber(row.procId)
+        -- Use spell id so Details shows a real icon (not UNKNOW role texture).
+        local actor = { id = procId, nome = row.procName or row.key, name = row.procName or row.key }
+        local suffix = row.sourceSuffix
+        if type(suffix) ~= "string" or suffix == " ()" or suffix == "()" then
+            suffix = nil
+        end
+        instance_container:AddValue(actor, value, nil, suffix)
+        -- GetActorTable overwrites nome from GetSpellInfo; restore label + server icon.
+        local stored = instance_container:GetActorTable(actor, suffix)
+        if stored then
+            local procName = row.procName or stored.nome or ("Spell #" .. tostring(procId or 0))
+            stored.nome = procName
+            stored.name = procName
+            stored.displayName = procName .. (suffix or "")
+            if type(row.icon) == "string" and row.icon ~= "" then
+                stored.icon = row.icon
+            elseif pe.GetSpellIcon and procId then
+                stored.icon = pe.GetSpellIcon(procId)
+            end
+            -- Keep id so click/school coloring and spell-icon path stay active.
+            if procId then
+                stored.id = procId
+            end
+        end
         total = total + value
         if value > top then top = value end
         amount = amount + 1
     end
 end
+if instance_container.GetTotalAndHighestValue then
+    total, top = instance_container:GetTotalAndHighestValue()
+end
+if instance_container.GetNumActors then
+    amount = instance_container:GetNumActors()
+end
 return total, top, amount
 ]],
         tooltip = [[
 local actor, combat, instance = ...
-GameCooltip:AddLine(actor.nome or actor.name or "Proc")
+local pe = DetailsProjectEbonhold
+local name = actor.displayName or actor.nome or actor.name or "Proc"
+GameCooltip:AddLine(name)
 GameCooltip:AddLine("Attributed to the cast/aura that likely triggered this secondary hit.")
-GameCooltip:AddLine("Project Ebonhold Details PE fine-tune.")
+if actor.id and pe and pe.GetSpellName then
+    GameCooltip:AddLine("Spell: " .. tostring(pe.GetSpellName(actor.id)) .. "  [" .. tostring(actor.id) .. "]")
+end
+if actor.id and pe and pe.GetSpellIcon then
+    local icon = pe.GetSpellIcon(actor.id)
+    if icon then
+        GameCooltip:AddIcon(icon, 1, 1, 18, 18)
+    end
+end
+GameCooltip:AddLine("Mousewheel scrolls the full list. Project Ebonhold Details PE.")
 ]],
-        total_script = [[
-local value, top, total, combat, instance = ...
-return value
-]],
-        percent_script = [[
-local value, top, total, combat, instance = ...
-if not total or total == 0 then return "0%" end
-return string.format("%.1f", value / total * 100) .. "%"
-]],
+        -- Omit total/percent scripts: Details defaults avoid double "%" and empty "()".
     }
     pcall(details.InstallCustomObject, details, object)
 end

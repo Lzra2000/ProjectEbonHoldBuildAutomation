@@ -41,10 +41,28 @@ equal(Core.FormatEchoLabel("Crimson Reprisal"), "Crimson Reprisal (Echo)", "echo
 equal(Core.FormatEchoLabel("Crimson Reprisal (Echo)"), "Crimson Reprisal (Echo)", "idempotent echo label")
 equal(Core.FormatEchoLabel(""), "Unknown (Echo)", "empty echo name")
 
--- Proc labels
-equal(Core.FormatProcLabel("Chaos Bolt", "Incinerate"), "Chaos Bolt (← Incinerate)", "proc from source")
-equal(Core.FormatProcLabel("Trinket Hit", nil), "Trinket Hit (Proc)", "proc without source")
-equal(Core.FormatProcLabel("X (← Y)", "Z"), "X (← Y)", "do not nest attribution")
+-- Proc labels — never emit empty ()
+equal(Core.FormatProcLabel("Chaos Bolt", "Incinerate"), "Chaos Bolt (<- Incinerate)", "proc from source")
+equal(Core.FormatProcLabel("Trinket Hit", nil), "Trinket Hit", "proc without source omits parens")
+equal(Core.FormatProcLabel("Trinket Hit", ""), "Trinket Hit", "empty source omits parens")
+equal(Core.FormatProcLabel("Trinket Hit", "   "), "Trinket Hit", "whitespace source omits parens")
+equal(Core.FormatProcLabel("X (<- Y)", "Z"), "X (<- Y)", "do not nest attribution")
+equal(Core.FormatProcSourceSuffix("Incinerate"), " (<- Incinerate)", "source suffix")
+equal(Core.FormatProcSourceSuffix(nil), "", "nil source suffix empty")
+equal(Core.FormatProcSourceSuffix(""), "", "empty source suffix empty")
+
+-- Perk / server icon helpers
+equal(Core.IsMissingIcon(nil), true, "nil icon missing")
+equal(Core.IsMissingIcon(""), true, "empty icon missing")
+equal(Core.IsMissingIcon(Core.QUESTION_ICON), true, "question icon missing")
+equal(Core.IsMissingIcon([[Interface\Icons\Spell_Fire_Fireball02]]), false, "real icon ok")
+equal(Core.IconFromPerkData({ icon = [[Interface\Icons\Ability_Warrior_SavageBlow]] }),
+    [[Interface\Icons\Ability_Warrior_SavageBlow]], "icon from perk data")
+equal(Core.IconFromPerkData({ Icon = [[Interface\Icons\Spell_Nature_Lightning]] }),
+    [[Interface\Icons\Spell_Nature_Lightning]], "Icon capital field")
+equal(Core.IconFromPerkData({ icon = Core.QUESTION_ICON }), nil, "question icon rejected")
+equal(Core.NameFromPerkData({ comment = "Flowing Force" }), "Flowing Force", "name from comment")
+equal(Core.NameFromPerkData({ name = "  Relentless Pursuit  " }), "Relentless Pursuit", "trim perk name")
 
 -- Likely proc detection
 equal(Core.IsLikelyProc(12345, { [12345] = true }), false, "cast spell is not a proc")
@@ -72,11 +90,27 @@ local rows = Core.BuildProcRows(attr, function(id)
     if id == 20 then return "Incinerate" end
     if id == 30 then return "Shadow Bolt" end
     return tostring(id)
+end, function(id)
+    if id == 50002 then return [[Interface\Icons\Spell_Shadow_ShadowBolt]] end
+    return nil
 end)
 equal(#rows, 2, "two proc rows")
 equal(rows[1].amount, 2000, "highest amount first")
-equal(rows[1].key, "ProcB (← Shadow Bolt)", "row key format")
+equal(rows[1].key, "ProcB (<- Shadow Bolt)", "row key format")
+equal(rows[1].procName, "ProcB", "short proc name for bar")
+equal(rows[1].sourceSuffix, " (<- Shadow Bolt)", "source as suffix")
+equal(rows[1].icon, [[Interface\Icons\Spell_Shadow_ShadowBolt]], "icon from resolver")
 equal(rows[2].amount, 1500, "accumulated same proc+source")
+equal(rows[2].icon, Core.QUESTION_ICON, "missing icon falls back to question")
+
+-- Empty nameResolver source must not create " ()"
+local attr2 = Core.RecordProcDamage(nil, 9, 8, 100)
+local rows2 = Core.BuildProcRows(attr2, function(id)
+    if id == 9 then return "Flowing Force" end
+    return "" -- empty source name
+end)
+equal(rows2[1].key, "Flowing Force", "empty source name => no parens on key")
+equal(rows2[1].sourceSuffix, "", "empty source => empty suffix")
 
 -- Echo damage matching
 local index = Core.BuildEchoIndex({

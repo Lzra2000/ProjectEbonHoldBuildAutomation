@@ -18,6 +18,11 @@ and on the [Releases page](https://lzra2000.github.io/ProjectEbonHoldBuildAutoma
 
 [Unreleased]: https://github.com/Lzra2000/ProjectEbonHoldBuildAutomation/compare/v3.86.3...HEAD
 
+### Unreleased
+
+#### Fixed
+- **Details_ProjectEbonhold 1.0.1-pe1:** PE Proc Sources no longer shows empty `()` (Details percent brackets + missing source), shortens bar labels to reduce truncation/overlap, soft-grows the window and keeps percent on for scrollable full lists, and fills spell icons from ProjectEbonhold `PerkDatabase` / `GetPerkData` (server sync) when client `GetSpellInfo` lacks them.
+
 ### 3.86.3 (2026-07-24) -- Sparse community cohorts for rare specs
 
 #### Changed

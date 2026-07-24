@@ -47,12 +47,21 @@ release zip).
 
 - Watches 3.3.5a `COMBAT_LOG_EVENT_UNFILTERED` for the player's casts/auras.
 - Secondary damage within ~1.5s that was **not** itself cast is treated as a
-  proc and labeled `ProcName (← SourceCast)`.
-- Installs Details Custom Display **PE Proc Sources** (Attributes → Custom).
+  proc and labeled `ProcName (<- SourceCast)`.
+- Installs Details Custom Display **PE Proc Sources** (Attributes → Custom):
+  scrollable list, spell icons (client `GetSpellInfo` then PE `PerkDatabase` /
+  `GetPerkData` from the server sync), no empty `()` when source is unknown.
+
+### Icons
+
+- `PE.GetSpellIcon` / Echo labels prefer client spell DB, then ProjectEbonhold
+  perk records (server API), then EbonBuilds `ProjectAPI.GetPerkData`.
+- Results cached in `DetailsProjectEbonholdDB.iconCache`.
 
 ### PE defaults
 
 - Ensures `override_spellids` stays enabled (merge related multi-hit skills).
+- Enables right-text percent so Details does not show empty `()` brackets.
 - Applied once per account (`DetailsProjectEbonholdDB.defaultsApplied`); does
   not reset skins/windows.
 
@@ -69,8 +78,9 @@ release zip).
    `Interface/AddOns/Details_ProjectEbonhold`.
 3. `/reload`, confirm add-on list shows **Details!: Project Ebonhold**.
 4. In Details: open a window → attribute menu → **Custom** → **PE Proc Sources**
-   (optional). Player spell breakdowns show `(Echo)` / `(← Source)` labels
-   automatically when tracking is on.
+   (optional). Player spell breakdowns show `(Echo)` / `(<- Source)` labels
+   automatically when tracking is on. Mousewheel scrolls long PE Proc Sources
+   lists; hover a bar for the full name + spell id.
 
 ## Residual risks
 
