@@ -193,3 +193,90 @@ function EbonBuilds.Scoring.GetEffectiveSettings()
     if build and build.settings then return build.settings end
     return EbonBuilds.Build.DefaultSettings()
 end
+
+------------------------------------------------------------------------
+-- Deterministic automation tie-breaks (WP2 / #51). Shared by BoardDecision,
+-- dry-run fixtures, and future server-policy validation. Primary score still
+-- wins; when scores tie: optional server rank (lower integer wins when both
+-- slots publish rank) -> slot index -> echo/spell ID -> frozen/carried pref.
+------------------------------------------------------------------------
+
+local TIE_HUGE = math.huge
+
+local function CandidateEchoId(slot)
+    if not slot then return TIE_HUGE end
+    local id = tonumber(slot.spellId) or tonumber(slot.echoId)
+    if id then return id end
+    if type(slot.refKey) == "number" then return slot.refKey end
+    return TIE_HUGE
+end
+
+local function CandidateIndex(slot)
+    return tonumber(slot and slot.index) or TIE_HUGE
+end
+
+local function CandidateServerRank(slot)
+    if not slot or slot.rank == nil then return nil end
+    return tonumber(slot.rank)
+end
+
+local function CandidateFrozenWeight(slot)
+    return slot and (slot.isFrozen or slot.isCarried) and 1 or 0
+end
+
+-- Negative when `a` outranks `b`, positive when `b` outranks `a`, zero when tied.
+function EbonBuilds.Scoring.CompareCandidates(a, b, opts)
+    opts = opts or {}
+    if not a and not b then return 0 end
+    if not a then return 1 end
+    if not b then return -1 end
+
+    local aScore = tonumber(a.score) or 0
+    local bScore = tonumber(b.score) or 0
+    if aScore ~= bScore then
+        return bScore - aScore
+    end
+
+    local aRank = CandidateServerRank(a)
+    local bRank = CandidateServerRank(b)
+    if aRank ~= nil and bRank ~= nil and aRank ~= bRank then
+        return aRank - bRank
+    end
+
+    local aIndex = CandidateIndex(a)
+    local bIndex = CandidateIndex(b)
+    if aIndex ~= bIndex then
+        return aIndex - bIndex
+    end
+
+    local aId = CandidateEchoId(a)
+    local bId = CandidateEchoId(b)
+    if aId ~= bId then
+        return aId - bId
+    end
+
+    if opts.preferFrozen then
+        local aFrozen = CandidateFrozenWeight(a)
+        local bFrozen = CandidateFrozenWeight(b)
+        if aFrozen ~= bFrozen then
+            return bFrozen - aFrozen
+        end
+    end
+
+    return 0
+end
+
+function EbonBuilds.Scoring.IsBetterCandidate(a, b, opts)
+    return EbonBuilds.Scoring.CompareCandidates(a, b, opts) < 0
+end
+
+function EbonBuilds.Scoring.IsWorseCandidate(a, b, opts)
+    if not a then return false end
+    if not b then return true end
+    local aScore = tonumber(a.score) or 0
+    local bScore = tonumber(b.score) or 0
+    if aScore ~= bScore then return aScore < bScore end
+    opts = opts or {}
+    opts.preferFrozen = false
+    return EbonBuilds.Scoring.CompareCandidates(a, b, opts) < 0
+end
