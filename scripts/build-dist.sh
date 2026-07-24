@@ -24,7 +24,7 @@ cp -r modules "$PKG/"
 [ -d media ] && cp -r media "$PKG/"
 
 mkdir -p dist
-rm -f dist/EbonBuilds.zip dist/Auctionator.zip
+rm -f dist/EbonBuilds.zip dist/Auctionator.zip dist/Details_TinyThreat.zip
 
 # Verify every file the .toc references made it into the package before
 # zipping, so a stale build script can't silently ship a broken addon.
@@ -43,6 +43,14 @@ if [ -d vendor/Auctionator ] && [ -f vendor/Auctionator/Auctionator.toc ]; then
     cp -r vendor/Auctionator/. "$ATR_PKG/"
     (cd "$STAGE" && zip -rq -X "$OLDPWD/dist/Auctionator.zip" Auctionator)
     echo "Built dist/Auctionator.zip ($(du -h dist/Auctionator.zip | cut -f1)) — Project Ebonhold fork; see vendor/Auctionator/CREDITS.md"
+fi
+
+if [ -d vendor/Details_TinyThreat ] && [ -f vendor/Details_TinyThreat/Details_TinyThreat.toc ]; then
+    TT_PKG="$STAGE/Details_TinyThreat"
+    mkdir -p "$TT_PKG"
+    cp -r vendor/Details_TinyThreat/. "$TT_PKG/"
+    (cd "$STAGE" && zip -rq -X "$OLDPWD/dist/Details_TinyThreat.zip" Details_TinyThreat)
+    echo "Built dist/Details_TinyThreat.zip ($(du -h dist/Details_TinyThreat.zip | cut -f1)) — Project Ebonhold fork; requires Details! core; see vendor/Details_TinyThreat/CREDITS.md"
 fi
 
 echo "Built dist/EbonBuilds.zip ($(du -h dist/EbonBuilds.zip | cut -f1))"

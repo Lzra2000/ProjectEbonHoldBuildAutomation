@@ -65,6 +65,9 @@ jobs:
               if [ -f dist/Auctionator.zip ]; then
                   echo "Optional affix shopping: [Download Auctionator.zip](https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/Auctionator.zip) — extract to \`Interface/AddOns/Auctionator\` (EbonBuilds enables bridge features when present)."
               fi
+              if [ -f dist/Details_TinyThreat.zip ]; then
+                  echo "Optional Details! threat plugin: [Download Details_TinyThreat.zip](https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/Details_TinyThreat.zip) — requires [Details!](https://github.com/Tercioo/Details-Damage-Meter) core in \`Interface/AddOns/Details\` (not shipped with EbonBuilds)."
+              fi
               echo
               cat /tmp/notes_raw.md
           } > /tmp/body.md
@@ -76,6 +79,9 @@ jobs:
           ASSETS="dist/EbonBuilds.zip"
           if [ -f dist/Auctionator.zip ]; then
               ASSETS="$ASSETS dist/Auctionator.zip"
+          fi
+          if [ -f dist/Details_TinyThreat.zip ]; then
+              ASSETS="$ASSETS dist/Details_TinyThreat.zip"
           fi
           gh release create "$GITHUB_REF_NAME" $ASSETS \
               --title "$(cat /tmp/title.txt)" \
