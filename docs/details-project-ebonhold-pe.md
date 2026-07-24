@@ -10,8 +10,9 @@ Does **not** ship the Details! core (~22 MB) — install Details separately.
 | Area | Before | After |
 |------|--------|-------|
 | **Echo DPS** | Echo/secondary hits look like anonymous custom spell IDs in the Details spell list | Labeled `Name (Echo)`; optional breakdown API for EbonBuilds EchoPerformance |
-| **Procs** | Proc damage has no link to the cast that triggered it | Labeled `ProcName (← SourceCast)`; Custom Display **PE Proc Sources** |
-| **Core** | Stock Details defaults | Soft PE defaults (`override_spellids` on); TinyThreat-style shim, not a full fork |
+| **Procs** | Proc damage has no link to the cast that triggered it | Labeled `ProcName (<- SourceCast)`; Custom Display **PE Proc Sources** |
+| **Icons** | PE custom spells often lack client DBC icons | Icons from `GetSpellInfo`, then ProjectEbonhold `PerkDatabase` / `GetPerkData` (server sync), cached |
+| **Core** | Stock Details defaults | Soft PE defaults (`override_spellids` on, percent on); TinyThreat-style shim, not a full fork |
 
 ## Install
 
@@ -30,8 +31,9 @@ Works alongside **Details_TinyThreat** (threat plugin) and EbonBuilds
 
 **Details!: Project Ebonhold** kennzeichnet Echo-Schaden in Details als
 `(Echo)` und zeigt bei Procs, **welcher Spell** sie ausgelöst hat
-(`Proc (← Quell-Spell)`). Zusätzlich gibt es die Custom-Anzeige
-**PE Proc Sources**.
+(`Proc (<- Quell-Spell)`). Zusätzlich gibt es die Custom-Anzeige
+**PE Proc Sources** (scrollbar / höhere Fensterhöhe; Icons aus der
+PE-Perk-Datenbank wenn der Client sie nicht kennt).
 
 1. Details!-Core muss bereits unter `Interface/AddOns/Details` liegen.
 2. `Details_ProjectEbonhold.zip` nach `Interface/AddOns/Details_ProjectEbonhold`

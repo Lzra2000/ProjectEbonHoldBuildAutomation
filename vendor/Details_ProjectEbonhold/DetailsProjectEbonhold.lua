@@ -9,9 +9,10 @@ DetailsProjectEbonhold = DetailsProjectEbonhold or {}
 local PE = DetailsProjectEbonhold
 local Core = DetailsProjectEbonholdCore
 
-PE.VERSION = "1.0.0-pe1"
+PE.VERSION = "1.0.1-pe1"
 PE._ready = false
 PE._defaultsApplied = false
+local QUESTION_ICON = Core.QUESTION_ICON or [[Interface\Icons\INV_Misc_QuestionMark]]
 
 local function SafeCall(fn, ...)
     if type(fn) ~= "function" then
@@ -38,7 +39,60 @@ local function EnsureDB()
     db.labelEchoes = (db.labelEchoes ~= false)
     db.trackProcs = (db.trackProcs ~= false)
     db.installCustomDisplays = (db.installCustomDisplays ~= false)
+    -- spellId -> texture path; filled from GetSpellInfo + PE PerkDatabase (server sync).
+    if type(db.iconCache) ~= "table" then
+        db.iconCache = {}
+    end
     return db
+end
+
+-- ProjectEbonhold PerkDatabase / GetPerkData is populated from the PE server API.
+local function LookupPerkRecord(spellId)
+    spellId = tonumber(spellId)
+    if not spellId then
+        return nil
+    end
+    local peh = _G.ProjectEbonhold
+    if type(peh) == "table" then
+        if type(peh.GetPerkData) == "function" then
+            local ok, data = pcall(peh.GetPerkData, spellId)
+            if ok and type(data) == "table" then
+                return data
+            end
+        end
+        local database = peh.PerkDatabase
+        if type(database) == "table" then
+            local data = database[spellId] or database[tostring(spellId)]
+            if type(data) == "table" then
+                return data
+            end
+        end
+    end
+    local api = _G.EbonBuilds and _G.EbonBuilds.ProjectAPI
+    if type(api) == "table" and type(api.GetPerkData) == "function" then
+        local ok, data = pcall(api.GetPerkData, spellId)
+        if ok and type(data) == "table" then
+            return data
+        end
+    end
+    return nil
+end
+
+function PE.ResolveServerSpellIcon(spellId)
+    return Core.IconFromPerkData(LookupPerkRecord(spellId))
+end
+
+function PE.ResolveServerSpellName(spellId)
+    return Core.NameFromPerkData(LookupPerkRecord(spellId))
+end
+
+local function CacheIcon(spellId, icon)
+    if not spellId or Core.IsMissingIcon(icon) then
+        return
+    end
+    local db = EnsureDB()
+    db.iconCache[spellId] = icon
+    db.iconCache[tostring(spellId)] = icon
 end
 
 -- Soft PE defaults: only flip knobs that help Echo/proc clarity and never
@@ -57,6 +111,17 @@ function PE.ApplyPeDefaults(details)
         details.override_spellids = true
         if type(details.UpdateParserGears) == "function" then
             SafeCall(details.UpdateParserGears, details)
+        end
+    end
+    -- Avoid empty "()" on the right text when percent is hidden (Details still
+    -- wraps brackets around an empty percent string).
+    if type(details.tabela_instancias) == "table" then
+        for i = 1, #details.tabela_instancias do
+            local inst = details.tabela_instancias[i]
+            if type(inst) == "table" and type(inst.row_info) == "table"
+                and type(inst.row_info.textR_show_data) == "table" then
+                inst.row_info.textR_show_data[3] = true
+            end
         end
     end
     db.defaultsApplied = true
@@ -108,21 +173,37 @@ function PE.GetSpellName(spellId)
             return name
         end
     end
+    local serverName = PE.ResolveServerSpellName(spellId)
+    if serverName then
+        return serverName
+    end
     return "Spell #" .. tostring(spellId)
 end
 
 function PE.GetSpellIcon(spellId)
     spellId = tonumber(spellId)
     if not spellId then
-        return [[Interface\Icons\INV_Misc_QuestionMark]]
+        return QUESTION_ICON
+    end
+    local db = EnsureDB()
+    local cached = db.iconCache[spellId] or db.iconCache[tostring(spellId)]
+    if type(cached) == "string" and not Core.IsMissingIcon(cached) then
+        return cached
     end
     if type(GetSpellInfo) == "function" then
         local _, _, icon = GetSpellInfo(spellId)
-        if type(icon) == "string" and icon ~= "" then
+        if type(icon) == "string" and not Core.IsMissingIcon(icon) then
+            CacheIcon(spellId, icon)
             return icon
         end
     end
-    return [[Interface\Icons\INV_Misc_QuestionMark]]
+    -- PE custom spells often lack client DBC icons — use server-synced PerkDatabase.
+    local serverIcon = PE.ResolveServerSpellIcon(spellId)
+    if serverIcon then
+        CacheIcon(spellId, serverIcon)
+        return serverIcon
+    end
+    return QUESTION_ICON
 end
 
 local bootFrame
