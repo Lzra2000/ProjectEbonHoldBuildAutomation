@@ -16,7 +16,12 @@ instructions and download links also live on
 [GitHub Releases](https://github.com/Lzra2000/ProjectEbonHoldBuildAutomation/releases)
 and on the [Releases page](https://lzra2000.github.io/ProjectEbonHoldBuildAutomation/releases/).
 
-[Unreleased]: https://github.com/Lzra2000/ProjectEbonHoldBuildAutomation/compare/v3.86.2...HEAD
+[Unreleased]: https://github.com/Lzra2000/ProjectEbonHoldBuildAutomation/compare/v3.86.3...HEAD
+
+### 3.86.3 (2026-07-24) -- Community evidence refresh after Public Sync
+
+#### Fixed
+- Public Sync now notifies the Build Wizard when remote builds are stored, updated, or cleared (`SYNC_REVISION_CHANGED`), so newly synced cohort samples can feed Echo evidence without needing a local library edit. Debounced across a sync burst so one session does not thrash the recommendation cache per build.
 
 ### 3.86.2 (2026-07-24) -- Public Builds sort harden, Logbook reasons, Details PE companion
 
