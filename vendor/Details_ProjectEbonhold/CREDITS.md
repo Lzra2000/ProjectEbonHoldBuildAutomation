@@ -70,8 +70,13 @@ release zip).
 
 - Ensures `override_spellids` stays enabled (merge related multi-hit skills).
 - Enables right-text percent so Details does not show empty `()` brackets.
-- Applied once per account (`DetailsProjectEbonholdDB.defaultsApplied`); does
-  not reset skins/windows.
+- Sets `overall_clear_newboss = false` so **Overall Data** is not wiped on every
+  new raid boss (stock Details default clears it; that felt like data not saving).
+  Players who want auto-wipe can re-enable Details options → Overall →
+  **Clear On New Raid Boss** / deDE **Bei neuem Schlachtzugsboss löschen**.
+- Applied once per account (`defaultsApplied`, `defaultsOverallClearNewBoss`);
+  does not reset skins/windows. New keys can land in later PE versions without
+  re-stomping older defaults.
 
 ## Slash
 
@@ -100,6 +105,13 @@ release zip).
   granted perk or PE-band combat hit.
 - Custom Display scripts run inside Details' sandbox; if Details updates break
   `InstallCustomObject`, labels still work via spellcache.
+
+## 1.0.7-pe1
+
+Soft default: `overall_clear_newboss = false` so Details **Overall Data** is kept
+across raid bosses (stock Details wipes it on each new boss). One-shot via
+`DetailsProjectEbonholdDB.defaultsOverallClearNewBoss` so existing PE installs
+pick it up once. Re-enable wipe in Details options if desired.
 
 ## 1.0.6-pe1
 

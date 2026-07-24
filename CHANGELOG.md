@@ -29,6 +29,7 @@ and on the [Releases page](https://lzra2000.github.io/ProjectEbonHoldBuildAutoma
 
 #### Fixed
 - **Details_ProjectEbonhold 1.0.6-pe1:** **PE Proc Sources** was empty on Details segment **Overall Data** (and wrong/empty after `/reload`) because attribution lived only in a wiped in-memory CLEU map. Proc rows now store on each Details combat (`pe_proc_attribution`), merge into overall when Details accepts the segment, and the Custom Display reads the selected combat ? same model as DPS Overall. Custom Display script v7.
+- **Details_ProjectEbonhold 1.0.7-pe1:** Soft default `overall_clear_newboss = false` so Details **Overall Data** is not wiped on every new raid boss (stock default cleared it and felt like data not saving). One-shot migration for existing PE installs; re-enable wipe in Details options if desired. Docs: [details-project-ebonhold-pe.md](details-project-ebonhold-pe.md).
 
 ### 3.86.4 (2026-07-24) -- Echo picker multi-select QoL
 

@@ -12,7 +12,7 @@ Does **not** ship the Details! core (~22 MB) — install Details separately.
 | **Echo DPS** | Echo/secondary hits look like anonymous custom spell IDs in the Details spell list | Labeled `Name (Echo)`; optional breakdown API for EbonBuilds EchoPerformance |
 | **Procs** | Proc damage has no link to the cast that triggered it; custom display empty on **Overall Data** | Labeled `ProcName [SourceCast]`; Custom Display **PE Proc Sources** (per-segment + Overall aggregate); **click a row** opens the real Details **Player Details! Breakdown** (Sources + Other procs / Targets panel) |
 | **Icons** | PE custom spells often lack client DBC icons | Icons from `GetSpellInfo`, then ProjectEbonhold `PerkDatabase` / `GetPerkData` (server sync), cached |
-| **Core** | Stock Details defaults | Soft PE defaults (`override_spellids` on, percent on); TinyThreat-style shim, not a full fork |
+| **Core** | Stock Details defaults | Soft PE defaults (`override_spellids` on, percent on, `overall_clear_newboss` off so Overall Data survives raid bosses); TinyThreat-style shim, not a full fork |
 
 ## Install
 
@@ -38,9 +38,16 @@ Works alongside **Details_TinyThreat** (threat plugin) and EbonBuilds
 **Player Details! Breakdown** (Quellen als Spell-Balken, weitere Procs im
 Targets-Panel).
 
+**Overall Data bleibt über Raid-Bosse hinweg:** Stock-Details löscht die
+Gesamtdaten bei jedem neuen Schlachtzugsboss (`overall_clear_newboss`). Der PE-
+Companion setzt das Soft-Default auf **aus**, damit die Overall-Summe über den
+Raid erhalten bleibt (fühlte sich sonst an wie „Daten speichern nicht“). Wer
+das alte Auto-Löschen will: Details-Optionen → Overall →
+**Bei neuem Schlachtzugsboss löschen** wieder aktivieren.
+
 1. Details!-Core muss bereits unter `Interface/AddOns/Details` liegen
    (oder die komplette Suite **`Details.zip`** entpacken).
-2. Companion `Details_ProjectEbonhold` (1.0.6-pe1) unter
+2. Companion `Details_ProjectEbonhold` (1.0.7-pe1) unter
    `Interface/AddOns/Details_ProjectEbonhold` — liegt auch in **Details.zip**.
 3. `/reload` — Labels erscheinen in der Spell-Aufschlüsselung automatisch.
 4. Details-Fenster → Attribut **Custom** → **PE Proc Sources**.

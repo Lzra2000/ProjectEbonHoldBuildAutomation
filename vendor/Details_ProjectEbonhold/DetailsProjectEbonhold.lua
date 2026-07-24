@@ -9,7 +9,7 @@ DetailsProjectEbonhold = DetailsProjectEbonhold or {}
 local PE = DetailsProjectEbonhold
 local Core = DetailsProjectEbonholdCore
 
-PE.VERSION = "1.0.6-pe1"
+PE.VERSION = "1.0.7-pe1"
 PE._ready = false
 PE._defaultsApplied = false
 local QUESTION_ICON = Core.QUESTION_ICON or [[Interface\Icons\INV_Misc_QuestionMark]]
@@ -97,36 +97,52 @@ end
 
 -- Soft PE defaults: only flip knobs that help Echo/proc clarity and never
 -- overwrite an already-applied flag (players keep their skin/layout).
+-- New keys can be added in later PE versions; each is applied once so older
+-- installs still pick up newly introduced soft defaults.
 function PE.ApplyPeDefaults(details)
     local db = EnsureDB()
-    if db.defaultsApplied then
-        return false
-    end
     details = details or PE.GetDetails()
     if type(details) ~= "table" then
         return false
     end
-    -- Keep related multi-hit spells merged (Stormstrike, Mutilate, etc.).
-    if details.override_spellids == false then
-        details.override_spellids = true
-        if type(details.UpdateParserGears) == "function" then
-            SafeCall(details.UpdateParserGears, details)
-        end
-    end
-    -- Avoid empty "()" on the right text when percent is hidden (Details still
-    -- wraps brackets around an empty percent string).
-    if type(details.tabela_instancias) == "table" then
-        for i = 1, #details.tabela_instancias do
-            local inst = details.tabela_instancias[i]
-            if type(inst) == "table" and type(inst.row_info) == "table"
-                and type(inst.row_info.textR_show_data) == "table" then
-                inst.row_info.textR_show_data[3] = true
+    local changed = false
+
+    if not db.defaultsApplied then
+        -- Keep related multi-hit spells merged (Stormstrike, Mutilate, etc.).
+        if details.override_spellids == false then
+            details.override_spellids = true
+            if type(details.UpdateParserGears) == "function" then
+                SafeCall(details.UpdateParserGears, details)
             end
         end
+        -- Avoid empty "()" on the right text when percent is hidden (Details still
+        -- wraps brackets around an empty percent string).
+        if type(details.tabela_instancias) == "table" then
+            for i = 1, #details.tabela_instancias do
+                local inst = details.tabela_instancias[i]
+                if type(inst) == "table" and type(inst.row_info) == "table"
+                    and type(inst.row_info.textR_show_data) == "table" then
+                    inst.row_info.textR_show_data[3] = true
+                end
+            end
+        end
+        db.defaultsApplied = true
+        changed = true
     end
-    db.defaultsApplied = true
-    PE._defaultsApplied = true
-    return true
+
+    -- 1.0.7-pe1: keep Overall Data across raid bosses. Stock Details clears
+    -- overall on every new raid boss (overall_clear_newboss=true), which feels
+    -- like "data not saving". Apply once; players who want auto-wipe can
+    -- re-enable Details options → Overall → Clear On New Raid Boss
+    -- (deDE: "Bei neuem Schlachtzugsboss löschen").
+    if not db.defaultsOverallClearNewBoss then
+        details.overall_clear_newboss = false
+        db.defaultsOverallClearNewBoss = true
+        changed = true
+    end
+
+    PE._defaultsApplied = db.defaultsApplied and db.defaultsOverallClearNewBoss
+    return changed
 end
 
 function PE.SetSpellLabel(spellId, name, icon)
