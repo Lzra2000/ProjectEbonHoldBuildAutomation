@@ -16,7 +16,7 @@ instructions and download links also live on
 [GitHub Releases](https://github.com/Lzra2000/ProjectEbonHoldBuildAutomation/releases)
 and on the [Releases page](https://lzra2000.github.io/ProjectEbonHoldBuildAutomation/releases/).
 
-[Unreleased]: https://github.com/Lzra2000/ProjectEbonHoldBuildAutomation/compare/v3.86.4...HEAD
+[Unreleased]: https://github.com/Lzra2000/ProjectEbonHoldBuildAutomation/compare/v3.86.5...HEAD
 
 ### Unreleased
 
@@ -31,6 +31,14 @@ and on the [Releases page](https://lzra2000.github.io/ProjectEbonHoldBuildAutoma
 - **Details_ProjectEbonhold 1.0.8-pe1:** PE Proc Sources opens native Player Details! Breakdown on **first click** (prewarms the window; removes DPS-bar chat hint). Layout: docks Breakdown beside the meter, hides empty right-side panels, denser detail blocks. Custom Display script v8.
 - **Details_ProjectEbonhold 1.0.6-pe1:** **PE Proc Sources** was empty on Details segment **Overall Data** (and wrong/empty after `/reload`) because attribution lived only in a wiped in-memory CLEU map. Proc rows now store on each Details combat (`pe_proc_attribution`), merge into overall when Details accepts the segment, and the Custom Display reads the selected combat ? same model as DPS Overall. Custom Display script v7.
 - **Details_ProjectEbonhold 1.0.7-pe1:** Soft default `overall_clear_newboss = false` so Details **Overall Data** is not wiped on every new raid boss (stock default cleared it and felt like data not saving). One-shot migration for existing PE installs; re-enable wipe in Details options if desired. Docs: [details-project-ebonhold-pe.md](details-project-ebonhold-pe.md).
+
+### 3.86.5 (2026-07-24) -- Apply visible recommendations
+
+#### Added
+- Stats → Recommendations: **Apply visible** applies every currently filtered recommendation in one click (respects Raise / Lower / Unapplied and the Echo vs Automation Logic tabs). Confirms when more than 20 rows are visible; toast reports how many applied. Per-row Apply / Dismiss / Inspect are unchanged.
+
+#### Tests
+- 	ests/test_load.lua covers filtered Apply visible batch apply of Echo-priority recommendations.
 
 ### 3.86.4 (2026-07-24) -- Echo picker multi-select QoL
 
