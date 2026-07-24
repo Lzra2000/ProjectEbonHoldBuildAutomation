@@ -320,7 +320,10 @@ end
 function M.CompareTalents(current, stored)
     local result = {
         comparable = stored ~= nil,
-        reason = stored and nil or "NO_SNAPSHOT",
+        -- Not `stored and nil or "NO_SNAPSHOT"`: that always yields
+        -- "NO_SNAPSHOT" (the `and nil` falls through to `or`), which made
+        -- every comparison read as "No saved talent snapshot".
+        reason = stored == nil and "NO_SNAPSHOT" or nil,
         requiredRanks = 0,
         matchedRanks = 0,
         missingRanks = 0,

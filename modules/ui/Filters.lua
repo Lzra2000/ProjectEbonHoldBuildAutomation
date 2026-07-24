@@ -293,7 +293,14 @@ local function CreateFamilyDropdown(bar, leftAnchor)
                 text = fam,
                 checked = state.families[fam] and true or false,
                 func = function()
-                    state.families[fam] = state.families[fam] and nil or true
+                    -- Same broken toggle as issue #39: `x and nil or true`
+                    -- always yields true, so a checked family could never
+                    -- be unchecked.
+                    if state.families[fam] then
+                        state.families[fam] = nil
+                    else
+                        state.families[fam] = true
+                    end
                     UpdateFamilyLabel()
                     Notify()
                 end,
