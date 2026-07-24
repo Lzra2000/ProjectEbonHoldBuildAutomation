@@ -12,7 +12,7 @@ cd "$(dirname "$0")/.."
 
 overall_fail=0
 
-echo "== 1/5  Lua 5.1 syntax check (excludes tests/) =="
+echo "== 1/6  Lua 5.1 syntax check (excludes tests/) =="
 if ! command -v luac5.1 >/dev/null 2>&1; then
     echo "luac5.1 not found -- run: sh scripts/dev-setup.sh" >&2
     exit 1
@@ -28,7 +28,7 @@ done < /tmp/ebb_lua_files.txt
 if [ "$fail" -eq 0 ]; then echo "OK: no syntax errors"; else overall_fail=1; fi
 
 echo ""
-echo "== 2/5  Test suite (tests/run.sh, on lua5.1 -- the client's runtime) =="
+echo "== 2/6  Test suite (tests/run.sh, on lua5.1 -- the client's runtime) =="
 if sh tests/run.sh; then
     echo "OK: test suite passed"
 else
@@ -36,7 +36,7 @@ else
 fi
 
 echo ""
-echo "== 3/5  Every .toc file exists on disk =="
+echo "== 3/6  Every .toc file exists on disk =="
 fail=0
 awk '{ sub(/\r$/, ""); if ($0 ~ /^[^[:space:]]+\.lua$/) print }' EbonBuilds.toc > /tmp/ebb_toc_files.txt
 while IFS= read -r line; do
@@ -45,13 +45,13 @@ done < /tmp/ebb_toc_files.txt
 if [ "$fail" -eq 0 ]; then echo "OK: all TOC files present"; else overall_fail=1; fi
 
 echo ""
-echo "== 4/5  No post-3.3.5a WoW API calls =="
+echo "== 4/6  No post-3.3.5a WoW API calls =="
 if ! sh scripts/check-335a-api.sh; then
     overall_fail=1
 fi
 
 echo ""
-echo "== 5/5  File header convention (core/ and modules/) =="
+echo "== 5/6  File header convention (core/ and modules/) =="
 # Every hand-written Lua file starts with the responsibility header from
 # CONTRIBUTING.md; generated data files are exempt via their own
 # "-- Generated" marker (regeneration would drop a hand-added header).
@@ -63,6 +63,14 @@ for f in $(find core modules -name "*.lua"); do
     fi
 done
 if [ "$fail" -eq 0 ]; then echo "OK: all file headers present"; else overall_fail=1; fi
+
+echo ""
+echo "== 6/6  Required media TGAs present =="
+fail=0
+for f in media/minimap_icon.tga media/vote_icon.tga media/vote_icon_off.tga media/affix_pip.tga; do
+    [ -f "$f" ] || { echo "MISSING: $f (run: python3 scripts/generate-media.py)"; fail=1; }
+done
+if [ "$fail" -eq 0 ]; then echo "OK: all media TGAs present"; else overall_fail=1; fi
 
 echo ""
 if [ "$overall_fail" -eq 0 ]; then

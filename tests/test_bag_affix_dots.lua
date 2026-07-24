@@ -29,8 +29,8 @@ assertTrue(src:find("hooksecurefunc(itemClass, \"Update\"", 1, true)
     or src:find('hooksecurefunc(itemClass, "Update"', 1, true),
     "BagAffixDots does not hooksecurefunc itemClass Update")
 assertTrue(src:find("IsCached", 1, true), "BagAffixDots dropped cached-view short-circuit")
-assertTrue(src:find("ContainerFrame_Update", 1, true),
-    "BagAffixDots no longer hooks default ContainerFrame_Update")
+assertTrue(src:find("ThemeRegistry", 1, true) or src:find("affixPip", 1, true),
+    "BagAffixDots should use ThemeRegistry affixPip texture")
 
 -- Runtime: Init must hook Combuctor.ItemSlot.Update when Combuctor is loaded,
 -- and must still hook ContainerFrame_Update for default bags.

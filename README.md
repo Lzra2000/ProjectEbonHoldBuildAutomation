@@ -146,7 +146,7 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup, the pre-PR checklist, and pr
 - `sh scripts/release.sh <version>` is the release helper: refuses to run unless `CHANGELOG.md` has changed since the last tag, bumps the version in `EbonBuilds.toc` and the `docs/faq.md` header, regenerates the in-game FAQ pages, runs the check suite, then commits and tags (does not push).
 - Pushing the tag triggers `.github/workflows/release.yml`, which re-runs the checks, builds the zip, and publishes the GitHub Release with `EbonBuilds.zip` attached as a release asset. `GITHUB_TOKEN=... sh scripts/publish-github-release.sh <version>` remains as a manual fallback when Actions is unavailable.
 - For day-to-day development the repo root itself already *is* the addon folder structure expected by `Interface/AddOns/` — the dist zip is only needed for a clean shareable release build.
-- `media/minimap_icon.tga` has a real source: `python3 scripts/generate-media.py` (requires [Pillow](https://pillow.readthedocs.io/)) regenerates it from the same ring geometry as `docs/img/logo.svg`, so the icon is never a hand-edited binary with no way back to its design.
+- `media/minimap_icon.tga`, `media/vote_icon.tga`, `media/vote_icon_off.tga`, and `media/affix_pip.tga` have real sources: `python3 scripts/generate-media.py` (requires [Pillow](https://pillow.readthedocs.io/)) regenerates them from code — the minimap icon from the same ring geometry as `docs/img/logo.svg`, the vote chevrons and affix pip from simple vector shapes — so no texture is a hand-edited binary with no way back to its design.
 
 ## License
 

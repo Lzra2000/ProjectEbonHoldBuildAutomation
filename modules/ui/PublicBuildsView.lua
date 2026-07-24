@@ -28,6 +28,7 @@ local function NeedsTwoLines(text)
 end
 
 local CLASS_COLORS = EbonBuilds.Theme.CLASS_COLORS
+local TEXTURES = EbonBuilds.ThemeRegistry.Get().textures
 
 local viewFrame
 local cardPool   = {}
@@ -917,9 +918,7 @@ ShowInspect = function(build)
 
     local votes = (EbonBuilds.BuildVotes and EbonBuilds.BuildVotes.Count(build.id)) or 0
     local voted = EbonBuilds.BuildVotes and EbonBuilds.BuildVotes.HasVoted(build.id)
-    inspectFrame._voteBtn._icon:SetTexture(voted
-        and "Interface\\AddOns\\EbonBuilds\\media\\vote_icon"
-        or "Interface\\AddOns\\EbonBuilds\\media\\vote_icon_off")
+    inspectFrame._voteBtn._icon:SetTexture(voted and TEXTURES.voteOn or TEXTURES.voteOff)
     inspectFrame._voteBtn._count:SetText(tostring(votes))
     inspectFrame._voteBtn._count:SetTextColor(voted and 0.90 or 0.78, voted and 0.75 or 0.78, voted and 0.20 or 0.78, 1)
     if isOwn then
@@ -1041,9 +1040,7 @@ local function PopulateCard(card, build)
     if card._voteBtn then
         local votes = (EbonBuilds.BuildVotes and EbonBuilds.BuildVotes.Count(build.id)) or 0
         local voted = EbonBuilds.BuildVotes and EbonBuilds.BuildVotes.HasVoted(build.id)
-        card._voteBtn._icon:SetTexture(voted
-            and "Interface\\AddOns\\EbonBuilds\\media\\vote_icon"
-            or "Interface\\AddOns\\EbonBuilds\\media\\vote_icon_off")
+        card._voteBtn._icon:SetTexture(voted and TEXTURES.voteOn or TEXTURES.voteOff)
         card._voteBtn._count:SetText(tostring(votes))
         card._voteBtn._count:SetTextColor(voted and 0.90 or 0.78, voted and 0.75 or 0.78, voted and 0.20 or 0.78, 1)
         if EbonBuildsDB.builds[build.id] then

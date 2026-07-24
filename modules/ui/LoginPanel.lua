@@ -65,7 +65,7 @@ local function BuildPanel()
     drag:SetScript("OnDragStop", function() panel:StopMovingOrSizing() end)
 
     local icon = panel:CreateTexture(nil, "ARTWORK")
-    icon:SetTexture("Interface\\AddOns\\EbonBuilds\\media\\minimap_icon")
+    icon:SetTexture(EbonBuilds.ThemeRegistry.Get().textures.minimap)
     icon:SetSize(28, 28)
     icon:SetPoint("TOPLEFT", panel, "TOPLEFT", 18, -14)
 

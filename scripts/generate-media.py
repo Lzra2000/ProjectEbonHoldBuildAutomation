@@ -16,9 +16,10 @@ to match, or vice versa.
 
 Requires Pillow (already a project dependency for other tooling).
 Usage: python3 scripts/generate-media.py
-Writes media/minimap_icon.tga (128x128) and media/vote_icon.tga +
+Writes media/minimap_icon.tga (128x128), media/vote_icon.tga +
 media/vote_icon_off.tga (32x32, filled/outline chevron pair for the
-Public Builds vote button) -- all 32-bit uncompressed TGA.
+Public Builds vote button), and media/affix_pip.tga (16x16 soft circle
+for bag affix dots) -- all 32-bit uncompressed TGA, power-of-two sizes.
 """
 
 import os
@@ -105,6 +106,18 @@ def _chevron_points(cx, cy, S):
     ]
 
 
+def render_affix_pip(size, supersample=SUPERSAMPLE):
+    """Soft white disc; BagAffixDots tints it via SetVertexColor."""
+    S = size * supersample
+    im = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    cx = cy = S / 2
+    radius = S * 0.38
+    d.ellipse([cx - radius, cy - radius, cx + radius, cy + radius],
+              fill=(255, 255, 255, 255))
+    return im.resize((size, size), Image.LANCZOS)
+
+
 def render_vote_icon(size, filled, supersample=SUPERSAMPLE):
     S = size * supersample
     im = Image.new("RGBA", (S, S), (0, 0, 0, 0))
@@ -134,6 +147,11 @@ def main():
         vote_path = os.path.join(repo_root, "media", name)
         render_vote_icon(vote_size, filled).save(vote_path)
         print("Wrote %s (%dx%d)" % (vote_path, vote_size, vote_size))
+
+    pip_size = 16
+    pip_path = os.path.join(repo_root, "media", "affix_pip.tga")
+    render_affix_pip(pip_size).save(pip_path)
+    print("Wrote %s (%dx%d)" % (pip_path, pip_size, pip_size))
 
 
 if __name__ == "__main__":
