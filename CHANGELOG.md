@@ -4,13 +4,17 @@ One `### <version>` entry per release, newest first. scripts/release.sh
 refuses to tag unless this file changed, and the Release workflow and the
 in-game "What's new" page both read the newest entry from here.
 
-### 3.84 (2026-07-24) -- Teal DE dots, Zone panel crash, and freeze state that sticks
+### 3.84 (2026-07-24) -- Bag dots, freeze persistence, server loadouts, and combat DPS in the Logbook
 
-A short bug-fix wave right after 3.83: bag dots, map panel, Autopilot freeze persistence, plus broader test coverage so these classes stay locked.
+Bug fixes and small features that landed right after 3.83: bag affix dots, map panel, Autopilot freeze state, Combuctor parity, freeze-penalty carry logic, Public Builds server loadouts, combat DPS in history, and broader tests.
 
 - **Teal disenchant dots never appeared (#56):** bag affix dots treated `GetContainerItemInfo`'s 3rd return as item quality; on 3.3.5a that value is `locked`, so Disenchant-candidate (teal) dots never matched. Quality now comes from `GetItemInfo`. Also replaced ManualTraining's broken nil-toggle expression with an explicit if/else.
+- **Combuctor bag affix dots (#63):** same Bagnon-style hooks for Combuctor ItemSlots so red/purple/teal/BoE dots draw on Combuctor bags too.
 - **Zone panel crash with the world map open (#58):** toggling "Zone panel" called a nil `RefreshMapPanel` global. Forward-declared like the existing `ShowZonePins` fix. Minimap button drag angle now uses the minimap's effective scale instead of UIParent's.
 - **Frozen Echoes forgotten mid-run (#59):** when the server omitted freeze flags across board hide/show or identity churn, Autopilot could lose which Echoes were frozen and keep rerolling. Accepted freeze IDs now live in run-persistent `frozenEchoIDs`. Logs `Freeze not confirmed` when recovery resolves an unconfirmed freeze as unfrozen.
+- **Freeze penalty no longer demotes a worthy carry (#66):** while a frozen/carried Echo still scores at or above the freeze threshold, the freeze penalty is not applied -- excellent carries stop losing to slightly worse fresh offers.
+- **Public Builds to server loadouts (#64):** Save as server loadout / Apply wishlist on Overview and Public Builds inspect, mapping locked Echoes into ProjectEbonhold designed slots (capability-gated).
+- **Combat DPS in build history (#65 / #46):** optional COMBAT_LOG DPS logging attaches samples to the active run; Logbook shows best measured DPS (prefers longer benchmark segments). Toggle under Settings -> Optional features.
 - **Test coverage (#60):** bans the classic Lua nil-toggle antipattern via TOC lint, and adds regressions for freeze-over-reroll, toggles, Bagnon bag-dot hooks, plus pure-module and export/import coverage.
 
 ### 3.83 (2026-07-24) -- Autopilot speaks the server addon's language, plus a community bug-fix wave
