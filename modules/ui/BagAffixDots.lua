@@ -139,8 +139,9 @@ local function DecideDot(bag, slot, link)
     local affixClass = name and EbonBuilds.AffixItemScan.Classify(name)
     if affixClass then return affixClass end
 
-    local _, _, quality = GetContainerItemInfo(bag, slot)
-    local _, _, _, _, _, _, _, _, equipLoc = GetItemInfo(link)
+    -- GetItemInfo quality is the 3rd return in 3.3.5a. Do NOT take quality from
+    -- GetContainerItemInfo's 3rd return -- that is `locked` (boolean); quality is 4th.
+    local _, _, quality, _, _, _, _, _, equipLoc = GetItemInfo(link)
     if not equipLoc or equipLoc == "" then return nil end -- not gear; nothing else to flag
 
     local bind = GetBindLine(bag, slot)

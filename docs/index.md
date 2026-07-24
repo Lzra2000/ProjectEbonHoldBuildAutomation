@@ -22,5 +22,6 @@ Define a build with per-echo weights and policies. Autopilot evaluates every ech
 - **[FAQ](faq.md)** — detailed, searchable explanations of every feature.
 - **[Localization](localization.md)** — how translations work and how to add a language.
 - **[Development](development.md)** — contributor setup, the script toolbox, conventions.
+- **[Automation server redesign](automation-server-redesign.md)** — design for moving Autopilot decisions onto the ProjectEbonhold server API.
 - **[Troubleshooting](troubleshooting.md)** — what to do when something doesn't work, and how to report it well.
 - **[Changelog](changelog.md)** — the full release history, one entry per release.
