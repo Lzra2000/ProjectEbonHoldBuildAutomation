@@ -389,13 +389,16 @@ end
 
 local CUSTOM_NAME = "PE Proc Sources"
 -- Bump so Details InstallCustomObject replaces older scripts / tooltip copy.
-local CUSTOM_VERSION = 8
+local CUSTOM_VERSION = 9
 -- Soft minimum height so more proc rows are visible without scrolling immediately.
 local CUSTOM_MIN_HEIGHT = 260
 -- Native Player Details right-side detail blocks (Details spellInfoSettings.amount).
 local RIGHT_DETAIL_SLOTS = 6
 -- Offset when docking Breakdown beside the PE Proc Sources / Details instance.
 local BREAKDOWN_DOCK_PAD_X = 12
+-- Status-bar tint for secondary right-panel blocks (share / siblings).
+local DETAIL_SHARE_COLOR = { 0.55, 0.65, 0.95, 0.85 }
+local DETAIL_SIBLING_COLOR = { 0.75, 0.75, 0.55, 0.85 }
 
 local function EnsureReadableInstance(instance)
     if type(instance) ~= "table" then
@@ -570,18 +573,34 @@ local function SyncRightBackgroundVisibility(info, usedCount)
 end
 
 -- Dock Breakdown beside the Details instance (PE Proc Sources) so the two
--- windows do not stack on CENTER.
+-- windows do not stack / overlap. Prefer right of the meter; flip left if
+-- that would clip past the right edge of UIParent (3.3.5a has no C_UI).
 local function PositionBreakdownNearInstance(info, instance)
     if type(info) ~= "table" or type(info.ClearAllPoints) ~= "function"
         or type(info.SetPoint) ~= "function" then
         return
     end
     local base = instance and instance.baseframe
-    if type(base) ~= "table" or type(base.SetPoint) ~= "function" then
+    if type(base) ~= "table" then
         return
     end
     info:ClearAllPoints()
-    info:SetPoint("TOPLEFT", base, "TOPRIGHT", BREAKDOWN_DOCK_PAD_X, 0)
+    local dockRight = true
+    if type(base.GetRight) == "function" and type(info.GetWidth) == "function"
+        and type(UIParent) == "table" and type(UIParent.GetRight) == "function" then
+        local baseRight = base:GetRight()
+        local infoW = info:GetWidth() or 890
+        local parentRight = UIParent:GetRight()
+        if type(baseRight) == "number" and type(parentRight) == "number"
+            and (baseRight + BREAKDOWN_DOCK_PAD_X + infoW) > (parentRight - 8) then
+            dockRight = false
+        end
+    end
+    if dockRight then
+        info:SetPoint("TOPLEFT", base, "TOPRIGHT", BREAKDOWN_DOCK_PAD_X, 0)
+    else
+        info:SetPoint("TOPRIGHT", base, "TOPLEFT", -BREAKDOWN_DOCK_PAD_X, 0)
+    end
 end
 
 local function BuildSourceRows(bd)
@@ -633,42 +652,86 @@ local function FillRightPanel(details, info, sourceRow, bd)
         average = amount / hits
     end
 
+    local siblings = bd.siblingSources or {}
+    local otherProcs = bd.siblingProcs or {}
+    local sourceTotal = amount
+    for i = 1, #siblings do
+        sourceTotal = sourceTotal + (siblings[i].amount or 0)
+    end
+    if sourceTotal <= 0 then
+        sourceTotal = 1
+    end
+    local sharePct = (amount / sourceTotal) * 100
+
+    -- Match native DPS detail field order (cast / damage / school / avg / dps / hits).
     local used = 0
     gump:SetaDetalheInfoTexto(
         1, 100,
-        "Damage: " .. FormatAmount(amount),
-        "Hits: " .. tostring(hits),
-        "",
-        "Average: " .. FormatAmount(average),
         "Proc: " .. (bd.procName or "Proc"),
-        ""
+        "Damage: " .. FormatAmount(amount),
+        string.format("%.1f%% of sources", sharePct),
+        "Average: " .. FormatAmount(average),
+        "Triggered by: " .. (sourceRow and sourceRow.name or bd.sourceName or "Unknown"),
+        "Hits: " .. tostring(hits)
     )
     used = 1
 
     gump:SetaDetalheInfoTexto(
-        2, 100,
-        "Triggered by: " .. (sourceRow and sourceRow.name or bd.sourceName or "Unknown"),
-        "Combat total: " .. FormatAmount(bd.amount or 0),
-        "",
-        "",
-        "",
-        ""
+        2,
+        { p = sharePct, c = DETAIL_SHARE_COLOR },
+        "This source share",
+        FormatAmount(amount),
+        string.format("%.1f%%", sharePct),
+        "All sources: " .. FormatAmount(sourceTotal),
+        "Sibling sources: " .. tostring(#siblings),
+        "Sibling procs: " .. tostring(#otherProcs)
     )
     used = 2
 
-    local siblings = bd.siblingSources or {}
-    local otherProcs = bd.siblingProcs or {}
-    if #siblings > 0 or #otherProcs > 0 then
+    local slot = 3
+    for i = 1, #siblings do
+        if slot > RIGHT_DETAIL_SLOTS then
+            break
+        end
+        local s = siblings[i]
+        local sAmount = s.amount or 0
+        local sHits = s.hits or 0
+        local sAvg = (sHits > 0) and (sAmount / sHits) or sAmount
+        local sPct = (sAmount / sourceTotal) * 100
         gump:SetaDetalheInfoTexto(
-            3, 100,
-            "Other sources: " .. tostring(#siblings),
-            "Other procs: " .. tostring(#otherProcs),
+            slot,
+            { p = sPct, c = DETAIL_SIBLING_COLOR },
+            "Source: " .. (s.sourceName or ("Spell #" .. tostring(s.sourceId or 0))),
+            "Damage: " .. FormatAmount(sAmount),
+            string.format("%.1f%%", sPct),
+            "Average: " .. FormatAmount(sAvg),
             "",
-            "",
-            "",
-            ""
+            "Hits: " .. tostring(sHits)
         )
-        used = 3
+        used = slot
+        slot = slot + 1
+    end
+
+    for i = 1, #otherProcs do
+        if slot > RIGHT_DETAIL_SLOTS then
+            break
+        end
+        local p = otherProcs[i]
+        local pAmount = p.amount or 0
+        local pHits = p.hits or 0
+        local pAvg = (pHits > 0) and (pAmount / pHits) or pAmount
+        gump:SetaDetalheInfoTexto(
+            slot,
+            { p = 100, c = DETAIL_SIBLING_COLOR },
+            "Also from source: " .. (p.procName or ("Spell #" .. tostring(p.procId or 0))),
+            "Damage: " .. FormatAmount(pAmount),
+            "",
+            "Average: " .. FormatAmount(pAvg),
+            "",
+            "Hits: " .. tostring(pHits)
+        )
+        used = slot
+        slot = slot + 1
     end
 
     local icon = sourceRow and sourceRow.icon
@@ -742,8 +805,28 @@ local function FillNativeBreakdown(details, info, instance, bd, actor)
         end
     end
 
-    -- Targets panel → other procs from the same cast/aura.
-    local otherProcs = bd.siblingProcs or {}
+    -- Targets panel → this proc + sibling procs from the same cast/aura
+    -- (include self so the panel matches stock DPS density, not an empty void).
+    local siblingProcs = bd.siblingProcs or {}
+    local procRows = {
+        {
+            procId = bd.procId,
+            procName = bd.procName or "Proc",
+            amount = bd.amount or 0,
+            hits = bd.hits or 0,
+            focused = true,
+        },
+    }
+    for i = 1, #siblingProcs do
+        local p = siblingProcs[i]
+        procRows[#procRows + 1] = {
+            procId = p.procId,
+            procName = p.procName,
+            amount = p.amount or 0,
+            hits = p.hits or 0,
+            focused = false,
+        }
+    end
     if type(gump.HidaAllBarrasAlvo) == "function" then
         gump:HidaAllBarrasAlvo()
     end
@@ -754,24 +837,25 @@ local function FillNativeBreakdown(details, info, instance, bd, actor)
         end
     end
 
-    if #otherProcs > 0 then
-        local procTotal = (bd.amount or 0)
-        for i = 1, #otherProcs do
-            procTotal = procTotal + (otherProcs[i].amount or 0)
+    if #procRows > 0 then
+        local procTotal = 0
+        local procMax = 1
+        for i = 1, #procRows do
+            local amount = procRows[i].amount or 0
+            procTotal = procTotal + amount
+            if amount > procMax then
+                procMax = amount
+            end
         end
         if procTotal <= 0 then
             procTotal = 1
         end
-        local procMax = otherProcs[1] and otherProcs[1].amount or 1
-        if (bd.amount or 0) > procMax then
-            procMax = bd.amount or 1
-        end
         if type(gump.JI_AtualizaContainerAlvos) == "function" then
-            gump:JI_AtualizaContainerAlvos(#otherProcs)
+            gump:JI_AtualizaContainerAlvos(#procRows)
         end
         local barras2 = info.barras2
-        for i = 1, #otherProcs do
-            local p = otherProcs[i]
+        for i = 1, #procRows do
+            local p = procRows[i]
             local barra = barras2[i]
             if not barra and type(gump.CriaNovaBarraInfo2) == "function" then
                 barra = gump:CriaNovaBarraInfo2(instance, i)
@@ -781,12 +865,15 @@ local function FillNativeBreakdown(details, info, instance, bd, actor)
                 local name = p.procName or ("Spell #" .. tostring(p.procId or 0))
                 local icon = PE.GetSpellIcon and PE.GetSpellIcon(p.procId)
                 if barra.textura then
-                    if i == 1 then
-                        barra.textura:SetValue(100)
+                    barra.textura:SetValue(amount / procMax * 100)
+                    if p.focused then
+                        barra.textura:SetStatusBarColor(
+                            BREAKDOWN_FOCUS_COLOR[1], BREAKDOWN_FOCUS_COLOR[2],
+                            BREAKDOWN_FOCUS_COLOR[3], BREAKDOWN_FOCUS_COLOR[4]
+                        )
                     else
-                        barra.textura:SetValue(amount / procMax * 100)
+                        barra.textura:SetStatusBarColor(1, 1, 1)
                     end
-                    barra.textura:SetStatusBarColor(1, 1, 1)
                 end
                 if barra.texto_esquerdo then
                     barra.texto_esquerdo:SetText(tostring(i) .. ". " .. name)
@@ -810,7 +897,7 @@ local function FillNativeBreakdown(details, info, instance, bd, actor)
     elseif info.no_targets and info.no_targets.Show then
         info.no_targets:Show()
         if info.no_targets.text then
-            info.no_targets.text:SetText("No other procs from this source")
+            info.no_targets.text:SetText("No procs from this source")
             info.no_targets.text:Show()
         end
     end
@@ -901,7 +988,7 @@ function Procs.OpenBreakdown(actor, instance)
     info.sub_atributo = 1
     info.jogador = peActor
     info.instancia = instance
-    info.target_text = "Other procs:"
+    info.target_text = "Procs from source:"
     info.target_member = "total"
     info.target_persecond = false
     info.mostrando = nil
@@ -964,7 +1051,7 @@ function Procs.OpenBreakdown(actor, instance)
     end
     HidePlayerDetailsTabs(details, info)
     if info.targets then
-        info.targets:SetText("Other procs:")
+        info.targets:SetText("Procs from source:")
     end
 
     if type(info.SetStatusbarText) == "function" then
