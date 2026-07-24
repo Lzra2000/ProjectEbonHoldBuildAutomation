@@ -12,7 +12,29 @@ function Evidence.CohortConfidence(originCount)
     if originCount >= 20 then return "strong", "Strong local sample" end
     if originCount >= 8 then return "moderate", "Moderate local sample" end
     if originCount >= 3 then return "limited", "Limited local sample" end
-    return "insufficient", "Insufficient local sample"
+    if originCount >= 1 then return "very_low", "Very low sample" end
+    return "insufficient", "No local sample"
+end
+
+-- Honest confidence badge: sample strength plus cohort scope when widened.
+function Evidence.ConfidenceBadge(snapshot)
+    if type(snapshot) ~= "table" then
+        return Evidence.CohortConfidence(tonumber(snapshot) or 0)
+    end
+    local level, label = Evidence.CohortConfidence(snapshot.originCount)
+    if snapshot.widened or snapshot.cohortScope == "class" then
+        local scope = snapshot.scopeLabel or "class-wide"
+        return level, string.format("%s · %s", label, scope)
+    end
+    return level, label
+end
+
+function Evidence.ScopeHint(snapshot)
+    if type(snapshot) ~= "table" then return nil end
+    if snapshot.widened or snapshot.cohortScope == "class" then
+        return snapshot.scopeLabel or "class-wide"
+    end
+    return snapshot.scopeLabel
 end
 
 local function Counts(item, sourceKind)
@@ -35,13 +57,18 @@ function Evidence.Classify(item, sourceKind)
     if sourceKind == "avoid" then
         if support >= 3 and total > 0 and support / total >= 0.50 then return "negative", "Strong negative" end
         if support >= 2 then return "negative", "Negative tendency" end
+        if support >= 1 and total > 0 and total < 3 then return "limited", "Very low sample" end
         return "limited", "Limited evidence"
     end
 
     if sourceKind ~= "lock" and positive > 0 and negative > 0 and math.abs(positive - negative) <= 1 then
         return "mixed", "Mixed"
     end
-    if total < 3 or support < 2 then return "limited", "Limited" end
+    if total < 3 then
+        if support >= 1 then return "limited", "Very low sample" end
+        return "limited", "Limited"
+    end
+    if support < 2 then return "limited", "Limited" end
     local rate = support / math.max(1, total)
     if support >= 3 and rate >= 0.75 then return "strong", "Strong" end
     if rate >= 0.50 then return "moderate", "Moderate" end
@@ -66,6 +93,9 @@ function Evidence.AddTooltip(item, sourceKind)
         return
     end
     local total = tonumber(item.observedOrigins) or 0
+    if total > 0 and total < 3 then
+        GameTooltip:AddLine("Very low sample — treat this as weak preference evidence only.", 1, 0.75, 0.2, true)
+    end
     if sourceKind == "lock" then
         GameTooltip:AddLine(string.format("Locked in %d of %d independent origins.",
             tonumber(item.lockOrigins) or 0, total), 0.45, 0.85, 1, true)

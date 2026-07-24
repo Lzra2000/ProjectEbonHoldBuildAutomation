@@ -16,7 +16,16 @@ instructions and download links also live on
 [GitHub Releases](https://github.com/Lzra2000/ProjectEbonHoldBuildAutomation/releases)
 and on the [Releases page](https://lzra2000.github.io/ProjectEbonHoldBuildAutomation/releases/).
 
-[Unreleased]: https://github.com/Lzra2000/ProjectEbonHoldBuildAutomation/compare/v3.86.2...HEAD
+[Unreleased]: https://github.com/Lzra2000/ProjectEbonHoldBuildAutomation/compare/v3.86.3...HEAD
+
+### 3.86.3 (2026-07-24) -- Sparse community cohorts for rare specs
+
+#### Changed
+- Build Wizard community evidence now widens progressively when an exact class+spec sample has fewer than 3 independent origins: first stay exact, then same class any specialization (never cross-class). The confidence pill and status copy disclose the scope (e.g. `Very low sample / Shaman (all specs)` / class-wide) so a widened cohort is never mistaken for Enhance-only data.
+- Cohorts with only 1-2 real origins no longer blank out as pure "No evidence" when synced builds exist: they emit partial recommendations with a `Very low sample` / `SPARSE_READY` disclosure instead of inventing votes.
+
+#### Tests
+- `tests/test_sparse_cohort.lua` covers exact-enough (no widen), sparse->class widen, still-sparse low-sample UI, empty cohort, and never-cross-class.
 
 ### 3.86.2 (2026-07-24) -- Public Builds sort harden, Logbook reasons, Details PE companion
 

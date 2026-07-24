@@ -116,7 +116,7 @@ function Service.Init()
     EbonBuildsDB.recommendationSourceRevision = Revision()
     local staleKeys = {}
     for key, snapshot in pairs(EbonBuildsDB.recommendationCache) do
-        if type(snapshot) ~= "table" or tonumber(snapshot.schema) ~= 6
+        if type(snapshot) ~= "table" or tonumber(snapshot.schema) ~= 7
             or tonumber(snapshot.sourceRevision) ~= Revision() then
             staleKeys[#staleKeys + 1] = key
         end

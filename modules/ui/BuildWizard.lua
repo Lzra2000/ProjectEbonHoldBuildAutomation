@@ -160,6 +160,7 @@ local function ConfidenceKind(level)
     if level == "strong" or level == "high" then return "success" end
     if level == "moderate" or level == "medium" then return nil end
     if level == "limited" or level == "low" then return "warning" end
+    -- very_low / insufficient: disclose weak evidence rather than looking "ready"
     return "danger"
 end
 
@@ -185,14 +186,40 @@ local function ReasonText(snapshot)
         return "No matching community sample is stored. All Echoes remain available for manual setup."
     end
     if snapshot.reasonCode == "NOT_ENOUGH_ORIGINS" then
-        return string.format("Only %d independent origins are stored. Recommendations are limited; manual setup remains available.", snapshot.originCount or 0)
+        return string.format("Only %d independent origins are stored with no stable Echo pattern yet. Manual setup remains available.",
+            snapshot.originCount or 0)
     end
     if snapshot.reasonCode == "NO_STABLE_CORE" then
         return "No stable community pattern was found. All Echoes remain available for manual setup."
     end
-    local _, label = Evidence and Evidence.CohortConfidence(snapshot.originCount or 0)
+    local _, badge = Evidence and Evidence.ConfidenceBadge(snapshot)
+    if snapshot.reasonCode == "SPARSE_READY" then
+        if snapshot.widened then
+            return string.format(
+                "Exact %s had only %d origins; showing partial evidence from %s (%d origins) — %s. Weak guidance only.",
+                CurrentSpecName(),
+                snapshot.exactOriginCount or 0,
+                snapshot.scopeLabel or "this class (all specs)",
+                snapshot.originCount or 0,
+                badge or "Very low sample")
+        end
+        return string.format(
+            "Only %d independent origins in %s — %s. Showing partial evidence; treat as weak guidance.",
+            snapshot.originCount or 0,
+            snapshot.scopeLabel or CurrentSpecName(),
+            badge or "Very low sample")
+    end
+    if snapshot.widened then
+        return string.format(
+            "Exact %s had only %d origins; using %s (%d independent origins) — %s. Usage is guidance, not proven performance.",
+            CurrentSpecName(),
+            snapshot.exactOriginCount or 0,
+            snapshot.scopeLabel or "this class (all specs)",
+            snapshot.originCount or 0,
+            badge or "Limited local sample")
+    end
     return string.format("Based on %d independent local origins — %s. Usage is guidance, not proven performance.",
-        snapshot.originCount or 0, label or "Limited local sample")
+        snapshot.originCount or 0, badge or "Limited local sample")
 end
 
 ------------------------------------------------------------------------
@@ -297,7 +324,7 @@ local function BuildContextStep()
         classButtons[token] = button
     end
 
-    local specPanel = Theme.CreateSection(frame, "Specialization", "Community cohorts remain separated by talent specialization.")
+    local specPanel = Theme.CreateSection(frame, "Specialization", "Cohorts prefer your specialization; rare specs may widen to the whole class with an explicit badge.")
     specPanel:SetPoint("TOPLEFT", classPanel, "BOTTOMLEFT", 0, -10)
     specPanel:SetPoint("TOPRIGHT", classPanel, "BOTTOMRIGHT", 0, -10)
     specPanel:SetHeight(104)
@@ -1098,7 +1125,17 @@ RefreshReview = function()
         state.draft.scoringStyle, primary, state.draft.secondaryFamily or "None"))
 
     local warnings = {}
-    if (state.draft.originCount or 0) < 8 then warnings[#warnings + 1] = "• Recommendations are based on a limited local sample." end
+    if state.draft.widened or (state.draft.snapshot and state.draft.snapshot.widened) then
+        warnings[#warnings + 1] = string.format(
+            "• Exact specialization was sparse (%d origins); evidence uses %s.",
+            state.draft.exactOriginCount or (state.draft.snapshot and state.draft.snapshot.exactOriginCount) or 0,
+            state.draft.scopeLabel or (state.draft.snapshot and state.draft.snapshot.scopeLabel) or "all specs of this class")
+    end
+    if (state.draft.originCount or 0) > 0 and (state.draft.originCount or 0) < 3 then
+        warnings[#warnings + 1] = "• Very low sample — community signal is weak guidance only."
+    elseif (state.draft.originCount or 0) < 8 then
+        warnings[#warnings + 1] = "• Recommendations are based on a limited local sample."
+    end
     if summary.manualLockCount > 0 then warnings[#warnings + 1] = string.format("• %d locked Echo choice(s) are manual.", summary.manualLockCount) end
     if summary.excludedRecommendedCount > 0 then warnings[#warnings + 1] = string.format("• %d recommended priorit%s excluded.", summary.excludedRecommendedCount, summary.excludedRecommendedCount == 1 and "y is" or "ies are") end
     if summary.promotedAvoidCount > 0 then warnings[#warnings + 1] = string.format("• %d negative-signal Echo(s) were promoted.", summary.promotedAvoidCount) end

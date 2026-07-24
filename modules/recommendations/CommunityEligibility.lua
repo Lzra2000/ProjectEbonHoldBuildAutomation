@@ -7,6 +7,14 @@ EbonBuilds.CommunityEligibility = {}
 
 local Eligibility = EbonBuilds.CommunityEligibility
 local MAX_SIGNALS_PER_BUILD = 32
+-- Exact class+spec needs this many independent origins before we treat the
+-- cohort as fully scoped. Below that we may widen to same-class any-spec.
+local MIN_FULL_ORIGINS = 3
+local CLASS_LABEL = {
+    WARRIOR = "Warrior", PALADIN = "Paladin", HUNTER = "Hunter", ROGUE = "Rogue",
+    PRIEST = "Priest", DEATHKNIGHT = "Death Knight", SHAMAN = "Shaman",
+    MAGE = "Mage", WARLOCK = "Warlock", DRUID = "Druid",
+}
 
 local function NormalizeText(value)
     return tostring(value or ""):lower():gsub("^%s+", ""):gsub("%s+$", "")
@@ -18,10 +26,26 @@ function Eligibility.CohortKey(classToken, spec)
     return classToken .. ":" .. tostring(spec) .. ":4"
 end
 
-function Eligibility.IsEligible(build, classToken, spec)
+function Eligibility.ClassLabel(classToken)
+    classToken = tostring(classToken or "UNKNOWN"):upper()
+    return CLASS_LABEL[classToken] or classToken
+end
+
+function Eligibility.SpecLabel(classToken, spec)
+    classToken = tostring(classToken or "UNKNOWN"):upper()
+    spec = math.max(1, math.min(3, tonumber(spec) or 1))
+    local specs = EbonBuilds.SpecData and EbonBuilds.SpecData[classToken]
+    local entry = specs and specs[spec]
+    return entry and entry.name or ("Spec " .. tostring(spec))
+end
+
+function Eligibility.IsEligible(build, classToken, spec, options)
+    options = type(options) == "table" and options or nil
     if type(build) ~= "table" or build.wizardMeta ~= nil or build.recommendationOrigin ~= nil then return false end
     if tostring(build.class or ""):upper() ~= tostring(classToken or ""):upper() then return false end
-    if (tonumber(build.spec) or 1) ~= (tonumber(spec) or 1) then return false end
+    if not (options and options.anySpec) then
+        if (tonumber(build.spec) or 1) ~= (tonumber(spec) or 1) then return false end
+    end
     return type(build.echoWeightsByRef) == "table" or type(build.echoWeights) == "table" or type(build.lockedEchoes) == "table"
 end
 
@@ -163,10 +187,10 @@ function Eligibility.BuildRecord(build)
     }
 end
 
-function Eligibility.CollectSources(classToken, spec)
+function Eligibility.CollectSources(classToken, spec, options)
     local sources, seen = {}, {}
     local function Consider(id, build)
-        if Eligibility.IsEligible(build, classToken, spec) then
+        if Eligibility.IsEligible(build, classToken, spec, options) then
             local key = tostring(id or build.id or build)
             if not seen[key] then seen[key] = true; sources[#sources + 1] = build end
         end
@@ -175,4 +199,56 @@ function Eligibility.CollectSources(classToken, spec)
     for id, build in pairs(EbonBuildsDB and EbonBuildsDB.remoteBuilds or {}) do Consider(id, build) end
     table.sort(sources, function(a, b) return tostring(a._lastSeenAt or a.lastModified or "") > tostring(b._lastSeenAt or b.lastModified or "") end)
     return sources
+end
+
+function Eligibility.CountUniqueOrigins(sources)
+    local seen, count = {}, 0
+    for _, build in ipairs(sources or {}) do
+        local key = Eligibility.OriginKey(build)
+        if key and not seen[key] then
+            seen[key] = true
+            count = count + 1
+        end
+    end
+    return count
+end
+
+-- Progressive cohort resolution for rare specs:
+-- 1) exact class+spec when >= MIN_FULL_ORIGINS independent origins
+-- 2) else same class, any specialization, when that adds origins
+-- Never crosses class boundaries (Enhance Shaman never pulls Warrior samples).
+function Eligibility.ResolveSources(classToken, spec)
+    classToken = tostring(classToken or "UNKNOWN"):upper()
+    spec = math.max(1, math.min(3, tonumber(spec) or 1))
+    local exact = Eligibility.CollectSources(classToken, spec)
+    local exactCount = Eligibility.CountUniqueOrigins(exact)
+    local exactLabel = string.format("%s %s",
+        Eligibility.ClassLabel(classToken), Eligibility.SpecLabel(classToken, spec))
+    local meta = {
+        requestedClass = classToken,
+        requestedSpec = spec,
+        exactOriginCount = exactCount,
+        cohortScope = "exact",
+        widened = false,
+        scopeLabel = exactLabel,
+    }
+    if exactCount >= MIN_FULL_ORIGINS then
+        return exact, meta
+    end
+
+    local classWide = Eligibility.CollectSources(classToken, spec, { anySpec = true })
+    local classCount = Eligibility.CountUniqueOrigins(classWide)
+    if classCount > exactCount then
+        meta.cohortScope = "class"
+        meta.widened = true
+        meta.scopeLabel = string.format("%s (all specs)", Eligibility.ClassLabel(classToken))
+        return classWide, meta
+    end
+
+    -- Widening found no additional origins; keep exact scope and disclose sparseness later.
+    return exact, meta
+end
+
+function Eligibility.MinFullOrigins()
+    return MIN_FULL_ORIGINS
 end
