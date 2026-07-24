@@ -139,8 +139,8 @@ Attach the Error log or Debug log output (Settings -- gear icon in the main wind
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup, the pre-PR checklist, and project conventions. Quick version:
 
 - Pure Lua, WotLK 3.3.5a API (Interface 30300).
-- One-time setup: `sh scripts/dev-setup.sh` installs the toolchain (`lua5.1`, `zip`). Debian/Ubuntu (`apt`) only — on Windows, use WSL.
-- `sh scripts/check.sh` runs the full local check suite (syntax check, test suite, `.toc` file verification, 3.3.5a API check, file-header check) — the same checks as `.github/workflows/lua-syntax.yml`, in one command.
+- One-time setup: `sh scripts/dev-setup.sh` installs the toolchain (`lua5.1`, `zip`). Debian/Ubuntu (`apt`) only — on Windows use WSL for setup, then Git Bash / `powershell -File scripts/check.ps1` for day-to-day checks.
+- `sh scripts/check.sh` is the fast local loop (syntax, tests, `.toc`, 3.3.5a API, headers). Pass `--full` for the same suite CI runs (includes the 70k board simulation). Filter with `--only architecture` / `FILTER=api`; see [`docs/dev-testing.md`](docs/dev-testing.md).
 - `sh scripts/install-hooks.sh` wires up a pre-commit hook that runs `scripts/check.sh` automatically (skip once with `git commit --no-verify`).
 - `sh scripts/build-dist.sh` packages `EbonBuilds.toc`, `core/`, `modules/`, and `media/` into `dist/EbonBuilds.zip`, ready to drop into `Interface/AddOns/` (the in-game FAQ ships as generated Lua; its sources `docs/faq.md` and `CHANGELOG.md` stay repo-only).
 - `sh scripts/release.sh <version>` is the release helper: refuses to run unless `CHANGELOG.md` has changed since the last tag, bumps the version in `EbonBuilds.toc` and the `docs/faq.md` header, regenerates the in-game FAQ pages, runs the check suite, then commits and tags (does not push).
