@@ -29,3 +29,7 @@ The test suite includes a sync fuzzer (`tests/test_sync_fuzz.lua`): thousands of
 ## Conventions worth knowing before a PR
 
 File headers name the file and its single responsibility. Everything hangs off `EbonBuilds.<Module>`; test-only hooks are `_`-prefixed. User-interaction handlers get wrapped in `EbonBuilds.ErrorLog.Protect` so failures land in the in-game Error log instead of vanishing. User-facing changes get a changelog entry in `CHANGELOG.md` -- plain and specific, no marketing language.
+
+## Design notes
+
+- [Automation server redesign](automation-server-redesign.md) — approved target architecture (server as decision authority, client as executor). Design only until the tracked work packages land.
