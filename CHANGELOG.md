@@ -20,7 +20,7 @@ and on the [Releases page](https://lzra2000.github.io/ProjectEbonHoldBuildAutoma
 
 ### 3.86 (Unreleased) -- Automation stepping stones, Auctionator PE, and reliability fixes
 
-Follow-up to 3.85: client-side automation work packages WP2?WP5 from the server-authoritative Autopilot redesign, Auctionator ProjectEbonhold adaptation, optional Details!: Tiny Threat PE fork, ProjectEbonhold Anvil affix acquisition bridge, expanded BoardDecision test coverage, reliability fixes for bag dots / AutoSell / SessionHistory / FAQ, and original WotLK-inspired GitHub Pages branding. Release prep: [docs/release-386-prep.md](docs/release-386-prep.md).
+Follow-up to 3.85: client-side automation work packages WP2?WP5 from the server-authoritative Autopilot redesign, Auctionator ProjectEbonhold adaptation, optional Details!: Tiny Threat PE fork, ProjectEbonhold Anvil affix acquisition bridge, EchoPerformance / Details! hardening, expanded automation and regression test coverage, reliability fixes for bag dots / AutoSell / SessionHistory / FAQ, and original WotLK-inspired GitHub Pages branding. Release prep: [docs/release-386-prep.md](docs/release-386-prep.md).
 
 #### Added
 
@@ -37,7 +37,15 @@ Follow-up to 3.85: client-side automation work packages WP2?WP5 from the server-
 
 - **Automation server redesign docs:** WP2 tie-break chain, WP3 intent-queue stepping stone, WP4 dry-run transcript schema, and WP5 constraints wire format documented in `docs/automation-server-redesign.md`, `docs/intent-queue-wp3.md`, `docs/dry-run-wp4.md`, and `docs/constraints-wp5.md` to match landed client behavior.
 - **ProjectEbonhold capability audit (#96):** tightened `ProjectAPI.GetCapabilities()` probes against live PE exports (`pendingFlags` requires `Perks` + `SelectPerk`; `pendingBuildSlot` follows the build-slot API family; `activeLoadout` requires both loadout setters and spell checks); explicit `serverPolicy = false` placeholder for the planned server oracle. Documented server-side gaps in `docs/capabilities.md`. Tests in `tests/test_capabilities_audit.lua`.
+- **AutoSell vendor sweep (#108):** expand Settings ? Automation junk-sweep options ? quality filters (gray-only, white/green toggles, never rare/epic), bind safety via tooltip scanning (`ITEM_SOULBOUND` / `ITEM_BIND_ON_EQUIP`), keep list with exact names / `#itemID` / `*wildcard*` patterns, max item level and minimum stack size, dry-run preview toast on vendor open, and deDE locale strings. Tests in `tests/test_autosell.lua`.
+- **EchoPerformance / Details! integration (#110):** `pcall`-harden Details! detection, combat sampling, sync broadcast/parse, and caller paths (`ExportImport`, `Calibration`, `StatsData`); `GetTrackingStatus()` / `HasStoredStats()` for clearer empty states; stored DPS samples remain exportable when Details! is missing. Tests in `tests/test_echo_performance_harden.lua`.
+- **Package smoke check (#111):** `scripts/verify-package.sh` validates optional `dist/Details_TinyThreat.zip` TOC paths (mirrors Auctionator) and fails CI when vendor tree exists but the zip was not built.
 - **BoardDecision test coverage (#94):** `tests/test_board_decision_coverage.lua` ? freeze-first reroll locks, equal-score tie-break ordering (slot index, server rank, frozen preference), pending/slot-busy waits via BSM + IntentQueue, and freeze-penalty threshold scoring through mocked BoardDecision/Automation paths.
+- **IntentQueue edge-case tests (#113):** expand `tests/test_intent_queue.lua` ? mid-board `constraintsHash` stale-clear, 8s TTL boundary/timeout recovery, one-in-flight exclusivity, `TryBegin` reason codes, and `DescribeBlock` for `constraints_stale`.
+- **Freeze persistence regression tests (#114):** `tests/test_freeze_persistence.lua` ? run-persistent `frozenEchoIDs` merge/recovery, pending confirmation before `ResetObservedBoard`, and `RUN_ENDED` clearing (#59).
+- **Tome / LockPerk regression tests (#115):** `tests/test_tome_lockperk.lua` ? ProjectAPI edge cases, Snapshot Run draft mapping, LockPerk gesture guards, and L1-only tome toggle gate (#68 / #62).
+- **Pending rolls regression tests (#119):** expand coverage for PE auto-accept deferral and slot-busy guards (#61 / #67).
+- **Map panel regression tests (#118):** `tests/test_map_panel_regression.lua` ? zone panel toggle and `RefreshMapPanel` forward-declaration (#58).
 - **SessionHistory logbook UX (#101):** harden Logbook rendering against nil access and scroll edge cases during long runs.
 - **Docs site (#99):** fix broken GitHub Pages links and align the releases page with v3.85 shipping state.
 
