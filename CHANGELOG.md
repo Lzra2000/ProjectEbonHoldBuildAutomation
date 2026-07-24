@@ -4,6 +4,18 @@ One `### <version>` entry per release, newest first. scripts/release.sh
 refuses to tag unless this file changed, and the Release workflow and the
 in-game "What's new" page both read the newest entry from here.
 
+### 3.83 (2026-07-24) -- Autopilot speaks the server addon's language, plus a community bug-fix wave
+
+The freeze-first engine from 3.82's groundwork (PR #41) ships together with a round of fixes driven directly by Discord reports and GitHub issues.
+
+- **Server ProjectEbonhold API alignment (#42):** the server's distribution of ProjectEbonhold confirms a freeze by flagging the existing card (`justFrozen`) instead of resending the board, injects a guaranteed card from the active build slot (which refuses freeze/banish requests), and tracks its own in-flight requests. Autopilot now reads all three -- freezes confirm instantly instead of falling into recovery, no charge is ever wasted on the guaranteed card, and a locally refused duplicate request can no longer pause automation mid-run ("build not autorolling anymore").
+- **Keeps rerolling after freeze (#38, Discord logs):** verified against a player's Logbook export -- equal-weight boards now freeze/select deterministically left-to-right, and rerolls stay hard-blocked while anything on the board is frozen or a freeze is unconfirmed.
+- **"Caster: ON" could never be turned off (#39):** the family-protection toggle used `x and nil or true`, which in Lua always yields `true`. Protection now toggles both ways; the same broken pattern was fixed in the Echo table's family filter and in the talent-snapshot comparison (which always claimed "No saved talent snapshot").
+- **Grey boxes on the world map (#36):** the Tome Atlas continent tint now draws its zone highlights with additive blending, the same way the client's own map highlight does -- the highlight textures have no alpha channel, so the old blend mode painted their black background as solid grey rectangles.
+- **Bag affix dots with Bagnon (#37):** Bagnon replaces the default bag frames entirely, so the dots never drew there. The module now detects Bagnon and hooks its item-button update path; default bags are unchanged, and cached views (other characters, bank while away) deliberately show no dots.
+- **Polish showed "?" for every diacritic (#40):** stock 3.3.5a fonts lack the Latin-Extended-A glyphs. The addon now probes the font once per session and folds ą ć ę ł ń ś ź ż to ASCII only when they genuinely cannot render -- players with a font pack keep real diacritics, everyone else reads "Postac" instead of "Posta?".
+- **FAQ:** two new entries answering questions from Discord -- whether Autopilot trains a build's values by itself (it never does; Training Mode and advisor proposals are the explicit channels), and how to delete a build plus where builds live in SavedVariables.
+
 ### 3.82 (2026-07-21) -- Public Builds: full character view, search, and sort
 
 Two rounds of Public Builds improvements land together.
