@@ -612,7 +612,7 @@ function EbonBuilds.ExportImport.GenerateAIText(build)
         add("Reroll Guard: %d%% (blocks reroll if any single echo scores at/above this)", s.rerollGuardPct or 90)
         add("Auto-Freeze: %d%%", s.autoFreezePct or 0)
     end
-    add("Freeze penalty: %d%% (score reduction applied to an already-frozen echo)", s.freezePenaltyPct or 0)
+    add("Freeze penalty: %d%% (only below freeze threshold; full score while still freeze-worthy)", s.freezePenaltyPct or 0)
     add("")
     add("All thresholds also scale with remaining Banish/Reroll/Freeze charges (get")
     add("stricter as a resource runs low) -- see /ebb debug for the live-adjusted values.")

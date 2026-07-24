@@ -810,7 +810,7 @@ local function BuildAdvancedPanel(parent, y)
     modelButtons.classic = classic
 
     guardControl = CreateCompactSlider(panel, "Reroll guard", "Classic only: keep the screen whenever one Echo reaches this percentage of peak.", "rerollGuardPct", 0, 200, -106)
-    penaltyControl = CreateCompactSlider(panel, "Frozen Echo penalty", "Temporarily lowers a carried Echo so fresh choices can win later selections.", "freezePenaltyPct", 0, 50, -172)
+    penaltyControl = CreateCompactSlider(panel, "Frozen Echo penalty", "Lowers a carried Echo only after it falls below the freeze threshold, so still-excellent carries keep their full score against fresh offers.", "freezePenaltyPct", 0, 50, -172)
 
     local familyLabel = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     familyLabel:SetPoint("TOPLEFT", panel, "TOPLEFT", 14, -242)
