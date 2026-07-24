@@ -7,9 +7,9 @@
 #
 #   GITHUB_TOKEN=ghp_xxx sh scripts/publish-github-release.sh 3.06
 #
-# Pulls the release title/notes straight from the matching "### <version>"
-# section of CHANGELOG.md, so run this after scripts/release.sh (which
-# requires that section to exist) and after pushing the tag.
+# Title is the short form "EbonBuilds <version>"; release notes come from the
+# matching "### <version>" section of CHANGELOG.md. Run after scripts/release.sh
+# (which requires that section to exist) and after pushing the tag.
 set -eu
 cd "$(dirname "$0")/.."
 
@@ -53,14 +53,13 @@ if [ -z "$NOTES" ]; then
     exit 1
 fi
 
-TITLE="$(printf '%s\n' "$NOTES" | head -1 | sed 's/^### //')"
-CHANGES="$(printf '%s\n' "$NOTES" | tail -n +2)"
+TITLE="EbonBuilds $VERSION"
 
 # The asset download URL is deterministic; the asset itself is uploaded
 # right after the release is created below.
 DOWNLOAD_URL="https://github.com/$REPO/releases/download/$TAG/EbonBuilds.zip"
 BODY="**Install:** [Download EbonBuilds.zip]($DOWNLOAD_URL)$(printf '\n')Extract it and drop the \`EbonBuilds\` folder into \`Interface/AddOns/\`.
-$(printf '%s' "$CHANGES")"
+$(printf '\n')$(printf '%s' "$NOTES")"
 
 PAYLOAD_FILE="$(mktemp)"
 trap 'rm -f "$PAYLOAD_FILE"' EXIT
