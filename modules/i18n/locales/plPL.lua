@@ -463,6 +463,49 @@ EbonBuilds.Locale.Register("plPL", {
     ["Level %d · %s"] = "Poziom %d · %s",
     ["Level: %s"] = "Poziom: %s",
     ["Live gear, full talent trees, and glyphs; adopt them into the build."] = "Aktualny ekwipunek, pełne drzewka talentów i glify; przejmij je do builda.",
+
+    -- Auto-sell settings (synced from main autosell-harden)
+    ["AUTO-SELL (VENDOR ONLY)"] = "AUTO-SPRZEDAŻ (TYLKO U HANDLOWCA)",
+    ["Sells eligible zero-copper items while a vendor is open. Does not list on the Auction House; use Auctionator for AH selling."] =
+        "Sprzedaje kwalifikujące się przedmioty za 0 miedzi u handlowca. Nie wystawia na AH — użyj Auctionator do AH.",
+    ["Vendor-only: items are sold to the merchant NPC, never posted to the AH."] =
+        "Tylko handlowiec: przedmioty sprzedawane NPC-owi, nigdy na AH.",
+    ["Sell Common (white) zero-copper items"] = "Sprzedawaj pospolite (białe) przedmioty za 0 miedzi",
+    ["When gray-only is off, allows white-quality vendor trash. Ignored while gray-only is on."] =
+        "Gdy tylko szary jest wyłączony, pozwala na biały śmieć u handlowca. Ignorowane przy włączonym tylko szarym.",
+    ["Sell Uncommon (green) zero-copper items"] = "Sprzedawaj niezwykłe (zielone) przedmioty za 0 miedzi",
+    ["Allows green vendor trash with no sell value. Ignored while gray-only is on."] =
+        "Pozwala na zielony śmieć bez wartości sprzedaży. Ignorowane przy włączonym tylko szarym.",
+    ["Never sell Rare or Epic quality"] = "Nigdy nie sprzedawaj rzadkiej/epickiej jakości",
+    ["Blocks Rare and Epic items even when they show zero copper at a vendor."] =
+        "Blokuje rzadkie/epickie przedmioty nawet gdy u handlowca mają 0 miedzi.",
+    ["Never sell soulbound items"] = "Nigdy nie sprzedawaj przedmiotów związanych",
+    ["Uses tooltip bind text (ITEM_SOULBOUND) to skip bound gear and materials."] =
+        "Używa tekstu wiązania (ITEM_SOULBOUND), by pominąć związany ekwipunek i materiały.",
+    ["Never sell unbound BoE items"] = "Nigdy nie sprzedawaj niezwiązanych BoE",
+    ["Uses tooltip bind text (ITEM_BIND_ON_EQUIP) to keep tradeable gear."] =
+        "Używa tekstu wiązania (ITEM_BIND_ON_EQUIP), by zachować wymienialny ekwipunek.",
+    ["Never sell soulbound Epic items"] = "Nigdy nie sprzedawaj związanych epickich przedmiotów",
+    ["Extra safety for purple soulbound gear even if other quality filters change."] =
+        "Dodatkowe zabezpieczenie fioletowego związanego ekwipunku mimo innych filtrów jakości.",
+    ["Dry-run preview (count only)"] = "Podgląd na sucho (tylko liczba)",
+    ["On vendor open, shows how many items would sell without actually selling them."] =
+        "Przy otwarciu handlowca pokazuje, ile przedmiotów zostałoby sprzedanych bez sprzedaży.",
+    ["Max item level to sell"] = "Maks. poziom przedmiotu do sprzedaży",
+    ["0 = no limit. Only sells zero-copper items at or below this item level."] =
+        "0 = bez limitu. Sprzedaje tylko przedmioty za 0 miedzi do tego poziomu przedmiotu.",
+    ["Minimum stack size to sell"] = "Minimalny rozmiar stosu do sprzedaży",
+    ["Only sells stacks with at least this many items (useful for partial herb/ore stacks)."] =
+        "Sprzedaje tylko stosy co najmniej tej wielkości (częściowe zioła/rudy).",
+    ["Manage Auto-Sell Keep List..."] = "Zarządzaj listą wykluczeń auto-sprzedaży...",
+    ["Off"] = "Wył.",
+    ["Auto-Sell Keep List"] = "Lista wykluczeń auto-sprzedaży",
+    ["Items here are never auto-sold, even if they'd otherwise be eligible. Use exact names, #itemIDs, or * patterns."] =
+        "Przedmioty tutaj nigdy nie są auto-sprzedawane. Dokładne nazwy, #itemIDs lub wzorce *.",
+    ["Name, #12345, or *pattern*..."] = "Nazwa, #12345 lub *wzorzec*...",
+    ["No items on the keep-list yet."] = "Brak przedmiotów na liście wykluczeń.",
+    ["Auto-sell preview: %d eligible item(s) (vendor only, nothing sold)."] =
+        "Podgląd auto-sprzedaży: %d kwalifikujących się przedmiotów (tylko handlowiec, nic nie sprzedano).",
     ["Lock requested"] = "Zażądano blokady",
     ["Locked"] = "ZamkniÄty",
     ["Locked Echoes:"] = "Zablokowano Echoes:",
