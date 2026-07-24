@@ -6,8 +6,16 @@ local addonName, EbonBuilds = ...
 EbonBuilds.MinimapButton = {}
 
 local BUTTON_NAME   = "EbonBuildsMinimapButton"
-local ICON_PATH     = "Interface\\AddOns\\EbonBuilds\\media\\minimap_icon"
 local RADIUS        = 80
+
+local function MinimapIconPath()
+    local registry = EbonBuilds.ThemeRegistry
+    if registry and registry.Get then
+        local textures = registry.Get().textures
+        if textures and textures.minimap then return textures.minimap end
+    end
+    return "Interface\\AddOns\\EbonBuilds\\media\\minimap_icon"
+end
 
 -- Positions the button around the minimap edge using an angle in degrees.
 local function UpdatePosition(button, angle)
@@ -42,7 +50,7 @@ local function CreateButton()
     icon:SetWidth(20)
     icon:SetHeight(20)
     icon:SetPoint("CENTER", button, "CENTER", 0, 0)
-    icon:SetTexture(ICON_PATH)
+    icon:SetTexture(MinimapIconPath())
     icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 
     -- Circular border overlay (standard minimap button look).

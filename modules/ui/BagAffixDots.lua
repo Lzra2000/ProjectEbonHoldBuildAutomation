@@ -22,9 +22,17 @@ local addonName, EbonBuilds = ...
 
 EbonBuilds.BagAffixDots = {}
 
-local DOT_TEXTURE = "Interface\\Buttons\\WHITE8X8"
 local DOT_SIZE     = 9
 local BACKING_SIZE = 12
+
+local function DotTexture()
+    local registry = EbonBuilds.ThemeRegistry
+    if registry and registry.Get then
+        local textures = registry.Get().textures
+        if textures and textures.affixPip then return textures.affixPip end
+    end
+    return "Interface\\AddOns\\EbonBuilds\\media\\affix_pip"
+end
 
 local COLORS = {
     missing_new         = { 0.90, 0.15, 0.15 }, -- red
@@ -68,7 +76,7 @@ local function SetButtonDot(button, classification)
 
     if not back then
         back = button:CreateTexture(nil, "ARTWORK")
-        back:SetTexture(DOT_TEXTURE)
+        back:SetTexture(DotTexture())
         back:SetSize(BACKING_SIZE, BACKING_SIZE)
         button._ebbAffixBacking = back
     end
@@ -79,7 +87,7 @@ local function SetButtonDot(button, classification)
 
     if not dot then
         dot = button:CreateTexture(nil, "OVERLAY")
-        dot:SetTexture(DOT_TEXTURE)
+        dot:SetTexture(DotTexture())
         dot:SetSize(DOT_SIZE, DOT_SIZE)
         button._ebbAffixDot = dot
     end

@@ -86,6 +86,8 @@ sh scripts/build-dist.sh   # produces dist/EbonBuilds.zip
 
 The repository root is the addon folder (`EbonBuilds.toc`, `core/`, `modules/` at the top level). Release tags trigger [`.github/workflows/release.yml`](.github/workflows/release.yml), which publishes `EbonBuilds.zip` on GitHub Releases.
 
+`media/minimap_icon.tga`, `media/vote_icon.tga`, `media/vote_icon_off.tga`, and `media/affix_pip.tga` have real sources: `python3 scripts/generate-media.py` (requires [Pillow](https://pillow.readthedocs.io/)) regenerates them from code — the minimap icon from the same ring geometry as `docs/img/logo.svg`, the vote chevrons and affix pip from simple vector shapes — so no texture is a hand-edited binary with no way back to its design.
+
 ## License
 
 See [`LICENSE`](LICENSE). Personal and private-server community use is permitted for unmodified official releases. Redistributing modified versions under the EbonBuilds name, or commercial use, requires prior permission from the copyright holder.

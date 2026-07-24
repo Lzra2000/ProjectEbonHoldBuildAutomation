@@ -40,6 +40,7 @@ Check groups for --only / FILTER:
   toc          Every .lua listed in EbonBuilds.toc exists on disk
   api          Post-3.3.5a WoW API blocklist (scripts/check-335a-api.sh)
   headers      File header convention in core/ and modules/
+  media        Required media/*.tga files exist on disk
   architecture Convenience alias -> tests with filter "architecture"
   <name>       Any other value is passed to tests/run.sh --only <name>
 
@@ -86,7 +87,7 @@ SUMMARY_LOG="$LOG_DIR/check-${RUN_STAMP}.log"
 : > "$SUMMARY_LOG"
 
 want() {
-    # want <group-name> — true if FILTER empty or equals this group
+    # want <group-name> â€” true if FILTER empty or equals this group
     group=$1
     [ -z "$FILTER" ] && return 0
     [ "$FILTER" = "$group" ] && return 0
@@ -96,7 +97,7 @@ want() {
 # Non-group filters (e.g. architecture, freeze) mean "tests only".
 is_known_group() {
     case "$1" in
-        syntax|tests|toc|api|headers|architecture) return 0 ;;
+        syntax|tests|toc|api|headers|media|architecture) return 0 ;;
         *) return 1 ;;
     esac
 }
@@ -314,6 +315,29 @@ if [ "$run_tests_only" -eq 0 ] && want headers; then
     log ""
 fi
 
+
+# ---- 6. Media TGAs ---------------------------------------------------------
+if [ "$run_tests_only" -eq 0 ] && want media; then
+    log "== Required media TGAs present =="
+    fail=0
+    for f in media/minimap_icon.tga media/vote_icon.tga media/vote_icon_off.tga media/affix_pip.tga; do
+        [ -f "$f" ] || {
+            log_err "MISSING: $f (run: python3 scripts/generate-media.py)"
+            annotate_line "$f" "Missing media TGA (run: python3 scripts/generate-media.py)"
+            fail=1
+        }
+    done
+    if [ "$fail" -eq 0 ]; then
+        log "OK: all media TGAs present"
+    else
+        overall_fail=1
+        failed_checks="$failed_checks media"
+        log_err "FAILED: media -- re-run: sh scripts/check.sh --only media"
+        log_err "Or: python3 scripts/generate-media.py"
+    fi
+    log ""
+fi
+
 # ---- Summary ---------------------------------------------------------------
 if [ "$overall_fail" -eq 0 ]; then
     if [ -n "$FILTER" ]; then
@@ -330,7 +354,7 @@ else
     log_err "Summary log: $SUMMARY_LOG"
     log_err "Docs: docs/dev-testing.md"
     if [ "$ANNOTATE" = "1" ]; then
-        printf '::error::Checks failed:%s — see docs/dev-testing.md\n' "$failed_checks"
+        printf '::error::Checks failed:%s â€” see docs/dev-testing.md\n' "$failed_checks"
     fi
 fi
 exit $overall_fail

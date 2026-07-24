@@ -44,6 +44,10 @@ local TOKENS = {
     textures = {
         flat = "Interface\\Buttons\\WHITE8X8",
         search = "Interface\\Common\\UI-Searchbox-Icon",
+        minimap = "Interface\\AddOns\\EbonBuilds\\media\\minimap_icon",
+        voteOn = "Interface\\AddOns\\EbonBuilds\\media\\vote_icon",
+        voteOff = "Interface\\AddOns\\EbonBuilds\\media\\vote_icon_off",
+        affixPip = "Interface\\AddOns\\EbonBuilds\\media\\affix_pip",
     },
     spacing = {
         xxs = 2, xs = 4, sm = 8, md = 12, lg = 16, xl = 24,
