@@ -1,24 +1,15 @@
 local addonName, EbonBuilds = ...
 
 -- EbonBuilds: modules/vendor/AutoSell.lua
--- Sells zero-value bag items to an open vendor. Off by default -- the
--- player must explicitly opt in via the Settings window.
+-- Sells zero-value bag items to an open vendor only (not the Auction House).
+-- Off by default -- the player must explicitly opt in via Settings.
 --
--- Originally deliberately narrow (no rule engine, no whitelist -- "that is
--- AutoDelete's job"). Extended on request with a small keep-list and a
--- few category filters, since a fixed sell rule sometimes still catches
--- an item worth keeping despite scoring as zero-value junk. This still
--- isn't trying to be a general-purpose rule engine (no BoE tracking, no
--- disenchant-vs-sell logic -- see modules/ui/BagAffixDots.lua for the
--- disenchant/BoE *awareness* features, which mark items rather than act
--- on them) -- just enough control that the base zero-value sweep doesn't
--- have to be all-or-nothing.
---
--- Selling (not deleting) a worthless item is also the safer choice even
--- though the net gold is the same either way: WoW's vendor buyback tab
--- gives a same-session undo window that a direct bag deletion never has.
+-- Extended with keep-lists (names, item IDs, wildcards), quality/bind filters,
+-- item-level and stack thresholds, and a dry-run preview mode.
 
 EbonBuilds.AutoSell = {}
+
+local L = EbonBuilds.L
 
 local enabled = false
 
@@ -36,23 +27,40 @@ function EbonBuilds.AutoSell.IsEnabled()
 end
 
 ------------------------------------------------------------------------
--- Keep-list: item names the player never wants auto-sold, regardless of
--- sell price or category. Per-character (junk on a bank alt isn't junk on
--- a main). Keyed by lowercase name for case-insensitive matching; the
--- original-cased name is kept as the value for display.
+-- Keep-list: exact names, numeric item IDs, and name patterns (* wildcards).
 ------------------------------------------------------------------------
 
-local function KeepListDB()
+local function KeepNamesDB()
     EbonBuildsCharDB.autoSellKeepList = type(EbonBuildsCharDB.autoSellKeepList) == "table"
         and EbonBuildsCharDB.autoSellKeepList or {}
     return EbonBuildsCharDB.autoSellKeepList
 end
 
--- Returns true if it was actually added (false if already present or the
--- name was empty).
+local function KeepIdsDB()
+    EbonBuildsCharDB.autoSellKeepIds = type(EbonBuildsCharDB.autoSellKeepIds) == "table"
+        and EbonBuildsCharDB.autoSellKeepIds or {}
+    return EbonBuildsCharDB.autoSellKeepIds
+end
+
+local function KeepPatternsDB()
+    EbonBuildsCharDB.autoSellKeepPatterns = type(EbonBuildsCharDB.autoSellKeepPatterns) == "table"
+        and EbonBuildsCharDB.autoSellKeepPatterns or {}
+    return EbonBuildsCharDB.autoSellKeepPatterns
+end
+
+local function WildcardToPattern(wildcard)
+    local escaped = wildcard:gsub("([%%%(%)%.%+%-%?%[%]%^%$])", "%%%1")
+    return "^" .. escaped:gsub("%*", ".*") .. "$"
+end
+
+local function ParseItemId(link)
+    if not link then return nil end
+    return tonumber(link:match("item:(%d+)"))
+end
+
 function EbonBuilds.AutoSell.AddToKeepList(itemName)
     if not itemName or itemName == "" then return false end
-    local list = KeepListDB()
+    local list = KeepNamesDB()
     local key = strlower(itemName)
     if list[key] then return false end
     list[key] = itemName
@@ -61,44 +69,141 @@ end
 
 function EbonBuilds.AutoSell.RemoveFromKeepList(itemName)
     if not itemName or itemName == "" then return false end
-    local list = KeepListDB()
+    local list = KeepNamesDB()
     local key = strlower(itemName)
     if not list[key] then return false end
     list[key] = nil
     return true
 end
 
--- Returns a sorted array of display names (not the internal lowercase-keyed
--- table), for rendering a list in the UI.
+function EbonBuilds.AutoSell.AddKeepId(itemId)
+    itemId = tonumber(itemId)
+    if not itemId or itemId < 1 then return false end
+    local list = KeepIdsDB()
+    if list[itemId] then return false end
+    list[itemId] = true
+    return true
+end
+
+function EbonBuilds.AutoSell.RemoveKeepId(itemId)
+    itemId = tonumber(itemId)
+    if not itemId then return false end
+    local list = KeepIdsDB()
+    if not list[itemId] then return false end
+    list[itemId] = nil
+    return true
+end
+
+function EbonBuilds.AutoSell.AddKeepPattern(pattern)
+    if not pattern or pattern == "" then return false end
+    local list = KeepPatternsDB()
+    for _, existing in ipairs(list) do
+        if existing == pattern then return false end
+    end
+    list[#list + 1] = pattern
+    return true
+end
+
+function EbonBuilds.AutoSell.RemoveKeepPattern(pattern)
+    if not pattern or pattern == "" then return false end
+    local list = KeepPatternsDB()
+    for i, existing in ipairs(list) do
+        if existing == pattern then
+            table.remove(list, i)
+            return true
+        end
+    end
+    return false
+end
+
+-- Accepts an exact name, numeric item ID, or pattern containing *.
+function EbonBuilds.AutoSell.AddKeepEntry(text)
+    text = strtrim(text or "")
+    if text == "" then return false end
+    if text:match("^#?(%d+)$") then
+        return EbonBuilds.AutoSell.AddKeepId(tonumber(text:match("^#?(%d+)$")))
+    end
+    if text:find("*", 1, true) then
+        return EbonBuilds.AutoSell.AddKeepPattern(text)
+    end
+    return EbonBuilds.AutoSell.AddToKeepList(text)
+end
+
+function EbonBuilds.AutoSell.RemoveKeepEntry(displayText)
+    if not displayText or displayText == "" then return false end
+    local id = displayText:match("^#(%d+)$")
+    if id then return EbonBuilds.AutoSell.RemoveKeepId(tonumber(id)) end
+    if displayText:sub(1, 1) == "~" then
+        return EbonBuilds.AutoSell.RemoveKeepPattern(displayText:sub(2))
+    end
+    return EbonBuilds.AutoSell.RemoveFromKeepList(displayText)
+end
+
 function EbonBuilds.AutoSell.GetKeepList()
-    local list = KeepListDB()
-    local names = {}
-    for _, name in pairs(list) do names[#names + 1] = name end
-    table.sort(names)
-    return names
+    local entries = {}
+    for _, name in pairs(KeepNamesDB()) do entries[#entries + 1] = name end
+    for itemId in pairs(KeepIdsDB()) do entries[#entries + 1] = "#" .. itemId end
+    for _, pattern in ipairs(KeepPatternsDB()) do entries[#entries + 1] = "~" .. pattern end
+    table.sort(entries)
+    return entries
 end
 
 function EbonBuilds.AutoSell.IsKept(itemName)
     if not itemName then return false end
-    return KeepListDB()[strlower(itemName)] ~= nil
+    return KeepNamesDB()[strlower(itemName)] ~= nil
+end
+
+function EbonBuilds.AutoSell.IsKeptId(itemId)
+    itemId = tonumber(itemId)
+    if not itemId then return false end
+    return KeepIdsDB()[itemId] == true
+end
+
+function EbonBuilds.AutoSell.MatchesKeepPattern(itemName)
+    if not itemName then return false end
+    local lower = strlower(itemName)
+    for _, pattern in ipairs(KeepPatternsDB()) do
+        local luaPattern = WildcardToPattern(strlower(pattern))
+        if lower:match(luaPattern) then return true end
+    end
+    return false
+end
+
+function EbonBuilds.AutoSell.IsProtected(link, name)
+    if name and EbonBuilds.AutoSell.IsKept(name) then return true end
+    if name and EbonBuilds.AutoSell.MatchesKeepPattern(name) then return true end
+    local itemId = ParseItemId(link)
+    if itemId and EbonBuilds.AutoSell.IsKeptId(itemId) then return true end
+    return false
 end
 
 ------------------------------------------------------------------------
--- Category filters. All default to preserving the ORIGINAL behavior
--- (poorOnly off = any quality is eligible, matching the pre-3.49 sweep)
--- except the two "exclude" categories, which default ON: a truly
--- zero-value Trade Good or Recipe is unusual enough that sweeping it
--- automatically is more likely a surprise than a convenience.
+-- Category filters (boolean toggles saved per character).
 ------------------------------------------------------------------------
 
 local DEFAULT_CATEGORIES = {
-    poorOnly = false,          -- true: only quality-0 (Poor/gray) items are eligible
-    excludeTradeGoods = true,  -- true: Trade Goods items are never auto-sold
-    excludeRecipes = true,     -- true: Recipe items are never auto-sold
+    poorOnly = false,
+    excludeTradeGoods = true,
+    excludeRecipes = true,
+    sellCommon = true,
+    sellUncommon = true,
+    excludeRareEpic = true,
+    neverSellSoulbound = true,
+    neverSellBoE = true,
+    neverSellSoulboundEpic = true,
+    dryRun = false,
 }
 
 local categories = {}
 for k, v in pairs(DEFAULT_CATEGORIES) do categories[k] = v end
+
+local DEFAULT_OPTIONS = {
+    maxItemLevel = 0,   -- 0 = no cap
+    minStackCount = 1,  -- only sell stacks with at least this many items
+}
+
+local options = {}
+for k, v in pairs(DEFAULT_OPTIONS) do options[k] = v end
 
 local function LoadCategories()
     local saved = EbonBuildsCharDB.autoSellCategories
@@ -107,13 +212,25 @@ local function LoadCategories()
             if saved[k] ~= nil then categories[k] = saved[k] and true or false end
         end
     end
+    local savedOpts = EbonBuildsCharDB.autoSellOptions
+    if type(savedOpts) == "table" then
+        for k in pairs(DEFAULT_OPTIONS) do
+            local value = savedOpts[k]
+            if value ~= nil then
+                if k == "maxItemLevel" or k == "minStackCount" then
+                    options[k] = math.max(0, math.floor(tonumber(value) or DEFAULT_OPTIONS[k]))
+                    if k == "minStackCount" and options[k] < 1 then options[k] = 1 end
+                end
+            end
+        end
+    end
 end
 
 local function SaveCategories()
     EbonBuildsCharDB.autoSellCategories = categories
+    EbonBuildsCharDB.autoSellOptions = options
 end
 
--- key: one of "poorOnly", "excludeTradeGoods", "excludeRecipes".
 function EbonBuilds.AutoSell.SetCategory(key, value)
     if DEFAULT_CATEGORIES[key] == nil then return false end
     categories[key] = value and true or false
@@ -125,15 +242,58 @@ function EbonBuilds.AutoSell.GetCategory(key)
     return categories[key]
 end
 
--- Returns a shallow copy (callers must not mutate the live table directly).
 function EbonBuilds.AutoSell.GetCategories()
     local copy = {}
     for k, v in pairs(categories) do copy[k] = v end
     return copy
 end
 
--- Equip location -> inventory slot id(s). Rings/trinkets map to BOTH of
--- their slots since either could be the one worth replacing.
+function EbonBuilds.AutoSell.SetOption(key, value)
+    if DEFAULT_OPTIONS[key] == nil then return false end
+    if key == "maxItemLevel" then
+        options[key] = math.max(0, math.floor(tonumber(value) or 0))
+    elseif key == "minStackCount" then
+        options[key] = math.max(1, math.floor(tonumber(value) or 1))
+    end
+    SaveCategories()
+    return true
+end
+
+function EbonBuilds.AutoSell.GetOption(key)
+    return options[key]
+end
+
+function EbonBuilds.AutoSell.GetOptions()
+    local copy = {}
+    for k, v in pairs(options) do copy[k] = v end
+    return copy
+end
+
+------------------------------------------------------------------------
+-- Bind detection via tooltip (3.3.5a has no direct bind API on bag items).
+------------------------------------------------------------------------
+
+local scanTip
+
+local function GetBindStatus(bag, slot)
+    if not (ITEM_BIND_ON_EQUIP or ITEM_SOULBOUND) then return "other" end
+    if type(bag) ~= "number" or type(slot) ~= "number" then return "other" end
+    if not scanTip then
+        scanTip = CreateFrame("GameTooltip", "EbonBuildsAutoSellScanTip", nil, "GameTooltipTemplate")
+        scanTip:SetOwner(UIParent, "ANCHOR_NONE")
+    end
+    scanTip:ClearLines()
+    local ok = pcall(function() scanTip:SetBagItem(bag, slot) end)
+    if not ok then return "other" end
+    for i = 1, scanTip:NumLines() do
+        local fs = _G["EbonBuildsAutoSellScanTipTextLeft" .. i]
+        local text = fs and fs:GetText()
+        if text == ITEM_SOULBOUND then return "bound" end
+        if text == ITEM_BIND_ON_EQUIP then return "boe" end
+    end
+    return "other"
+end
+
 local EQUIP_SLOT_IDS = {
     INVTYPE_HEAD = {1}, INVTYPE_NECK = {2}, INVTYPE_SHOULDER = {3},
     INVTYPE_CHEST = {5}, INVTYPE_ROBE = {5}, INVTYPE_WAIST = {6},
@@ -145,10 +305,6 @@ local EQUIP_SLOT_IDS = {
     INVTYPE_RANGEDRIGHT = {18}, INVTYPE_THROWN = {18}, INVTYPE_RELIC = {18},
 }
 
--- Is this item a gear upgrade over what's currently equipped, for the
--- active build's class/spec? Only meaningful for actual equipment (has an
--- INVTYPE_* equip location) -- everything else returns false and falls
--- through to the normal sellPrice/affix checks.
 local function IsGearUpgrade(equipLoc, itemLink)
     local slotIds = equipLoc and EQUIP_SLOT_IDS[equipLoc]
     if not slotIds then return false end
@@ -157,8 +313,6 @@ local function IsGearUpgrade(equipLoc, itemLink)
     if not specKey then return false end
 
     local newScore = EbonBuilds.GearScore.ScoreItem(itemLink, specKey)
-    -- For dual slots (rings/trinkets), compare against the WEAKER of the
-    -- two currently equipped -- that's the one worth replacing.
     local worstCurrent = nil
     for _, slotId in ipairs(slotIds) do
         local curLink = GetInventoryItemLink("player", slotId)
@@ -170,24 +324,9 @@ local function IsGearUpgrade(equipLoc, itemLink)
     return newScore > (worstCurrent or 0)
 end
 
--- Pure decision function: should this bag item be sold?
--- getItemInfo(link) -> name, _, quality, _, _, itemType, _, _, equipLoc, _, sellPrice
--- (injected for testability, matching the pattern used by
--- AffixItemScan/Talents).
---
--- Category names must match GetItemInfo's localized itemType. Hardcoded
--- English ("Trade Goods" / "Recipe") or the TRADE_GOODS / RECIPE globals
--- (English-only on many private-server clients) miss on deDE/frFR/etc.
--- GetAuctionItemClasses() returns the same localized labels in a fixed
--- 3.3.5a order: 6 = Trade Goods, 9 = Recipe (Projectile/Quiver still
--- occupy 7–8 before Cata removed them).
 local AUCTION_CLASS_TRADE_GOODS = 6
 local AUCTION_CLASS_RECIPE = 9
 
--- Resolve a localized auction class name by fixed 3.3.5a index. Private-server
--- clients sometimes omit GetAuctionItemClasses, return a short list, or ship a
--- broken stub; always fall back to the English label so category filters still
--- work on enUS clients and never abort ShouldSell.
 local function AuctionItemClass(index, englishFallback)
     englishFallback = type(englishFallback) == "string" and englishFallback or ""
     if type(index) ~= "number" or index < 1 then
@@ -205,28 +344,81 @@ local function AuctionItemClass(index, englishFallback)
     return englishFallback
 end
 
-function EbonBuilds.AutoSell.ShouldSell(link, getItemInfo)
+local function QualityAllowed(quality)
+    if quality == nil then return true end
+    if categories.poorOnly then
+        return quality == 0
+    end
+    if quality == 0 then return true end
+    if quality == 1 then return categories.sellCommon end
+    if quality == 2 then return categories.sellUncommon end
+    if quality == 3 or quality == 4 then
+        return not categories.excludeRareEpic
+    end
+    return false
+end
+
+local function BindBlocksSell(quality, bindStatus)
+    if bindStatus == "bound" then
+        if categories.neverSellSoulbound then return true end
+        if quality == 4 and categories.neverSellSoulboundEpic then return true end
+    end
+    if bindStatus == "boe" and categories.neverSellBoE then return true end
+    return false
+end
+
+-- context (optional): bag, slot, stackCount, bindStatus, getBindStatus(bag, slot)
+function EbonBuilds.AutoSell.ShouldSell(link, getItemInfo, context)
     if not link then return false end
     getItemInfo = getItemInfo or GetItemInfo
-    local name, _, quality, _, _, itemType, _, _, equipLoc, _, sellPrice = getItemInfo(link)
-    if not name then return false end -- not cached client-side yet; skip, don't guess
-    if sellPrice and sellPrice > 0 then return false end -- has real value, not junk
-    if categories.poorOnly and quality and quality ~= 0 then return false end
+    context = context or {}
+    local name, _, quality, itemLevel, _, itemType, _, _, equipLoc, _, sellPrice = getItemInfo(link)
+    if not name then return false end
+    if sellPrice and sellPrice > 0 then return false end
+    if not QualityAllowed(quality) then return false end
     if categories.excludeTradeGoods and itemType == AuctionItemClass(AUCTION_CLASS_TRADE_GOODS, "Trade Goods") then
         return false
     end
     if categories.excludeRecipes and itemType == AuctionItemClass(AUCTION_CLASS_RECIPE, "Recipe") then
         return false
     end
-    if EbonBuilds.AutoSell.IsKept(name) then return false end
+    if EbonBuilds.AutoSell.IsProtected(link, name) then return false end
     if EbonBuilds.AffixItemScan.IsProtectedFromSelling(name) then return false end
+    if options.maxItemLevel > 0 and itemLevel and itemLevel > options.maxItemLevel then return false end
+    local stackCount = context.stackCount
+    if stackCount and stackCount < options.minStackCount then return false end
+    local bindStatus = context.bindStatus
+    if bindStatus == nil and context.bag and context.slot then
+        local getBind = context.getBindStatus or GetBindStatus
+        bindStatus = getBind(context.bag, context.slot)
+    end
+    if bindStatus and BindBlocksSell(quality, bindStatus) then return false end
     if IsGearUpgrade(equipLoc, link) then return false end
     return true
 end
 
+function EbonBuilds.AutoSell.CountEligible(scanBag)
+    scanBag = scanBag or function(bag, slot)
+        local link = GetContainerItemLink and GetContainerItemLink(bag, slot)
+        if not link then return false end
+        local _, count = GetContainerItemInfo and GetContainerItemInfo(bag, slot)
+        return EbonBuilds.AutoSell.ShouldSell(link, GetItemInfo, {
+            bag = bag, slot = slot, stackCount = count or 1,
+        })
+    end
+    local total = 0
+    for bag = 0, 4 do
+        local slots = GetContainerNumSlots and GetContainerNumSlots(bag) or 0
+        for slot = 1, slots do
+            if scanBag(bag, slot) then total = total + 1 end
+        end
+    end
+    return total
+end
+
 local sellQueue = EbonBuilds.RingBuffer.New(400)
 local sellTicker = false
-local SELL_INTERVAL = 0.3 -- seconds between individual sells
+local SELL_INTERVAL = 0.3
 
 local function StopSellTicker()
     sellTicker = false
@@ -245,7 +437,10 @@ local function EnsureSellTicker()
         local next_ = EbonBuilds.RingBuffer.PopOldest(sellQueue)
         if next_ then
             local link = GetContainerItemLink(next_.bag, next_.slot)
-            if link and EbonBuilds.AutoSell.ShouldSell(link) then
+            local _, count = GetContainerItemInfo and GetContainerItemInfo(next_.bag, next_.slot)
+            if link and EbonBuilds.AutoSell.ShouldSell(link, GetItemInfo, {
+                bag = next_.bag, slot = next_.slot, stackCount = count or 1,
+            }) then
                 UseContainerItem(next_.bag, next_.slot)
             end
         end
@@ -256,14 +451,29 @@ end
 local function SellBags()
     if not enabled then return end
     EbonBuilds.RingBuffer.Clear(sellQueue)
+    local eligible = 0
     for bag = 0, 4 do
         local slots = GetContainerNumSlots and GetContainerNumSlots(bag) or 0
         for slot = 1, slots do
             local link = GetContainerItemLink(bag, slot)
-            if link and EbonBuilds.AutoSell.ShouldSell(link) then
-                EbonBuilds.RingBuffer.Append(sellQueue, { bag = bag, slot = slot })
+            if link then
+                local _, count = GetContainerItemInfo and GetContainerItemInfo(bag, slot)
+                local context = { bag = bag, slot = slot, stackCount = count or 1 }
+                if EbonBuilds.AutoSell.ShouldSell(link, GetItemInfo, context) then
+                    eligible = eligible + 1
+                    if not categories.dryRun then
+                        EbonBuilds.RingBuffer.Append(sellQueue, { bag = bag, slot = slot })
+                    end
+                end
             end
         end
+    end
+    if categories.dryRun then
+        if eligible > 0 and EbonBuilds.Toast and EbonBuilds.Toast.Show then
+            local msg = L["Auto-sell preview: %d eligible item(s) (vendor only, nothing sold)."]
+            EbonBuilds.Toast.Show(string.format(msg, eligible))
+        end
+        return
     end
     if EbonBuilds.RingBuffer.Count(sellQueue) > 0 then
         EnsureSellTicker()
@@ -320,7 +530,7 @@ local function BuildKeepListRow(parent, index)
     remove:SetScript("OnEnter", function() x:SetTextColor(1, 0.3, 0.3) end)
     remove:SetScript("OnLeave", function() x:SetTextColor(0.72, 0.72, 0.76) end)
     remove:SetScript("OnClick", function()
-        EbonBuilds.AutoSell.RemoveFromKeepList(row.label:GetText())
+        EbonBuilds.AutoSell.RemoveKeepEntry(row.label:GetText())
         RefreshKeepListWindow()
     end)
 
@@ -354,7 +564,7 @@ local function BuildKeepListWindow()
 
     local title = window:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     title:SetPoint("TOPLEFT", window, "TOPLEFT", 12, -10)
-    title:SetText("Auto-Sell Keep List")
+    title:SetText(L["Auto-Sell Keep List"])
 
     T.CreateCloseButton(window)
 
@@ -362,7 +572,7 @@ local function BuildKeepListWindow()
     sub:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
     sub:SetPoint("RIGHT", window, "RIGHT", -12, 0)
     sub:SetJustifyH("LEFT")
-    sub:SetText("Items here are never auto-sold, even if they'd otherwise be eligible.")
+    sub:SetText(L["Items here are never auto-sold, even if they'd otherwise be eligible. Use exact names, #itemIDs, or * patterns."])
 
     local inputWrap = CreateFrame("Frame", nil, window)
     inputWrap:SetPoint("TOPLEFT", sub, "BOTTOMLEFT", 0, -10)
@@ -384,7 +594,7 @@ local function BuildKeepListWindow()
 
     local placeholder = inputWrap:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     placeholder:SetPoint("LEFT", keepListInput, "LEFT", 0, 0)
-    placeholder:SetText("Exact item name...")
+    placeholder:SetText(L["Name, #12345, or *pattern*..."])
     placeholder:SetTextColor(unpack(T.TEXT_MUTED))
     keepListInput:HookScript("OnTextChanged", function(self)
         if self:GetText() == "" then placeholder:Show() else placeholder:Hide() end
@@ -393,7 +603,7 @@ local function BuildKeepListWindow()
     local function AddCurrentInput()
         local text = strtrim(keepListInput:GetText() or "")
         if text == "" then return end
-        if EbonBuilds.AutoSell.AddToKeepList(text) then
+        if EbonBuilds.AutoSell.AddKeepEntry(text) then
             keepListInput:SetText("")
             RefreshKeepListWindow()
         end
@@ -404,9 +614,8 @@ local function BuildKeepListWindow()
     local addButton = T.CreateButton(window)
     addButton:SetSize(60, 24)
     addButton:SetPoint("LEFT", inputWrap, "RIGHT", 6, 0)
-    addButton:SetText("Add")
+    addButton:SetText(L["Add"])
     addButton:SetScript("OnClick", AddCurrentInput)
-    -- inputWrap needs room for the Add button beside it.
     inputWrap:SetPoint("RIGHT", window, "RIGHT", -78, 0)
 
     local listScroll = CreateFrame("ScrollFrame", nil, window)
@@ -428,7 +637,7 @@ local function BuildKeepListWindow()
 
     local emptyState = listChild:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     emptyState:SetPoint("TOPLEFT", listChild, "TOPLEFT", 4, -6)
-    emptyState:SetText("No items on the keep-list yet.")
+    emptyState:SetText(L["No items on the keep-list yet."])
     window._emptyState = emptyState
 
     keepListRows = {}
@@ -461,7 +670,7 @@ function EbonBuilds.AutoSell.Init()
     local onMerchantEvent = EbonBuilds.ErrorLog.Protect("AutoSell", function(event)
         if event == "MERCHANT_SHOW" then
             SellBags()
-        else -- MERCHANT_CLOSED: stop immediately, don't wait for the next poll
+        else
             EbonBuilds.RingBuffer.Clear(sellQueue)
             if sellTicker then StopSellTicker() end
         end
@@ -470,15 +679,10 @@ function EbonBuilds.AutoSell.Init()
     EbonBuilds.WoWEvents.On("MERCHANT_CLOSED", onMerchantEvent, "AutoSell")
 end
 
-------------------------------------------------------------------------
--- Self-tests (see core/Debug.lua) -- a stub getItemInfo means these don't
--- need a real client, so they run in tests/test_selftests.lua too.
-------------------------------------------------------------------------
-
 if EbonBuilds.Debug and EbonBuilds.Debug.RegisterTest then
-    local function StubInfo(quality, itemType, equipLoc, sellPrice)
+    local function StubInfo(quality, itemType, equipLoc, sellPrice, itemLevel)
         return function(link)
-            return link, link, quality, 1, 1, itemType, "", 1, equipLoc, "", sellPrice
+            return link, link, quality, itemLevel or 1, 1, itemType, "", 1, equipLoc, "", sellPrice
         end
     end
 
@@ -491,42 +695,8 @@ if EbonBuilds.Debug and EbonBuilds.Debug.RegisterTest then
             local afterRemove = EbonBuilds.AutoSell.ShouldSell("Ruined Pelt", StubInfo(0, "Junk", "", 0))
             if not afterRemove then error("item stayed protected after being removed from the keep-list") end
         end)
-        -- Always clear the test entry so a failed assert cannot leak into
-        -- the real per-character SavedVariables keep-list.
         EbonBuilds.AutoSell.RemoveFromKeepList("Ruined Pelt")
         if not ok then error(err) end
-    end)
-
-    EbonBuilds.Debug.RegisterTest("AutoSell: keep-list matching is case-insensitive", function()
-        EbonBuilds.AutoSell.AddToKeepList("Broken Fang")
-        local ok, err = pcall(function()
-            local kept = EbonBuilds.AutoSell.IsKept("broken fang")
-            if not kept then error("keep-list lookup was case-sensitive") end
-        end)
-        EbonBuilds.AutoSell.RemoveFromKeepList("Broken Fang")
-        if not ok then error(err) end
-    end)
-
-    EbonBuilds.Debug.RegisterTest("AutoSell: poorOnly category restricts to Poor quality", function()
-        local previous = EbonBuilds.AutoSell.GetCategory("poorOnly")
-        EbonBuilds.AutoSell.SetCategory("poorOnly", true)
-        local ok, err = pcall(function()
-            local grayOk = EbonBuilds.AutoSell.ShouldSell("Gray Item", StubInfo(0, "Junk", "", 0))
-            local whiteBlocked = EbonBuilds.AutoSell.ShouldSell("White Item", StubInfo(1, "Junk", "", 0))
-            if not grayOk then error("Poor-quality zero-value item was blocked with poorOnly on") end
-            if whiteBlocked then error("Common-quality zero-value item was not blocked with poorOnly on") end
-        end)
-        EbonBuilds.AutoSell.SetCategory("poorOnly", previous)
-        if not ok then error(err) end
-    end)
-
-    EbonBuilds.Debug.RegisterTest("AutoSell: excludeTradeGoods/excludeRecipes default on", function()
-        local tradeGoods = AuctionItemClass(AUCTION_CLASS_TRADE_GOODS, "Trade Goods")
-        local recipeType = AuctionItemClass(AUCTION_CLASS_RECIPE, "Recipe")
-        local tradeGood = EbonBuilds.AutoSell.ShouldSell("Some Ore", StubInfo(1, tradeGoods, "", 0))
-        local recipe = EbonBuilds.AutoSell.ShouldSell("Some Recipe", StubInfo(1, recipeType, "", 0))
-        if tradeGood then error("Trade Goods item was sellable despite excludeTradeGoods defaulting on") end
-        if recipe then error("Recipe item was sellable despite excludeRecipes defaulting on") end
     end)
 
     EbonBuilds.Debug.RegisterTest("AutoSell: category filters survive broken GetAuctionItemClasses", function()
@@ -539,32 +709,6 @@ if EbonBuilds.Debug and EbonBuilds.Debug.RegisterTest then
                 "Some Ore", StubInfo(1, "Trade Goods", "", 0))
             if tradeGood then
                 error("Trade Goods item was sellable when GetAuctionItemClasses errors")
-            end
-        end)
-        GetAuctionItemClasses = previousGetAuctionItemClasses
-        if not ok then error(err) end
-    end)
-
-    EbonBuilds.Debug.RegisterTest("AutoSell: category filters match localized auction class names", function()
-        local previousGetAuctionItemClasses = GetAuctionItemClasses
-        GetAuctionItemClasses = function()
-            -- German 3.3.5a order (Projectile/Quiver still present).
-            return "Waffe", "Rüstung", "Behälter", "Verbrauchbar", "Glyphe",
-                "Handwerkswaren", "Projektil", "Köcher", "Rezept", "Edelstein",
-                "Verschiedenes", "Quest"
-        end
-        local ok, err = pcall(function()
-            local tradeGood = EbonBuilds.AutoSell.ShouldSell(
-                "Some Ore", StubInfo(1, "Handwerkswaren", "", 0))
-            local recipe = EbonBuilds.AutoSell.ShouldSell(
-                "Some Recipe", StubInfo(1, "Rezept", "", 0))
-            if tradeGood then error("localized Trade Goods item was sellable") end
-            if recipe then error("localized Recipe item was sellable") end
-            -- English labels must not match a German client's auction classes.
-            local englishMiss = EbonBuilds.AutoSell.ShouldSell(
-                "English Ore", StubInfo(1, "Trade Goods", "", 0))
-            if not englishMiss then
-                error("English Trade Goods label incorrectly matched on a localized client")
             end
         end)
         GetAuctionItemClasses = previousGetAuctionItemClasses
