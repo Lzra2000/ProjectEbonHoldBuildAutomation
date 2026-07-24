@@ -283,8 +283,9 @@ function EbonBuilds.BagAffixDots.Init()
 
     -- Bagnon/Combuctor load before EbonBuilds in normal alphabetical addon
     -- order, so this usually hooks immediately; the ADDON_LOADED listener
-    -- covers a late/on-demand load and unregisters itself once every known
-    -- bag addon that can load has either hooked or been observed.
+    -- covers a late/on-demand load and unregisters itself on the first
+    -- successful hook (same one-shot pattern as the original Bagnon path --
+    -- the two bag addons are mutually exclusive in practice).
     local pending = {}
     for _, name in ipairs(BAG_ADDONS) do
         if IsAddOnLoaded and IsAddOnLoaded(name) then
@@ -297,12 +298,9 @@ function EbonBuilds.BagAffixDots.Init()
     if next(pending) and EbonBuilds.WoWEvents then
         local token
         token = EbonBuilds.WoWEvents.On("ADDON_LOADED", function(_, name)
-            if pending[name] and TryHookBagAddon(name) then
-                pending[name] = nil
-                if not next(pending) and token then
-                    EbonBuilds.WoWEvents.Off(token)
-                    token = nil
-                end
+            if pending[name] and TryHookBagAddon(name) and token then
+                EbonBuilds.WoWEvents.Off(token)
+                token = nil
             end
         end, "BagAffixDots")
     end
