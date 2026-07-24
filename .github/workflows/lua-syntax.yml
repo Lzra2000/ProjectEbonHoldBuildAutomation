@@ -21,8 +21,22 @@ jobs:
       - name: Install toolchain
         run: sh scripts/dev-setup.sh
 
-      - name: Run scripts/check.sh (syntax, test suite, .toc verification, 3.3.5a API check, file headers)
-        run: sh scripts/check.sh
+      - name: Run scripts/check.sh --full (syntax, tests, .toc, 3.3.5a API, headers)
+        env:
+          EBB_FULL: "1"
+          EBB_ANNOTATE: "1"
+          EBB_LOG_DIR: .cache/check-logs
+        run: sh scripts/check.sh --full --verbose
 
       - name: Verify dist zip builds cleanly
         run: sh scripts/build-dist.sh
+
+      - name: Upload check logs on failure
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: check-logs-${{ github.run_id }}
+          path: |
+            .cache/check-logs/
+          if-no-files-found: warn
+          retention-days: 14

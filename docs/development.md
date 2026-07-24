@@ -5,18 +5,21 @@ Full contributor guide: [CONTRIBUTING.md](https://github.com/Lzra2000/ProjectEbo
 ## Setup
 
 ```
-sh scripts/dev-setup.sh      # lua5.1, texlua, zip
+sh scripts/dev-setup.sh      # lua5.1, zip (Debian/Ubuntu)
 sh scripts/install-hooks.sh  # optional pre-commit hook
-sh scripts/check.sh          # what CI runs: syntax, test suite, .toc verification
+sh scripts/check.sh          # fast local loop (skips 70k board sim)
+sh scripts/check.sh --full   # what CI runs
 ```
 
-No build step -- the repo root already is the addon folder structure.
+On Windows: `powershell -File scripts/check.ps1` (or `bash scripts/check.sh` from Git Bash). No build step -- the repo root already is the addon folder structure.
+
+**Filtering & debugging:** see [Local checks & CI debugging](dev-testing.md) for `--only`, `VERBOSE=1`, Actions annotations, and common failure classes (architecture `RegisterEvent`, `and nil or` lint, 3.3.5a API scan).
 
 ## The script toolbox
 
 | Script | What it does |
 |---|---|
-| `check.sh` | Syntax + full test suite + TOC verification (CI runs exactly this) |
+| `check.sh` / `check.ps1` | Syntax + test suite + TOC + 3.3.5a API + headers (`--full` = CI; `--only` for one group) |
 | `check-load-order.sh` | Flags file-scope references to modules the `.toc` hasn't loaded yet |
 | `find-orphans.sh` | Files the TOC never loads (hard fail) and exports with no visible caller (review list) |
 | `i18n-report.sh` | Per-language translation coverage, missing and orphaned keys |
@@ -24,7 +27,7 @@ No build step -- the repo root already is the addon folder structure.
 | `triage-error.sh <file\|->` | Pasted error dump -> source context + `git log -L` per mentioned line |
 | `release.sh` / `ship.sh` | Version bump, checks, tag / plus push; the pushed tag triggers the Release workflow (maintainers) |
 
-The test suite includes a sync fuzzer (`tests/test_sync_fuzz.lua`): thousands of deterministic hostile payloads against the inbound message handlers every CI run.
+The test suite includes a sync fuzzer (`tests/test_sync_fuzz.lua`): thousands of deterministic hostile payloads against the inbound message handlers every CI run. The 70k board simulation is opt-in locally (`--full`) and always on in CI.
 
 ## Conventions worth knowing before a PR
 

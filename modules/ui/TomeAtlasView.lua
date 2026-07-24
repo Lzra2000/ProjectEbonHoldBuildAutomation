@@ -15,6 +15,7 @@ local searchBox, filterBtn, syncBtn, countLabel, emptyText, zoneSummary
 local zonePicker
 local rows = {}
 local state = { text = "", missingOnly = false, groupBy = "tome", zoneFilter = nil }
+local Render -- forward decl: TryToggleTomePool schedules a refresh before Render is assigned
 
 local function MatchesText(haystack)
     return state.text == "" or strlower(tostring(haystack or "")):find(state.text, 1, true) ~= nil
@@ -49,6 +50,54 @@ local function IsOwned(tomeName, ownedSet)
     -- NormalizeEchoName strips tome prefixes AND quality suffixes, so
     -- "Tome of Brittle Forging - Rare" maps onto the owned echo name.
     return ownedSet[norm(tomeName)] or false
+end
+
+local function ResolveEchoSpellId(itemId)
+    if not itemId then return nil end
+    if EbonBuilds.ProjectAPI and EbonBuilds.ProjectAPI.FindEchoSpellIdByTomeItem then
+        return EbonBuilds.ProjectAPI.FindEchoSpellIdByTomeItem(itemId)
+    end
+    return nil
+end
+
+local function TomeToggleCapable()
+    local caps = EbonBuilds.ProjectAPI and EbonBuilds.ProjectAPI.GetCapabilities
+        and EbonBuilds.ProjectAPI.GetCapabilities()
+    return caps and caps.tomeToggle and true or false
+end
+
+local function IsTomePoolDisabled(spellId)
+    if not spellId or not TomeToggleCapable() then return false end
+    return EbonBuilds.ProjectAPI.IsTomeEchoDisabled(spellId)
+end
+
+-- Right-click on a collected tome: flip its L1 draw-pool membership.
+-- PE rejects non-L1 itself; we still toast early for clearer feedback.
+local function TryToggleTomePool(item)
+    if not item or item.kind ~= "tome" or not item.owned or not item.spellId then return end
+    if not TomeToggleCapable() then return end
+    if (UnitLevel("player") or 1) ~= 1 then
+        if EbonBuilds.Toast then
+            EbonBuilds.Toast.Show(EbonBuilds.L["Tomes can be toggled at level 1 only"])
+        end
+        return
+    end
+    local ok = EbonBuilds.ProjectAPI.ToggleTomeEcho(item.spellId)
+    if ok then
+        local enabling = item.tomeDisabled
+        if EbonBuilds.Toast then
+            EbonBuilds.Toast.Show(enabling
+                and EbonBuilds.L["Tome enabled for draw pool"]
+                or EbonBuilds.L["Tome disabled for draw pool"])
+        end
+        -- Server replies with refreshed discovery; re-render shortly so the
+        -- (pool off)/(collected) tag catches up without reopening the view.
+        if EbonBuilds.Scheduler and EbonBuilds.Scheduler.After then
+            EbonBuilds.Scheduler.After("tomeAtlas.tomeToggleRefresh", 1.2, function()
+                if viewFrame and viewFrame:IsShown() then Render() end
+            end)
+        end
+    end
 end
 
 ------------------------------------------------------------------------
@@ -103,15 +152,30 @@ local function BuildTomeItems()
                 tRows[#tRows + 1] = { left = s.mob or "?", right = (s.zone or "?") .. "  x" .. (s.count or 1) }
             end
             local confidence, confidenceKind = ConfidenceFromSources(entry.sources)
+            local spellId = ResolveEchoSpellId(entry.itemId)
+            local tomeDisabled = owned and IsTomePoolDisabled(spellId)
+            local tooltipStatus
+            if not owned then
+                tooltipStatus = "|cffff4444Missing|r"
+            elseif tomeDisabled then
+                tooltipStatus = "|cffff8040Collected -- draw pool OFF|r"
+            else
+                tooltipStatus = "|cff1eff00Already collected|r"
+            end
+            if owned and TomeToggleCapable() then
+                tooltipStatus = tooltipStatus .. "\n|cff888888Right-click to toggle draw pool (level 1 only).|r"
+            end
             out[#out + 1] = {
                 kind = "tome",
                 itemId = entry.itemId,
+                spellId = spellId,
                 title = entry.name,
                 owned = owned,
+                tomeDisabled = tomeDisabled and true or false,
                 lineText = SourceText(entry.sources),
                 confidence = confidence,
                 confidenceKind = confidenceKind,
-                tooltipStatus = owned and "|cff1eff00Already collected|r" or "|cffff4444Missing|r",
+                tooltipStatus = tooltipStatus,
                 tooltipHeader = "|cffffd100Known sources:|r",
                 tooltipRows = tRows,
                 tooltipEmpty = "No drop data yet -- be the first to loot one!",
@@ -288,7 +352,10 @@ local function CreateRow(parent)
         end
         GameTooltip:AddLine(" ")
         if item.tooltipStatus then
-            GameTooltip:AddLine(item.tooltipStatus)
+            -- tooltipStatus may contain a newline for the toggle hint
+            for line in tostring(item.tooltipStatus):gmatch("[^\n]+") do
+                GameTooltip:AddLine(line)
+            end
             GameTooltip:AddLine(" ")
         end
         GameTooltip:AddLine(item.tooltipHeader or "|cffffd100Details:|r")
@@ -304,6 +371,11 @@ local function CreateRow(parent)
         GameTooltip:Show()
     end)
     row:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    row:SetScript("OnMouseUp", function(self, button)
+        if button == "RightButton" then
+            TryToggleTomePool(self._item)
+        end
+    end)
 
     return row
 end
@@ -349,7 +421,7 @@ local function ZoneSummaryText()
     return "|cff1eff00Best known coverage:|r " .. table.concat(parts, "|cff888888,|r ")
 end
 
-local function Render()
+Render = function()
     filtered = BuildFilteredList()
     if zoneSummary then zoneSummary:SetText(ZoneSummaryText()) end
 
@@ -366,7 +438,11 @@ local function Render()
             if item.kind == "tome" then
                 if item.owned then
                     row._name:SetTextColor(0.55, 0.55, 0.55, 1)
-                    row._owned:SetText("|cff1eff00(collected)|r")
+                    if item.tomeDisabled then
+                        row._owned:SetText("|cffff8040(pool off)|r")
+                    else
+                        row._owned:SetText("|cff1eff00(collected)|r")
+                    end
                 else
                     row._name:SetTextColor(1, 0.82, 0, 1)
                     row._owned:SetText("")
