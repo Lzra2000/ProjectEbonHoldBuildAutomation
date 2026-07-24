@@ -29,6 +29,7 @@ local function RegisterModules()
 
     M.RegisterLegacy("aggregates", M.RUNTIME, "Aggregates", "Init", { "database", "buildMigration" })
     M.RegisterLegacy("session", M.RUNTIME, "Session", "Init", { "database", "aggregates" })
+    M.RegisterLegacy("dpsLog", M.RUNTIME, "DpsLog", "Init", { "session" })
     M.RegisterLegacy("weights", M.RUNTIME, "Weights", "Init", { "buildMigration" })
     M.RegisterLegacy("automation", M.RUNTIME, "Automation", "Init", { "session", "weights", "echoEligibility" })
     M.RegisterLegacy("sync", M.RUNTIME, "Sync", "Init", { "database", "buildMigration" })

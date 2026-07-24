@@ -3,6 +3,7 @@ set -eu
 cd "$(dirname "$0")/.."
 lua5.1 tests/test_features.lua
 lua5.1 tests/test_architecture.lua
+lua5.1 tests/test_dps_log.lua
 lua5.1 tests/test_pure_modules.lua
 lua5.1 tests/test_bug_regressions.lua
 lua5.1 tests/test_export_import.lua

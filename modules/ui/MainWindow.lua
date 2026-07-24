@@ -314,6 +314,7 @@ local function BuildSettingsPopup(ownerFrame)
             autoSellExcludeTradeGoods = Bool(source.autoSellExcludeTradeGoods),
             autoSellExcludeRecipes = Bool(source.autoSellExcludeRecipes),
             bagDots = Bool(source.bagDots),
+            dpsLogging = Bool(source.dpsLogging),
             debugLog = Bool(source.debugLog),
             clickTrace = Bool(source.clickTrace),
             gearTooltip = Bool(source.gearTooltip),
@@ -338,6 +339,7 @@ local function BuildSettingsPopup(ownerFrame)
             autoSellExcludeRecipes = EbonBuilds.AutoSell and EbonBuilds.AutoSell.GetCategory
                 and EbonBuilds.AutoSell.GetCategory("excludeRecipes") ~= false or true,
             bagDots = ReadModuleToggle(EbonBuilds.BagAffixDots),
+            dpsLogging = ReadModuleToggle(EbonBuilds.DpsLog),
             debugLog = ReadModuleToggle(EbonBuilds.DebugLog),
             clickTrace = ReadModuleToggle(EbonBuilds.ClickTrace),
             gearTooltip = ReadModuleToggle(EbonBuilds.GearTooltip),
@@ -368,6 +370,7 @@ local function BuildSettingsPopup(ownerFrame)
         if Bool(draft.autoSellExcludeTradeGoods) ~= Bool(baseline.autoSellExcludeTradeGoods) then count = count + 1 end
         if Bool(draft.autoSellExcludeRecipes) ~= Bool(baseline.autoSellExcludeRecipes) then count = count + 1 end
         if Bool(draft.bagDots) ~= Bool(baseline.bagDots) then count = count + 1 end
+        if Bool(draft.dpsLogging) ~= Bool(baseline.dpsLogging) then count = count + 1 end
         if Bool(draft.debugLog) ~= Bool(baseline.debugLog) then count = count + 1 end
         if Bool(draft.clickTrace) ~= Bool(baseline.clickTrace) then count = count + 1 end
         if Bool(draft.gearTooltip) ~= Bool(baseline.gearTooltip) then count = count + 1 end
@@ -531,6 +534,7 @@ local function BuildSettingsPopup(ownerFrame)
         if controls.autoSellExcludeTradeGoodsCB then controls.autoSellExcludeTradeGoodsCB:SetChecked(draft.autoSellExcludeTradeGoods) end
         if controls.autoSellExcludeRecipesCB then controls.autoSellExcludeRecipesCB:SetChecked(draft.autoSellExcludeRecipes) end
         if controls.bagDotsCB then controls.bagDotsCB:SetChecked(draft.bagDots) end
+        if controls.dpsLoggingCB then controls.dpsLoggingCB:SetChecked(draft.dpsLogging) end
         if controls.debugCB then controls.debugCB:SetChecked(draft.debugLog) end
         if controls.clickTraceCB then controls.clickTraceCB:SetChecked(draft.clickTrace) end
         if controls.gearTooltipCB then controls.gearTooltipCB:SetChecked(draft.gearTooltip) end
@@ -775,7 +779,7 @@ local function BuildSettingsPopup(ownerFrame)
             -604, "syncVerboseLog")
     end)
 
-    BuildCategory("features", 166, function(panel)
+    BuildCategory("features", 234, function(panel)
         AddSectionTitle(panel, "OPTIONAL FEATURES", -2)
         controls.syncChatMessagesCB = AddCheckbox(panel,
             "Sync chat messages",
@@ -785,6 +789,10 @@ local function BuildSettingsPopup(ownerFrame)
             "Tome Atlas map integration",
             "Shows Tome Atlas zone highlights, source lists, pins, and legends on the world map. The Tome Atlas window and data collection remain available.",
             -92, "tomeAtlasMapEnabled")
+        controls.dpsLoggingCB = AddCheckbox(panel,
+            "Combat DPS logging",
+            "Records a DPS sample for each combat segment (e.g. a 120s training-dummy session) and attaches it to the active run in the build's Logbook.",
+            -160, "dpsLogging")
     end)
 
     BuildCategory("interface", 290, function(panel)
@@ -1010,6 +1018,7 @@ local function BuildSettingsPopup(ownerFrame)
             EbonBuilds.AutoSell.SetCategory("excludeRecipes", draft.autoSellExcludeRecipes)
         end
         if EbonBuilds.BagAffixDots and EbonBuilds.BagAffixDots.SetEnabled then EbonBuilds.BagAffixDots.SetEnabled(draft.bagDots) end
+        if EbonBuilds.DpsLog and EbonBuilds.DpsLog.SetEnabled then EbonBuilds.DpsLog.SetEnabled(draft.dpsLogging) end
         if EbonBuilds.DebugLog and EbonBuilds.DebugLog.SetEnabled then EbonBuilds.DebugLog.SetEnabled(draft.debugLog) end
         if EbonBuilds.ClickTrace and EbonBuilds.ClickTrace.SetEnabled then EbonBuilds.ClickTrace.SetEnabled(draft.clickTrace) end
         if EbonBuilds.GearTooltip and EbonBuilds.GearTooltip.SetEnabled then EbonBuilds.GearTooltip.SetEnabled(draft.gearTooltip) end
