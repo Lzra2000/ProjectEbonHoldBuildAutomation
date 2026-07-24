@@ -30,6 +30,49 @@ end
 
 TT_EnsureGroupCompat()
 
+local function TT_EnsureNameCompat()
+	if not GetUnitName then
+		function GetUnitName(unit, showServerName)
+			local name, realm = UnitName(unit)
+			if not name then
+				return nil
+			end
+			if showServerName and realm and realm ~= "" then
+				return name .. "-" .. realm
+			end
+			return name
+		end
+	end
+end
+
+-- Stock 3.3.5a only exposes UnitThreatSituation (status 0-3). PE backports
+-- UnitDetailedThreatSituation at the client; synthesize coarse values when absent.
+local THREAT_PCT_BY_STATUS = {
+	[0] = 100,
+	[1] = 75,
+	[2] = 50,
+	[3] = 25,
+}
+
+local function TT_EnsureThreatCompat()
+	if UnitDetailedThreatSituation or type(UnitThreatSituation) ~= "function" then
+		return
+	end
+	function UnitDetailedThreatSituation(unit, mobUnit)
+		local status = UnitThreatSituation(unit, mobUnit)
+		if status == nil then
+			return nil
+		end
+		local isTanking = (status == 0)
+		local threatpct = THREAT_PCT_BY_STATUS[status] or 0
+		local threatvalue = threatpct * 1000
+		return isTanking, status, threatpct, threatpct, threatvalue
+	end
+end
+
+TT_EnsureNameCompat()
+TT_EnsureThreatCompat()
+
 function TT_GetNumSubgroupMembers()
 	return GetNumSubgroupMembers()
 end

@@ -83,4 +83,27 @@ end
 assertEq(TT_SafeGetUnitName("player", true), "TestPlayer", "get name ok")
 assertEq(TT_SafeGetUnitName("fail", true), nil, "get name failure")
 
+-- GetUnitName shim (when MoP API missing)
+GetUnitName = nil
+function UnitName(unit)
+    if unit == "player" then return "Solo", "Realm" end
+    return nil
+end
+TT_EnsureNameCompat()
+assertEq(GetUnitName("player", true), "Solo-Realm", "GetUnitName shim with realm")
+assertEq(GetUnitName("player", false), "Solo", "GetUnitName shim without realm")
+
+-- UnitDetailedThreatSituation polyfill from UnitThreatSituation
+UnitDetailedThreatSituation = nil
+function UnitThreatSituation(unit, mobUnit)
+    if unit == "player" then return 2 end
+    return nil
+end
+TT_EnsureThreatCompat()
+isTanking, status, pct, rawPct, value = UnitDetailedThreatSituation("player", "target")
+assertEq(isTanking, false, "polyfill isTanking for status 2")
+assertEq(status, 2, "polyfill status passthrough")
+assertEq(pct, 50, "polyfill coarse pct for status 2")
+assertEq(value, 50000, "polyfill synthetic threat value")
+
 print("DETAILS_TINYTHREAT_PE OK")

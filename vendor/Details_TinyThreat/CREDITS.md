@@ -30,6 +30,8 @@ Details! core and sibling plugins. Only **Details_TinyThreat** is vendored here.
 **`DetailsTinyThreatProjectEbonhold.lua`**
 
 - **`TT_EnsureGroupCompat`** — defines `IsInGroup`, `GetNumGroupMembers`, etc. when absent (Details! `compat.lua` normally provides these; shims keep Tiny Threat loadable in isolation during tests).
+- **`TT_EnsureThreatCompat`** — polyfills `UnitDetailedThreatSituation` from `UnitThreatSituation` when the PE engine backport is absent (coarse percent/value bands).
+- **`TT_EnsureNameCompat`** — defines `GetUnitName` from `UnitName` when absent (MoP API; PE client usually has it natively).
 - **`TT_SafeUnitDetailedThreatSituation`** — guards flaky `UnitDetailedThreatSituation` on custom cores.
 - **`TT_SafeUnitGroupRolesAssigned`** — uses DetailsFramework role helper with fallback `"NONE"`.
 - **`TT_IsDetailsReady`** — soft-fail gate when Details! core is not loaded.
