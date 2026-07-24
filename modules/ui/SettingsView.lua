@@ -488,12 +488,20 @@ local function RefreshAutomationStatus()
     local build = EditingBuild()
     if build then
         local enabled = EbonBuilds.Build.IsAutomationEnabled(build)
+        local peAutoAccept = EbonBuilds.Automation and EbonBuilds.Automation.IsPeAutoAcceptLoadoutEnabled
+            and EbonBuilds.Automation.IsPeAutoAcceptLoadoutEnabled()
         statusTitle:SetText(enabled and "AUTOPILOT READY" or "AUTOPILOT PAUSED")
-        statusSubtitle:SetText(enabled and "The active build will act automatically on the next Echo screen." or "Rules are configured, but automatic actions are currently disabled.")
+        if enabled and peAutoAccept then
+            statusSubtitle:SetText("PE Auto-Accept Loadout Echoes is ON. Autopilot defers those picks -- turn it off in ProjectEbonhold options for full control.")
+        elseif enabled then
+            statusSubtitle:SetText("The active build will act automatically on the next Echo screen.")
+        else
+            statusSubtitle:SetText("Rules are configured, but automatic actions are currently disabled.")
+        end
         automationToggle:SetText(enabled and "Pause Autopilot" or "Enable Autopilot")
         if enabled then
             Theme.SetButtonAccent(automationToggle, "good")
-            statusDot:SetVertexColor(unpack(Theme.SUCCESS))
+            statusDot:SetVertexColor(unpack(peAutoAccept and Theme.WARNING or Theme.SUCCESS))
             statusDot._active = true
         else
             Theme.ClearButtonAccent(automationToggle)
@@ -574,8 +582,12 @@ local function BuildStatusPanel(parent, y)
     automationToggle:SetScript("OnClick", function()
         local build = EditingBuild()
         if not build then return end
-        EbonBuilds.Build.SetAutomationEnabled(build, not EbonBuilds.Build.IsAutomationEnabled(build))
+        local enabling = not EbonBuilds.Build.IsAutomationEnabled(build)
+        EbonBuilds.Build.SetAutomationEnabled(build, enabling)
         RefreshAutomationStatus()
+        if enabling and EbonBuilds.Automation and EbonBuilds.Automation.WarnPeAutoAcceptConflict then
+            EbonBuilds.Automation.WarnPeAutoAcceptConflict()
+        end
         if EbonBuilds.MainWindow and EbonBuilds.MainWindow.RefreshContext then EbonBuilds.MainWindow.RefreshContext() end
     end)
 

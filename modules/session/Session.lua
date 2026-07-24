@@ -25,12 +25,53 @@ end
 ------------------------------------------------------------------------
 
 local function GetRunSoulAshes()
+    local rd = EbonBuilds.ProjectAPI and EbonBuilds.ProjectAPI.GetRunData
+        and EbonBuilds.ProjectAPI.GetRunData() or nil
+    if not rd then
+        rd = EbonholdPlayerRunData
+        if not rd and ProjectEbonhold and ProjectEbonhold.PlayerRunService then
+            local get = ProjectEbonhold.PlayerRunService.GetCurrentData
+            if get then rd = get() end
+        end
+    end
+    return (rd and rd.soulPoints) or 0
+end
+
+local function GetRunData()
+    if EbonBuilds.ProjectAPI and type(EbonBuilds.ProjectAPI.GetRunData) == "function" then
+        return EbonBuilds.ProjectAPI.GetRunData()
+    end
     local rd = EbonholdPlayerRunData
     if not rd and ProjectEbonhold and ProjectEbonhold.PlayerRunService then
         local get = ProjectEbonhold.PlayerRunService.GetCurrentData
         if get then rd = get() end
     end
-    return (rd and rd.soulPoints) or 0
+    return rd
+end
+
+local function SessionRunMetadata()
+    local meta = {}
+    local rd = GetRunData()
+    if rd then
+        if rd.hasReachedMaxLevel ~= nil then
+            meta.hasReachedMaxLevel = rd.hasReachedMaxLevel and true or false
+        end
+        if rd.catchupMultiplierPct ~= nil then
+            meta.catchupMultiplierPct = tonumber(rd.catchupMultiplierPct)
+        end
+    end
+    local intensity = EbonBuilds.ProjectAPI and EbonBuilds.ProjectAPI.GetIntensityData
+        and EbonBuilds.ProjectAPI.GetIntensityData() or nil
+    if type(intensity) == "table" then
+        meta.intensity = tonumber(intensity.intensity)
+        meta.areaNameReaper = intensity.areaNameReaper
+        meta.zoneNameReaper = intensity.zoneNameReaper
+    end
+    local rolls = EbonBuilds.ProjectAPI and EbonBuilds.ProjectAPI.GetPendingRollsCount
+        and EbonBuilds.ProjectAPI.GetPendingRollsCount() or nil
+    if rolls ~= nil then meta.pendingRollsCount = rolls end
+    if next(meta) == nil then return nil end
+    return meta
 end
 
 local function GetClassName()
@@ -67,6 +108,7 @@ local function CreateSession()
         strategyRevision = build and (tonumber(build.strategyRevision) or 1) or nil,
         strategyHash  = build and (build.strategyHash or EbonBuilds.Build.StrategyChecksum(build)) or nil,
         startLevel    = UnitLevel("player"),
+        runMetadata   = SessionRunMetadata(),
         logs          = {},
         completed     = false,
         completionReason = "active",
@@ -418,11 +460,7 @@ function EbonBuilds.Session.LogAction(scored, action, targetIndex, source)
         }
     end
 
-    local rd = EbonholdPlayerRunData
-    if not rd and ProjectEbonhold and ProjectEbonhold.PlayerRunService then
-        local get = ProjectEbonhold.PlayerRunService.GetCurrentData
-        if get then rd = get() end
-    end
+    local rd = GetRunData()
 
     local charges = {
         ban    = (rd and rd.remainingBanishes) or 0,

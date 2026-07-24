@@ -412,8 +412,134 @@ function API.WithForeignAutoAcceptConfirm(build, run)
     run(build)
 end
 
+-- Resolve echo spellId from a tome itemId (PerkDatabase.requiredSpell).
+-- Falls back to the documented itemId == spellId + 100000 relationship.
+function API.FindEchoSpellIdByTomeItem(tomeItemId)
+    tomeItemId = tonumber(tomeItemId)
+    if not tomeItemId then return nil end
+    local database = API.GetPerkDatabase()
+    if type(database) == "table" then
+        for spellId, data in pairs(database) do
+            if type(data) == "table" and tonumber(data.requiredSpell) == tomeItemId then
+                return tonumber(spellId)
+            end
+        end
+        local guessed = tomeItemId - 100000
+        if guessed > 0 and database[guessed] then return guessed end
+    end
+    return nil
+end
+
+-- True when a learned tome's echo is toggled out of the L1 draw pool.
+function API.IsTomeEchoDisabled(spellId)
+    local service = Service()
+    if not service or type(service.IsTomeEchoDisabled) ~= "function" then return false end
+    spellId = tonumber(spellId)
+    if not spellId then return false end
+    local ok, result = pcall(service.IsTomeEchoDisabled, spellId)
+    return ok and result and true or false
+end
+
+-- Flip a learned tome on/off at level 1 (PE shows its own error if not L1).
+function API.ToggleTomeEcho(spellId)
+    local service = Service()
+    if not service or type(service.ToggleTomeEcho) ~= "function" then return false end
+    spellId = tonumber(spellId)
+    if not spellId then return false end
+    local ok, result = pcall(service.ToggleTomeEcho, spellId)
+    return ok and result ~= false
+end
+
+-- Authoritative permanent/locked echoes for the current run (array of tables).
+function API.GetLockedPerks()
+    local service = Service()
+    if not service or type(service.GetLockedPerks) ~= "function" then return nil end
+    local ok, result = pcall(service.GetLockedPerks)
+    return ok and type(result) == "table" and result or nil
+end
+
+function API.GetMaximumPermanentEchoes()
+    local service = Service()
+    if not service or type(service.GetMaximumPermanentEchoes) ~= "function" then return 0 end
+    local ok, result = pcall(service.GetMaximumPermanentEchoes)
+    if not ok then return 0 end
+    return tonumber(result) or 0
+end
+
+function API.LockPerk(spellId, count)
+    local service = Service()
+    if not service or type(service.LockPerk) ~= "function" then return false end
+    spellId = tonumber(spellId)
+    if not spellId then return false end
+    local ok, result = pcall(service.LockPerk, spellId, tonumber(count) or 1)
+    return ok and result ~= false
+end
+
+function API.UnlockPerk(spellId)
+    local service = Service()
+    if not service or type(service.UnlockPerk) ~= "function" then return false end
+    spellId = tonumber(spellId)
+    if not spellId then return false end
+    local ok, result = pcall(service.UnlockPerk, spellId)
+    return ok and result ~= false
+end
+
+-- Collapse granted + locked echoes into one list (quality desc, then name).
+function API.SnapshotCurrentEchoes()
+    local service = Service()
+    if not service or type(service.SnapshotCurrentEchoes) ~= "function" then return nil end
+    local ok, result = pcall(service.SnapshotCurrentEchoes)
+    return ok and type(result) == "table" and result or nil
+end
+
+-- Optimistic local discovery updates (PE journal path); no-op when absent.
+function API.AddDiscoveredEcho(spellId)
+    local service = Service()
+    if not service or type(service.AddDiscoveredEcho) ~= "function" then return false end
+    spellId = tonumber(spellId)
+    if not spellId then return false end
+    local ok, result = pcall(service.AddDiscoveredEcho, spellId)
+    return ok and result ~= false
+end
+
+function API.RemoveDiscoveredEcho(spellId)
+    local service = Service()
+    if not service or type(service.RemoveDiscoveredEcho) ~= "function" then return false end
+    spellId = tonumber(spellId)
+    if not spellId then return false end
+    local ok, result = pcall(service.RemoveDiscoveredEcho, spellId)
+    return ok and result ~= false
+end
+
 function API.GetChoiceGeneration()
     return choiceGeneration
+end
+
+local BUILD_SLOT_REQUEST_TTL = 3
+
+local function OptionsService()
+    return _G.ProjectEbonholdOptionsService
+end
+
+local function PlayerRunService()
+    return ProjectEbonhold and ProjectEbonhold.PlayerRunService
+end
+
+local function IsBuildSlotRequestBusy(perks)
+    if type(perks) ~= "table" or perks.pendingBuildSlotRequest == nil then
+        return false
+    end
+    -- Mirror ProjectEbonhold.PerkService's BuildSlotRequestBusy expiry so a
+    -- server-throttled request cannot deadlock Autopilot forever.
+    local stampedAt = tonumber(perks.pendingBuildSlotRequestAt) or 0
+    if type(GetTime) == "function" then
+        local now = tonumber(GetTime()) or 0
+        if now - stampedAt > BUILD_SLOT_REQUEST_TTL then
+            perks.pendingBuildSlotRequest = nil
+            return false
+        end
+    end
+    return true
 end
 
 function API.GetPendingAction()
@@ -427,6 +553,81 @@ function API.GetPendingAction()
     if perks.pendingBanishIndex ~= nil then return "banish" end
     if perks.pendingFreezeIndex ~= nil then return "freeze" end
     if perks.pendingReroll then return "reroll" end
+    if IsBuildSlotRequestBusy(perks) then return "slot" end
+    return nil
+end
+
+function API.GetOption(key)
+    local service = OptionsService()
+    if not service or type(service.GetSetting) ~= "function" then return nil end
+    local ok, value = pcall(service.GetSetting, service, key)
+    if not ok then return nil end
+    return value
+end
+
+function API.IsAutoAcceptLoadoutEchoes()
+    return API.GetOption("autoAcceptLoadoutEchoes") and true or false
+end
+
+-- True when ProjectEbonhold will auto-SelectPerk a loadout echo on this board
+-- (~180ms after SEND_PLAYER_PERK_CHOICE). Autopilot must defer to avoid a
+-- dual-executor race that can refuse the second request and stall the run.
+function API.WillAutoAcceptChoice(choices)
+    if not API.IsAutoAcceptLoadoutEchoes() then return false end
+    if type(choices) ~= "table" then return false end
+    local service = Service()
+    if not service or type(service.IsSpellInActiveEchoLoadout) ~= "function" then
+        return false
+    end
+    for i = 1, #choices do
+        local spellId = tonumber(choices[i] and choices[i].spellId)
+        if spellId then
+            local ok, matched = pcall(service.IsSpellInActiveEchoLoadout, spellId)
+            if ok and matched then return true end
+        end
+    end
+    return false
+end
+
+function API.GetPendingRollsCount()
+    local service = Service()
+    if not service or type(service.GetPendingRollsCount) ~= "function" then return nil end
+    local ok, count = pcall(service.GetPendingRollsCount)
+    if not ok then return nil end
+    return tonumber(count)
+end
+
+-- level, picksMade, rollsLeft -- same triple ProjectEbonhold exposes for tooltips.
+function API.GetRollsDebugInfo()
+    local service = Service()
+    if not service or type(service.GetRollsDebugInfo) ~= "function" then
+        return nil, nil, nil
+    end
+    local ok, level, picksMade, rollsLeft = pcall(service.GetRollsDebugInfo)
+    if not ok then return nil, nil, nil end
+    return tonumber(level), tonumber(picksMade), tonumber(rollsLeft)
+end
+
+function API.GetRunData()
+    if type(EbonholdPlayerRunData) == "table"
+        and EbonholdPlayerRunData.remainingBanishes ~= nil then
+        return EbonholdPlayerRunData
+    end
+    local service = PlayerRunService()
+    if not service or type(service.GetCurrentData) ~= "function" then return nil end
+    local ok, data = pcall(service.GetCurrentData)
+    return ok and type(data) == "table" and data or nil
+end
+
+function API.GetIntensityData()
+    local service = PlayerRunService()
+    if not service or type(service.GetIntensityData) ~= "function" then
+        if type(EbonholdIntensityData) == "table" then return EbonholdIntensityData end
+        return nil
+    end
+    local ok, data = pcall(service.GetIntensityData)
+    if ok and type(data) == "table" then return data end
+    if type(EbonholdIntensityData) == "table" then return EbonholdIntensityData end
     return nil
 end
 
@@ -509,6 +710,8 @@ end
 function API.GetCapabilities()
     local service = Service()
     local uploadReady = service and type(service.UploadServerBuildSlot) == "function"
+    local runService = PlayerRunService()
+    local options = OptionsService()
     return {
         addonVersion = API.GetAddonVersion(),
         perkDatabase = API.GetPerkDatabase() ~= nil,
@@ -524,7 +727,24 @@ function API.GetCapabilities()
         serverBuildSlotsEnabled = uploadReady and API.AreServerBuildSlotsEnabled() or false,
         uploadServerBuildSlot = uploadReady and true or false,
         activateServerBuildSlot = service and type(service.ActivateServerBuildSlot) == "function" or false,
+        tomeToggle = service and type(service.ToggleTomeEcho) == "function"
+            and type(service.IsTomeEchoDisabled) == "function" or false,
+        lockedPerks = service and type(service.GetLockedPerks) == "function" or false,
+        lockPerk = service and type(service.LockPerk) == "function" or false,
+        unlockPerk = service and type(service.UnlockPerk) == "function" or false,
+        maxPermanentEchoes = service and type(service.GetMaximumPermanentEchoes) == "function" or false,
+        snapshotEchoes = service and type(service.SnapshotCurrentEchoes) == "function" or false,
+        discoveryMutators = service and type(service.AddDiscoveredEcho) == "function"
+            and type(service.RemoveDiscoveredEcho) == "function" or false,
         pendingFlags = ProjectEbonhold and type(ProjectEbonhold.Perks) == "table" or false,
+        pendingBuildSlot = ProjectEbonhold and type(ProjectEbonhold.Perks) == "table" or false,
+        pendingRollsCount = service and type(service.GetPendingRollsCount) == "function" or false,
+        rollsDebugInfo = service and type(service.GetRollsDebugInfo) == "function" or false,
+        autoAcceptLoadoutEchoes = options and type(options.GetSetting) == "function" or false,
+        runData = (type(EbonholdPlayerRunData) == "table")
+            or (runService and type(runService.GetCurrentData) == "function") or false,
+        intensityData = (type(EbonholdIntensityData) == "table")
+            or (runService and type(runService.GetIntensityData) == "function") or false,
         actionConfirmation = service and "request_only" or "unavailable",
     }
 end

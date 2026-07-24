@@ -4,6 +4,15 @@ One `### <version>` entry per release, newest first. scripts/release.sh
 refuses to tag unless this file changed, and the Release workflow and the
 in-game "What's new" page both read the newest entry from here.
 
+### 3.85 (2026-07-24) -- Tome draw-pool toggle + permanent LockPerk APIs (#62)
+
+Wires ProjectEbonhold tome toggle and permanent echo lock APIs into EbonBuilds, capability-gated for older PE builds.
+
+- **Tome Atlas:** collected tomes show draw-pool state (collected vs pool off). Right-click at level 1 toggles via ToggleTomeEcho / IsTomeEchoDisabled.
+- **Build Overview:** new Permanent locks row from GetLockedPerks / GetMaximumPermanentEchoes. Click a permanent lock to unlock; right-click a build locked echo to request LockPerk.
+- **Snapshot Run:** optional one-click draft build from SnapshotCurrentEchoes (granted + permanent stacks).
+- **ProjectAPI:** wrappers + capability flags; graceful no-op when PE methods are absent.
+
 ### 3.84 (2026-07-24) -- Bag dots, freeze persistence, server loadouts, and combat DPS in the Logbook
 
 Bug fixes and small features that landed right after 3.83: bag affix dots, map panel, Autopilot freeze state, Combuctor parity, freeze-penalty carry logic, Public Builds server loadouts, combat DPS in history, and broader tests.

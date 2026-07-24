@@ -365,6 +365,9 @@ local function ChargePacing(remaining, cap, conservativeScale, direction)
 end
 
 local function GetRunData()
+    if EbonBuilds.ProjectAPI and type(EbonBuilds.ProjectAPI.GetRunData) == "function" then
+        return EbonBuilds.ProjectAPI.GetRunData()
+    end
     if EbonholdPlayerRunData and EbonholdPlayerRunData.remainingBanishes ~= nil then
         return EbonholdPlayerRunData
     end
@@ -373,6 +376,33 @@ local function GetRunData()
         if get then return get() end
     end
     return nil
+end
+
+-- Warn once per login when Autopilot and PE auto-accept can both own picks.
+local peAutoAcceptWarningShown = false
+
+local function WarnPeAutoAcceptConflict()
+    if peAutoAcceptWarningShown then return end
+    local api = EbonBuilds.ProjectAPI
+    if not api or type(api.IsAutoAcceptLoadoutEchoes) ~= "function" then return end
+    if not api.IsAutoAcceptLoadoutEchoes() then return end
+    peAutoAcceptWarningShown = true
+    local message = "ProjectEbonhold Auto-Accept Loadout Echoes is ON. Autopilot defers when a loadout echo is offered -- turn that PE option off for full Autopilot control."
+    if EbonBuilds.Toast and EbonBuilds.Toast.Show then
+        EbonBuilds.Toast.Show(message)
+    elseif DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.AddMessage then
+        DEFAULT_CHAT_FRAME:AddMessage("|cff33ff99[EbonBuilds]|r " .. message)
+    end
+end
+
+function EbonBuilds.Automation.WarnPeAutoAcceptConflict()
+    WarnPeAutoAcceptConflict()
+end
+
+function EbonBuilds.Automation.IsPeAutoAcceptLoadoutEnabled()
+    local api = EbonBuilds.ProjectAPI
+    return api and type(api.IsAutoAcceptLoadoutEchoes) == "function"
+        and api.IsAutoAcceptLoadoutEchoes() or false
 end
 
 -- Optional freezeThreshold: when provided, skip the carry penalty while the
@@ -1021,6 +1051,19 @@ local function LogBoardDecision(board, decision)
     local pick = Decision.FindBestLegalPick(board)
     local freeze = Decision.FindBestFreezeCandidate(board, pick)
     EbonBuilds.DebugLog.Add("Board: " .. table.concat(visible, ", "))
+    local api = EbonBuilds.ProjectAPI
+    if api and type(api.GetRollsDebugInfo) == "function" then
+        local level, picksMade, rollsLeft = api.GetRollsDebugInfo()
+        if level or picksMade or rollsLeft then
+            EbonBuilds.DebugLog.AddF("Rolls debug: level=%s picksMade=%s rollsLeft=%s",
+                tostring(level or "?"), tostring(picksMade or "?"), tostring(rollsLeft or "?"))
+        end
+    elseif api and type(api.GetPendingRollsCount) == "function" then
+        local rolls = api.GetPendingRollsCount()
+        if rolls ~= nil then
+            EbonBuilds.DebugLog.AddF("Pending rolls remaining: %s", tostring(rolls))
+        end
+    end
     EbonBuilds.DebugLog.AddF("Frozen: %d/%d", board.frozenCount or 0, board.maxFrozen or 2)
     EbonBuilds.DebugLog.Add("Pick target: " .. (pick and string.format("[%d] %s", pick.index, pick.name) or "none"))
     EbonBuilds.DebugLog.Add("Freeze candidate: " .. (freeze and string.format("[%d] %s", freeze.index, freeze.name) or "none"))
@@ -1170,6 +1213,23 @@ function EbonBuilds.Automation.Evaluate()
 
         if EbonBuilds.ManualTraining and EbonBuilds.ManualTraining.IsEnabled(build) then return false end
         if not EbonBuilds.Build.IsAutomationEnabled(build) then return false end
+
+        WarnPeAutoAcceptConflict()
+
+        -- ProjectEbonhold auto-accepts loadout echoes ~180ms after the choice
+        -- arrives, often before Autopilot's eval timer. Defer rather than race
+        -- a second SelectPerk that PE would refuse and pause automation over.
+        local api = EbonBuilds.ProjectAPI
+        if api and type(api.WillAutoAcceptChoice) == "function" and api.WillAutoAcceptChoice(choices) then
+            boardState.state = Decision.STATE.WAITING_FOR_BOARD_UPDATE
+            EbonBuilds.DebugLog.Add("Deferring: ProjectEbonhold auto-accept will pick a loadout echo")
+            local rolls = api.GetPendingRollsCount and api.GetPendingRollsCount() or nil
+            if rolls ~= nil then
+                EbonBuilds.DebugLog.AddF("Pending rolls remaining: %s", tostring(rolls))
+            end
+            StartEvalTimer()
+            return true
+        end
 
         -- Consume the one-shot startup latch after the first valid automation
         -- board. It may have been armed at level 1 before an instant level-50
