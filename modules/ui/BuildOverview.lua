@@ -602,8 +602,12 @@ local function BuildOverviewTab(parent)
     autoToggle:SetScript("OnClick", function(self)
         local build = state.build
         if not build then return end
-        EbonBuilds.Build.SetAutomationEnabled(build, not EbonBuilds.Build.IsAutomationEnabled(build))
+        local enabling = not EbonBuilds.Build.IsAutomationEnabled(build)
+        EbonBuilds.Build.SetAutomationEnabled(build, enabling)
         RefreshAutoToggle(self, build)
+        if enabling and EbonBuilds.Automation and EbonBuilds.Automation.WarnPeAutoAcceptConflict then
+            EbonBuilds.Automation.WarnPeAutoAcceptConflict()
+        end
         if EbonBuilds.MainWindow and EbonBuilds.MainWindow.RefreshContext then EbonBuilds.MainWindow.RefreshContext() end
     end)
     outer._autoToggle = autoToggle

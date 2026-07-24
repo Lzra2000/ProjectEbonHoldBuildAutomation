@@ -297,6 +297,9 @@ Next to the regular Export button (build edit screen, any tab) is a new **Export
 ## Settings, Diagnostics & Troubleshooting
 Toggles, logs, and fixed issues.
 
+### Autopilot and ProjectEbonhold "Auto-Accept Loadout Echoes" both seem to pick — what should I do?
+Turn **Auto-Accept Loadout Echoes** off in ProjectEbonhold's options if you want EbonBuilds Autopilot to own every pick. When that PE option is on, ProjectEbonhold auto-selects matching wishlist / active-loadout echoes about 180ms after a choice arrives — often before Autopilot would act. EbonBuilds detects the option, warns once when Autopilot is enabled, and **defers** on boards that PE will auto-accept so the two never double-select. Boards without a loadout match still run under Autopilot as usual.
+
 ### How do I remove a build, and where are builds stored on disk?
 Delete it in-game: open the build's **Overview** tab and click the red **Delete** button in the bottom-left corner; a confirmation popup follows. This is the recommended route because it also keeps public/sync bookkeeping consistent.
 

@@ -416,6 +416,33 @@ function API.GetChoiceGeneration()
     return choiceGeneration
 end
 
+local BUILD_SLOT_REQUEST_TTL = 3
+
+local function OptionsService()
+    return _G.ProjectEbonholdOptionsService
+end
+
+local function PlayerRunService()
+    return ProjectEbonhold and ProjectEbonhold.PlayerRunService
+end
+
+local function IsBuildSlotRequestBusy(perks)
+    if type(perks) ~= "table" or perks.pendingBuildSlotRequest == nil then
+        return false
+    end
+    -- Mirror ProjectEbonhold.PerkService's BuildSlotRequestBusy expiry so a
+    -- server-throttled request cannot deadlock Autopilot forever.
+    local stampedAt = tonumber(perks.pendingBuildSlotRequestAt) or 0
+    if type(GetTime) == "function" then
+        local now = tonumber(GetTime()) or 0
+        if now - stampedAt > BUILD_SLOT_REQUEST_TTL then
+            perks.pendingBuildSlotRequest = nil
+            return false
+        end
+    end
+    return true
+end
+
 function API.GetPendingAction()
     -- The server distribution of ProjectEbonhold tracks one in-flight request
     -- per action on ProjectEbonhold.Perks. Reading these flags lets EbonBuilds
@@ -427,6 +454,81 @@ function API.GetPendingAction()
     if perks.pendingBanishIndex ~= nil then return "banish" end
     if perks.pendingFreezeIndex ~= nil then return "freeze" end
     if perks.pendingReroll then return "reroll" end
+    if IsBuildSlotRequestBusy(perks) then return "slot" end
+    return nil
+end
+
+function API.GetOption(key)
+    local service = OptionsService()
+    if not service or type(service.GetSetting) ~= "function" then return nil end
+    local ok, value = pcall(service.GetSetting, service, key)
+    if not ok then return nil end
+    return value
+end
+
+function API.IsAutoAcceptLoadoutEchoes()
+    return API.GetOption("autoAcceptLoadoutEchoes") and true or false
+end
+
+-- True when ProjectEbonhold will auto-SelectPerk a loadout echo on this board
+-- (~180ms after SEND_PLAYER_PERK_CHOICE). Autopilot must defer to avoid a
+-- dual-executor race that can refuse the second request and stall the run.
+function API.WillAutoAcceptChoice(choices)
+    if not API.IsAutoAcceptLoadoutEchoes() then return false end
+    if type(choices) ~= "table" then return false end
+    local service = Service()
+    if not service or type(service.IsSpellInActiveEchoLoadout) ~= "function" then
+        return false
+    end
+    for i = 1, #choices do
+        local spellId = tonumber(choices[i] and choices[i].spellId)
+        if spellId then
+            local ok, matched = pcall(service.IsSpellInActiveEchoLoadout, spellId)
+            if ok and matched then return true end
+        end
+    end
+    return false
+end
+
+function API.GetPendingRollsCount()
+    local service = Service()
+    if not service or type(service.GetPendingRollsCount) ~= "function" then return nil end
+    local ok, count = pcall(service.GetPendingRollsCount)
+    if not ok then return nil end
+    return tonumber(count)
+end
+
+-- level, picksMade, rollsLeft -- same triple ProjectEbonhold exposes for tooltips.
+function API.GetRollsDebugInfo()
+    local service = Service()
+    if not service or type(service.GetRollsDebugInfo) ~= "function" then
+        return nil, nil, nil
+    end
+    local ok, level, picksMade, rollsLeft = pcall(service.GetRollsDebugInfo)
+    if not ok then return nil, nil, nil end
+    return tonumber(level), tonumber(picksMade), tonumber(rollsLeft)
+end
+
+function API.GetRunData()
+    if type(EbonholdPlayerRunData) == "table"
+        and EbonholdPlayerRunData.remainingBanishes ~= nil then
+        return EbonholdPlayerRunData
+    end
+    local service = PlayerRunService()
+    if not service or type(service.GetCurrentData) ~= "function" then return nil end
+    local ok, data = pcall(service.GetCurrentData)
+    return ok and type(data) == "table" and data or nil
+end
+
+function API.GetIntensityData()
+    local service = PlayerRunService()
+    if not service or type(service.GetIntensityData) ~= "function" then
+        if type(EbonholdIntensityData) == "table" then return EbonholdIntensityData end
+        return nil
+    end
+    local ok, data = pcall(service.GetIntensityData)
+    if ok and type(data) == "table" then return data end
+    if type(EbonholdIntensityData) == "table" then return EbonholdIntensityData end
     return nil
 end
 
@@ -509,6 +611,8 @@ end
 function API.GetCapabilities()
     local service = Service()
     local uploadReady = service and type(service.UploadServerBuildSlot) == "function"
+    local runService = PlayerRunService()
+    local options = OptionsService()
     return {
         addonVersion = API.GetAddonVersion(),
         perkDatabase = API.GetPerkDatabase() ~= nil,
@@ -525,6 +629,14 @@ function API.GetCapabilities()
         uploadServerBuildSlot = uploadReady and true or false,
         activateServerBuildSlot = service and type(service.ActivateServerBuildSlot) == "function" or false,
         pendingFlags = ProjectEbonhold and type(ProjectEbonhold.Perks) == "table" or false,
+        pendingBuildSlot = ProjectEbonhold and type(ProjectEbonhold.Perks) == "table" or false,
+        pendingRollsCount = service and type(service.GetPendingRollsCount) == "function" or false,
+        rollsDebugInfo = service and type(service.GetRollsDebugInfo) == "function" or false,
+        autoAcceptLoadoutEchoes = options and type(options.GetSetting) == "function" or false,
+        runData = (type(EbonholdPlayerRunData) == "table")
+            or (runService and type(runService.GetCurrentData) == "function") or false,
+        intensityData = (type(EbonholdIntensityData) == "table")
+            or (runService and type(runService.GetIntensityData) == "function") or false,
         actionConfirmation = service and "request_only" or "unavailable",
     }
 end
