@@ -43,12 +43,26 @@ end
 do
     local src = H.read_file("modules/sync/Sync.lua")
     check(src:find("local MAX_CHUNK%s*=%s*180"), "MAX_CHUNK is 180 bytes (addon message budget)")
+    check(src:find("local MAX_BUILD_TRANSFER%s*=%s*36000"), "MAX_BUILD_TRANSFER is 36 KB safety ceiling")
     check(src:find('"%s|%s|%s|%d/%d|%s"', 1, true),
         "chunk payload format is code|sender|streamKey|idx/total|data")
     check(src:find("MAX_BUILD_TRANSFER"), "transfer size ceiling exists")
+    check(src:find("ReportOversizedBuild"), "oversized builds are reported with size + toast")
+    check(src:find("GetMaxBuildTransfer"), "transfer ceiling is queryable for UI warnings")
     check(not src:find("C_ChatInfo", 1, true), "Sync must not use C_ChatInfo (post-3.3.5a)")
     check(not src:find(":RegisterEvent%s*%("),
         "Sync must register events via WoWEvents, not frame:RegisterEvent")
+end
+
+------------------------------------------------------------------------
+-- Theme.ScrollBar spam exemption (OnValueChanged is high-frequency by design)
+------------------------------------------------------------------------
+do
+    local theme = H.read_file("modules/ui/Theme.lua")
+    check(theme:find('ProtectScript%(bar, "Theme.ScrollBar", true%)'),
+        "Theme.ScrollBar ProtectScript is spamExempt")
+    check(theme:find('ProtectScript%(bar, "Theme.HorizontalScrollBar", true%)'),
+        "Theme.HorizontalScrollBar ProtectScript is spamExempt")
 end
 
 ------------------------------------------------------------------------

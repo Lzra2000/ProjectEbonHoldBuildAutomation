@@ -904,6 +904,36 @@ local function BuildViewFrame()
         MarkDirty()
         self:SetText(state.isPublic and "Sharing: On" or "Sharing: Off")
         if state.isPublic then EbonBuilds.Theme.SetButtonAccent(self, "good") else EbonBuilds.Theme.ClearButtonAccent(self) end
+        -- Early warning: peer sync cannot carry builds larger than the
+        -- transfer ceiling (clipboard export still works up to ~96 KB).
+        if state.isPublic and EbonBuilds.Sync and EbonBuilds.Sync.EncodedBuildSize then
+            local draft = {
+                id = state.id,
+                title = state.title,
+                class = state.class,
+                spec = state.spec,
+                comments = state.comments,
+                lockedEchoes = { unpack(state.locked, 1, EbonBuilds.Build.LOCKED_SLOTS) },
+                echoWeights = EbonBuilds.Runtime and EbonBuilds.Runtime.pendingWeights,
+                echoWeightsByRef = EbonBuilds.Runtime and EbonBuilds.Runtime.pendingRefWeights,
+                echoRefs = state.echoRefs,
+                echoSchema = state.echoSchema,
+                echoCatalogFingerprint = state.echoCatalogFingerprint,
+                unresolvedEchoWeights = state.unresolvedEchoWeights,
+                wizardMeta = state.wizardMeta,
+                settings = state.settings,
+                isPublic = true,
+                characterSnapshot = state.characterSnapshot,
+                author = UnitName("player"),
+            }
+            local bytes = EbonBuilds.Sync.EncodedBuildSize(draft)
+            local limit = EbonBuilds.Sync.GetMaxBuildTransfer and EbonBuilds.Sync.GetMaxBuildTransfer() or 36000
+            if bytes and bytes > limit and EbonBuilds.Toast and EbonBuilds.Toast.Show then
+                EbonBuilds.Toast.Show(string.format(
+                    "This build is %.0f KB — peer sync only allows %.0f KB. Shorten the description or remove the character snapshot before sharing.",
+                    math.ceil(bytes / 1024), math.ceil(limit / 1024)))
+            end
+        end
     end)
     EbonBuilds.Theme.AttachTooltip(publicToggle, "Public sharing", "When enabled, this build can be discovered by other EbonBuilds users through Public Builds.")
 

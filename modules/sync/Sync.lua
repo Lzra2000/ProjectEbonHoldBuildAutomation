@@ -39,7 +39,13 @@ if RegisterAddonMessagePrefix then
     end)
 end
 local MAX_CHUNK     = 180
-local MAX_BUILD_TRANSFER = 27000
+-- Total base64 payload ceiling for one BLD stream. Per-message WoW limit is
+-- still MAX_CHUNK (header + data fit under SendAddonMessage's ~255-byte budget);
+-- this cap is our reassembly / queue / offline-detection safety net so one
+-- oversized build cannot monopolize the whisper queue or inflate inflight state.
+-- Raised from 27 KB → 36 KB for character-snapshot-heavy public builds; beyond
+-- this the owner must trim comments / snapshot rather than stretch transfer time.
+local MAX_BUILD_TRANSFER = 36000
 local MAX_TRANSFER_CHUNKS = math.ceil(MAX_BUILD_TRANSFER / MAX_CHUNK)
 local MAX_INFLIGHT_TRANSFERS = 20
 local SYNC_TIMEOUT  = 15
@@ -50,9 +56,10 @@ local PEER_TTL = 3600
 local REQ_COOLDOWN  = 30
 local OFFLINE_COOLDOWN        = 60  -- seconds to block re-sends to a target detected as offline
 local MAX_QUEUE_SIZE          = 500 -- safety cap to prevent unbounded queue growth
-local MAX_CONSECUTIVE_SENDS   = 200 -- max sends to a target without receiving a response.
-                                    -- Covers worst-case batch: 1 LST + (3 builds × ~60 BLD
-                                    -- chunks for a 10 KB export) + 1 END = ~182 messages.
+-- Cap consecutive whispers to one target without a reply (offline detector).
+-- Must cover one max-size BLD stream plus LST/END framing.
+local MAX_CONSECUTIVE_SENDS   = MAX_TRANSFER_CHUNKS + 20
+local OVERSIZED_TOAST_GAP     = 30  -- seconds between owner-facing oversized toasts
 
 -- Bump this to invalidate remote builds from older addon versions.
 -- Only affects builds that have NOT been imported — imported builds stay.
@@ -90,6 +97,8 @@ local MAX_CHANNEL_RETRIES = 2
 local channelRetries = { remaining = 0, payload = nil, nextTime = 0 }
 local failedTargets = {}  -- [playerName] = blockUntil (Now() + OFFLINE_COOLDOWN)
 local sendTally = {}      -- [playerName] = consecutive sends without response
+local oversizedWarned = {} -- [buildId] = true (ErrorLog once per build per session)
+local oversizedToastAt = 0
 
 -- "Sync all classes": instead of one unfiltered REQ (every responder's
 -- entire public/relayed collection, the exact flood that motivated the
@@ -323,11 +332,54 @@ local function Enqueue(target, payload)
     EbonBuilds.RingBuffer.Append(sendQueue, { target = target, payload = payload })
 end
 
+-- Report once per build id per session: Error Log entry + occasional toast
+-- so the owner learns which public build is too large (and why), without
+-- flooding the log on every REQ/RTX/GET from nearby peers.
+local function ReportOversizedBuild(buildOrId, byteCount)
+    local id, title
+    if type(buildOrId) == "table" then
+        id = tostring(buildOrId.id or "?")
+        title = tostring(buildOrId.title or id)
+    else
+        id = tostring(buildOrId or "?")
+        local stored = EbonBuildsDB and EbonBuildsDB.builds and EbonBuildsDB.builds[id]
+        title = stored and tostring(stored.title or id) or id
+    end
+    local bytes = tonumber(byteCount) or 0
+    local msg = string.format(
+        "Build \"%s\" is %d bytes (limit %d / ~%.0f KB) -- too large for peer sync; shorten the description or remove the character snapshot",
+        title, bytes, MAX_BUILD_TRANSFER, MAX_BUILD_TRANSFER / 1024)
+    if not oversizedWarned[id] then
+        oversizedWarned[id] = true
+        if EbonBuilds.ErrorLog then
+            EbonBuilds.ErrorLog.Record("Sync.SendChunked", msg)
+        end
+        VerboseLog(msg)
+        if EbonBuilds.Toast and EbonBuilds.Toast.Show and (Now() - oversizedToastAt) >= OVERSIZED_TOAST_GAP then
+            oversizedToastAt = Now()
+            EbonBuilds.Toast.Show(string.format(
+                "Public build \"%s\" is too large to sync (%.0f KB > %.0f KB). Shorten the description or remove the character snapshot.",
+                title, math.ceil(bytes / 1024), math.ceil(MAX_BUILD_TRANSFER / 1024)))
+        end
+    end
+end
+
+function EbonBuilds.Sync.GetMaxBuildTransfer()
+    return MAX_BUILD_TRANSFER
+end
+
+-- Returns encoded size in bytes, or nil if the build cannot be exported.
+function EbonBuilds.Sync.EncodedBuildSize(build)
+    if not build or not EbonBuilds.ExportImport or not EbonBuilds.ExportImport.ExportBuild then
+        return nil
+    end
+    local b64 = EbonBuilds.ExportImport.ExportBuild(build)
+    return b64 and #b64 or nil
+end
+
 local function SendChunked(target, code, streamKey, data)
     if type(data) ~= "string" or #data > MAX_BUILD_TRANSFER then
-        if EbonBuilds.ErrorLog then
-            EbonBuilds.ErrorLog.Record("Sync.SendChunked", "Build payload exceeds the 27 KB transfer limit")
-        end
+        ReportOversizedBuild(streamKey, type(data) == "string" and #data or 0)
         return false
     end
     local sender = UnitName("player")
@@ -529,7 +581,15 @@ local function HandleRequest(requester, classFilter)
             if VALIDATION_REQUIRED and not build.validated then
                 VerboseLog("  build " .. (build.title or "?") .. " skipped: no completed local run reported")
             else
-                eligible[#eligible + 1] = build
+                -- Exclude oversized exports from LST so peers never WNT/RTX
+                -- them (avoids ErrorLog spam + wasted whisper budget).
+                local b64 = EbonBuilds.ExportImport.ExportBuild(build)
+                if not b64 or #b64 > MAX_BUILD_TRANSFER then
+                    ReportOversizedBuild(build, b64 and #b64 or 0)
+                    VerboseLog("  build " .. (build.title or "?") .. " skipped: exceeds transfer limit")
+                else
+                    eligible[#eligible + 1] = build
+                end
             end
         else
             VerboseLog("  build " .. (build.title or "?") .. " skipped: authored by requester")
