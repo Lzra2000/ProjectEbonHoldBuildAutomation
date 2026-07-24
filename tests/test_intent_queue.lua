@@ -24,6 +24,7 @@ function EbonBuilds.ProjectAPI.GetPendingAction()
     if perks.pendingBanishIndex ~= nil then return "banish" end
     if perks.pendingFreezeIndex ~= nil then return "freeze" end
     if perks.pendingReroll then return "reroll" end
+    if perks.pendingBuildSlotRequest ~= nil then return "slot" end
     return nil
 end
 
@@ -69,6 +70,16 @@ do
     equal(accepted, false, "new intent blocked while PE reroll pending")
     equal(IQ.GetInFlight(), nil, "blocked intent did not enter queue")
     ProjectEbonhold.Perks.pendingReroll = nil
+end
+
+do
+    IQ.Reset()
+    ProjectEbonhold.Perks.pendingBuildSlotRequest = "save"
+    local accepted, reason = IQ.TryBegin("select", Snapshot())
+    equal(accepted, false, "new intent blocked while PE build-slot pending")
+    equal(reason, "server_pending_slot", "build-slot pending maps to server_pending_slot")
+    equal(IQ.GetInFlight(), nil, "slot-blocked intent did not enter queue")
+    ProjectEbonhold.Perks.pendingBuildSlotRequest = nil
 end
 
 ------------------------------------------------------------------------
