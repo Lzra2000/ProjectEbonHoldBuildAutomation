@@ -30,7 +30,7 @@ end
 
 TT_EnsureGroupCompat()
 
-local function TT_EnsureNameCompat()
+function TT_EnsureNameCompat()
 	if not GetUnitName then
 		function GetUnitName(unit, showServerName)
 			local name, realm = UnitName(unit)
@@ -54,8 +54,8 @@ local THREAT_PCT_BY_STATUS = {
 	[3] = 25,
 }
 
-local function TT_EnsureThreatCompat()
-	if UnitDetailedThreatSituation or type(UnitThreatSituation) ~= "function" then
+function TT_EnsureThreatCompat()
+	if type(UnitDetailedThreatSituation) == "function" or type(UnitThreatSituation) ~= "function" then
 		return
 	end
 	function UnitDetailedThreatSituation(unit, mobUnit)
