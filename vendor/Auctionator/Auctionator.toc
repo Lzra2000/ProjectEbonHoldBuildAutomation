@@ -1,6 +1,6 @@
 ## Interface: 30300
 ## Title: Auctionator (Project Ebonhold)
-## Version: 2.6.3-pe1
+## Version: 2.6.3-pe2
 ## Author: Zirco; PE fork by EbonBuilds
 ## X-Website: http://auctionator-addon.com
 ## X-Localizations: enUS, deDE, ruRU, svSE, frFR, esES

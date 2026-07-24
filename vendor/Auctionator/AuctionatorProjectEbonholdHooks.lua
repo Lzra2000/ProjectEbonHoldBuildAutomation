@@ -1,7 +1,13 @@
 -- AuctionatorProjectEbonholdHooks.lua
 -- Project Ebonhold hooks (shopping list preset, affix search, EbonBuilds coexistence).
+-- Target: WoW 3.3.5a (build 12340) / Lua 5.1 — do not index function values.
 
 local ATR_PE_SHOPPING_LIST = "EbonBuilds Affixes";
+
+-- Lua 5.1 cannot attach fields to functions (Atr_Init._peHooked errors).
+-- Use file-local guards instead of function properties.
+local peShoppingInitHooked = false;
+local peConflictCheckHooked = false;
 
 local function FindShoppingList(name)
 	if type(AUCTIONATOR_SHOPPING_LISTS) ~= "table" then return nil end;
@@ -54,10 +60,10 @@ local function HookSearchInit()
 end
 
 local function HookShoppingInit()
-	if type(Atr_Init) ~= "function" or Atr_Init._peHooked then
+	if type(Atr_Init) ~= "function" or peShoppingInitHooked then
 		return;
 	end
-	Atr_Init._peHooked = true;
+	peShoppingInitHooked = true;
 
 	local origInit = Atr_Init;
 	function Atr_Init()
@@ -67,10 +73,10 @@ local function HookShoppingInit()
 end
 
 local function HookConflictCheck()
-	if type(Atr_Check_For_Conflicts) ~= "function" or Atr_Check_For_Conflicts._peHooked then
+	if type(Atr_Check_For_Conflicts) ~= "function" or peConflictCheckHooked then
 		return;
 	end
-	Atr_Check_For_Conflicts._peHooked = true;
+	peConflictCheckHooked = true;
 
 	local origCheck = Atr_Check_For_Conflicts;
 	function Atr_Check_For_Conflicts(addonName)
