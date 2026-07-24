@@ -22,13 +22,16 @@ local function EnsureEbonBuildsShoppingList()
 		return;
 	end
 
-	local slist = Atr_SList.create(ATR_PE_SHOPPING_LIST);
-	if not slist or type(slist.AddItem) ~= "function" then
+	-- Soft-fail: create may run before shopping-list SV/UI is ready.
+	local ok, slist = pcall(Atr_SList.create, ATR_PE_SHOPPING_LIST);
+	if not ok or not slist or type(slist.AddItem) ~= "function" then
 		return;
 	end
 
-	slist:AddItem(AtrPE_BuildAffixSearchQuery("Keen Strikes III"));
-	slist:AddItem(AtrPE_BuildAffixSearchQuery("Overwhelming Force II"));
+	if type(AtrPE_BuildAffixSearchQuery) == "function" then
+		slist:AddItem(AtrPE_BuildAffixSearchQuery("Keen Strikes III"));
+		slist:AddItem(AtrPE_BuildAffixSearchQuery("Overwhelming Force II"));
+	end
 	slist.isSorted = false;
 end
 

@@ -113,15 +113,20 @@ local function EnsureShoppingList()
     if not Bridge.IsAvailable() or type(_G.Atr_SList) ~= "table" then return nil end
     local list = FindShoppingList()
     if list then return list end
-    if not shoppingListEnsured and type(_G.Atr_SList.create) == "function" then
-        shoppingListEnsured = true
-        list = _G.Atr_SList.create(SHOPPING_LIST_NAME)
+    if shoppingListEnsured or type(_G.Atr_SList.create) ~= "function" then
+        return nil
     end
-    return list
+    -- Soft-fail when Auctionator shopping lists are not ready yet (nil SV).
+    local ok, created = pcall(_G.Atr_SList.create, SHOPPING_LIST_NAME)
+    if not ok or not created then
+        return nil
+    end
+    shoppingListEnsured = true
+    return created
 end
 
 -- Rebuilds Auctionator's "EbonBuilds Affixes" shopping list from affixes the
--- character has not learned yet. No-op when Auctionator is absent.
+-- character has not learned yet. Soft-fails when Auctionator or the list is absent.
 function Bridge.SyncMissingAffixShoppingList()
     if not Bridge.IsAvailable() then return false, "missing" end
     local list = EnsureShoppingList()
