@@ -412,13 +412,18 @@ local function ScoreChoice(choice, settings)
     else
         score = EbonBuilds.Scoring.ScorePerQuality(entry, weight, settings, quality)
     end
-    if (choice.isFrozen or choice.isCarried) and settings.freezePenaltyPct and settings.freezePenaltyPct > 0 then
+    -- The server ProjectEbonhold distribution confirms a freeze by setting
+    -- justFrozen on the existing choice entry (no full board resend), and
+    -- flags the active build slot's injected card as isGuaranteed.
+    local isFrozen = (choice.isFrozen or choice.justFrozen) and true or false
+    if (isFrozen or choice.isCarried) and settings.freezePenaltyPct and settings.freezePenaltyPct > 0 then
         score = score * (1 - settings.freezePenaltyPct / 100)
     end
     return {
         index = 0, spellId = spellId, name = name, quality = quality,
         score = score, entry = entry, data = raw or variant,
-        isFrozen = choice.isFrozen, isCarried = choice.isCarried,
+        isFrozen = isFrozen, isCarried = choice.isCarried,
+        isGuaranteed = choice.isGuaranteed and true or false,
     }
 end
 
@@ -727,8 +732,9 @@ local function NewRawBoard(choices)
         board.slots[#board.slots + 1] = {
             index = i,
             spellId = spellId,
-            isFrozen = choice and choice.isFrozen and true or false,
+            isFrozen = choice and (choice.isFrozen or choice.justFrozen) and true or false,
             isCarried = choice and choice.isCarried and true or false,
+            isGuaranteed = choice and choice.isGuaranteed and true or false,
         }
         if not spellId then board.isValid = false end
         if choice and choice.frozenStateKnown == false then board.isStable = false end
@@ -939,7 +945,22 @@ local function AttachRuntimeState(board)
 end
 
 local function ResolvePendingAction(board)
-    if not boardState.pendingAction then return "none" end
+    if not boardState.pendingAction then
+        -- The server ProjectEbonhold distribution rejects a request while its
+        -- own one is in flight (player click or its auto-accept). Wait for the
+        -- flag to clear instead of firing a request that would be refused and
+        -- pause the Autopilot.
+        local serverPending = EbonBuilds.ProjectAPI and EbonBuilds.ProjectAPI.GetPendingAction
+            and EbonBuilds.ProjectAPI.GetPendingAction() or nil
+        if serverPending then
+            boardState.state = Decision.STATE.WAITING_FOR_BOARD_UPDATE
+            EbonBuilds.DebugLog.Add("Pending action: " .. tostring(serverPending)
+                .. " (ProjectEbonhold request in flight); duplicate request blocked")
+            StartEvalTimer()
+            return "waiting"
+        end
+        return "none"
+    end
     if board.identityFingerprint ~= boardState.pendingActionIdentity then
         EbonBuilds.DebugLog.Add("Board update confirmed after " .. tostring(boardState.pendingAction))
         ClearPendingAction()

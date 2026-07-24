@@ -100,6 +100,25 @@ assertEqual(calls.freeze, 1, "freeze was not forwarded")
 assertEqual(calls.reroll, 1, "reroll was not forwarded")
 assertTrue(addon.ProjectAPI.GetPendingAction() == nil, "adapter retained a blocking pending action")
 
+-- The server distribution tracks one in-flight request per action on
+-- ProjectEbonhold.Perks. The adapter must surface these flags so automation
+-- waits instead of firing a duplicate request that the service would refuse.
+ProjectEbonhold.Perks = {}
+assertTrue(addon.ProjectAPI.GetPendingAction() == nil, "empty server pending flags reported an action")
+ProjectEbonhold.Perks.pendingSelectSpellId = 10
+assertEqual(addon.ProjectAPI.GetPendingAction(), "select", "in-flight select was not reported")
+ProjectEbonhold.Perks.pendingSelectSpellId = nil
+ProjectEbonhold.Perks.pendingBanishIndex = 0
+assertEqual(addon.ProjectAPI.GetPendingAction(), "banish", "in-flight banish was not reported")
+ProjectEbonhold.Perks.pendingBanishIndex = nil
+ProjectEbonhold.Perks.pendingFreezeIndex = 2
+assertEqual(addon.ProjectAPI.GetPendingAction(), "freeze", "in-flight freeze was not reported")
+ProjectEbonhold.Perks.pendingFreezeIndex = nil
+ProjectEbonhold.Perks.pendingReroll = true
+assertEqual(addon.ProjectAPI.GetPendingAction(), "reroll", "in-flight reroll was not reported")
+ProjectEbonhold.Perks.pendingReroll = nil
+assertTrue(addon.ProjectAPI.GetPendingAction() == nil, "cleared server pending flags still reported an action")
+
 choices[1] = { spellId = 20, quality = 2 }
 ProjectEbonhold.PerkUI.UpdateSinglePerk(0, choices[1])
 assertEqual(#generations, 2, "replacement observation did not advance generation")

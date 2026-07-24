@@ -195,6 +195,16 @@ function API.GetChoiceGeneration()
 end
 
 function API.GetPendingAction()
+    -- The server distribution of ProjectEbonhold tracks one in-flight request
+    -- per action on ProjectEbonhold.Perks. Reading these flags lets EbonBuilds
+    -- wait instead of issuing a duplicate request that the service would
+    -- refuse (a locally refused request pauses the Autopilot).
+    local perks = ProjectEbonhold and ProjectEbonhold.Perks
+    if type(perks) ~= "table" then return nil end
+    if perks.pendingSelectSpellId ~= nil then return "select" end
+    if perks.pendingBanishIndex ~= nil then return "banish" end
+    if perks.pendingFreezeIndex ~= nil then return "freeze" end
+    if perks.pendingReroll then return "reroll" end
     return nil
 end
 
@@ -287,6 +297,7 @@ function API.GetCapabilities()
         activeLoadout = service and type(service.SetActiveEchoLoadout) == "function" or false,
         sharedLoadouts = service and type(service.RequestSharedEchoLoadouts) == "function"
             and type(service.GetSharedEchoLoadouts) == "function" or false,
+        pendingFlags = ProjectEbonhold and type(ProjectEbonhold.Perks) == "table" or false,
         actionConfirmation = service and "request_only" or "unavailable",
     }
 end

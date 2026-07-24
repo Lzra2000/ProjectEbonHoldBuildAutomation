@@ -79,7 +79,10 @@ local function IsLegalSelection(slot, board)
 end
 
 local function RequiresPreservation(slot, threshold)
-    if not slot or slot.isFrozen or slot.isCarried then return false end
+    -- A guaranteed card (injected from the active ProjectEbonhold build slot)
+    -- reappears in every draw and the server refuses to freeze it, so it never
+    -- needs a freeze charge.
+    if not slot or slot.isFrozen or slot.isCarried or slot.isGuaranteed then return false end
     return IsValuable(slot, threshold)
 end
 
@@ -191,7 +194,10 @@ function D.FindBanishTarget(board)
     if (tonumber(board.frozenCount) or 0) > 0 or not board.canBanish then return nil end
     local worst
     for _, slot in ipairs(board.slots or {}) do
+        -- isGuaranteed: the server refuses to banish the active build slot's
+        -- injected card; skipping it avoids a wasted request and recovery pause.
         if slot and slot.isValid ~= false and not slot.isFrozen and not slot.isCarried
+            and not slot.isGuaranteed
             and (slot.policyEffect == "banish" or slot.isBanned or slot.banishEligible)
             and not (slot.isProtected and slot.policyEffect ~= "banish")
             and IsWorse(slot, worst) then
