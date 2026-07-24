@@ -130,17 +130,19 @@ def patch_locale(code: str, target: str, used: set[str]) -> None:
         print(f"{code}: complete")
         return
     print(f"{code}: translating {len(missing)} missing keys")
-    for key in missing:
-        table[key] = translate(key, target)
     path = ROOT / "modules" / "i18n" / "locales" / f"{code}.lua"
-    header_end = path.read_text(encoding="utf-8").split("EbonBuilds.Locale.Register", 1)[0]
-    header_end += f'EbonBuilds.Locale.Register("{code}", {{\n'
-    lines = [header_end]
-    for key, val in sorted(table.items(), key=lambda kv: kv[0]):
-        lines.append(f'    ["{lua_escape(key)}"] = "{lua_escape(val)}",\n')
-    lines.append("})\n")
-    path.write_text("".join(lines), encoding="utf-8", newline="\n")
-    print(f"{code}: wrote {len(table)} entries")
+    src = path.read_text(encoding="utf-8")
+    additions = []
+    for key in missing:
+        val = translate(key, target)
+        table[key] = val
+        additions.append(f'    ["{lua_escape(key)}"] = "{lua_escape(val)}",')
+    marker = "\n})\n"
+    if marker not in src:
+        raise SystemExit(f"{code}: could not find locale table closing marker")
+    src = src.replace(marker, "\n" + "\n".join(additions) + marker, 1)
+    path.write_text(src, encoding="utf-8", newline="\n")
+    print(f"{code}: appended {len(missing)} entries ({len(table)} total)")
 
 
 def main() -> None:

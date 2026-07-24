@@ -118,6 +118,7 @@ EbonBuilds.Locale.Register("ruRU", {
     [". Review before applying."] = ". ÐÑÐ¾ÑÐ¼Ð¾ÑÑÐ¸ÑÐµ Ð¿ÐµÑÐµÐ´ Ð¿Ð¾Ð´Ð°ÑÐµÐ¹ Ð·Ð°ÑÐ²ÐºÐ¸.",
     ["... and %d more (Tome Atlas)"] = "... Ð¸ ÐµÑÐµ %d (Tome Atlas)",
     ["/  Overview"] = "/ ÐÐ±Ð·Ð¾Ñ",
+    ["0 = no limit. Only sells zero-copper items at or below this item level."] = "0 = нет ограничений. Продаются только предметы с нулевым содержанием меди на этом уровне предмета или ниже.",
     ["0 Echoes"] = "0 Echoes",
     ["0 builds"] = "0 ÑÐ±Ð¾ÑÐ¾Ðº",
     ["0 echoes"] = "0 ÑÑÐ¾",
@@ -132,6 +133,7 @@ EbonBuilds.Locale.Register("ruRU", {
     ["AI report"] = "Отчёт для ИИ",
     ["AI tuning report"] = "Отчёт для настройки через ИИ",
     ["APR|%s|%d|%s"] = "ÐÐÐ ÐÐÐ¬|%s|%d|%s",
+    ["AUTO-SELL (VENDOR ONLY)"] = "АВТОПРОДАЖА (ТОЛЬКО ПОСТАВЩИКОВ)",
     ["AUTOPILOT --"] = "ÐÐÐ¢ÐÐÐÐÐÐ¢ --",
     ["AUTOPILOT READY"] = "ÐÐÐ¢ÐÐÐÐÐÐ¢ ÐÐÐ¢ÐÐ",
     ["AUTOPILOT READY AFTER SAVE"] = "ÐÐÐ¢ÐÐÐÐÐÐ¢ ÐÐÐ¢ÐÐ ÐÐÐ¡ÐÐ Ð¡ÐÐ¥Ð ÐÐÐÐÐÐ¯",
@@ -171,6 +173,7 @@ EbonBuilds.Locale.Register("ruRU", {
     ["All ranks of this Echo are excluded from explicit and automatic banishing. Click to remove protection."] = "ÐÑÐµ ÑÐ°Ð½Ð³Ð¸ ÑÑÐ¾Ð³Ð¾ Echo Ð¸ÑÐºÐ»ÑÑÐµÐ½Ñ Ð¸Ð· ÑÐ²Ð½Ð¾Ð³Ð¾ Ð¸ Ð°Ð²ÑÐ¾Ð¼Ð°ÑÐ¸ÑÐµÑÐºÐ¾Ð³Ð¾ Ð¸Ð·Ð³Ð½Ð°Ð½Ð¸Ñ. ÐÐ°Ð¶Ð¼Ð¸ÑÐµ, ÑÑÐ¾Ð±Ñ ÑÐ½ÑÑÑ Ð·Ð°ÑÐ¸ÑÑ.",
     ["All six lock slots are filled. Clear a slot first."] = "ÐÑÐµ ÑÐµÑÑÑ ÑÐ»Ð¾ÑÐ¾Ð² Ð´Ð»Ñ Ð·Ð°Ð¼ÐºÐ¾Ð² Ð·Ð°Ð¿Ð¾Ð»Ð½ÐµÐ½Ñ. Ð¡Ð½Ð°ÑÐ°Ð»Ð° Ð¾ÑÐ¸ÑÑÐ¸ÑÐµ ÑÐ»Ð¾Ñ.",
     ["All sources"] = "ÐÑÐµ Ð¸ÑÑÐ¾ÑÐ½Ð¸ÐºÐ¸",
+    ["Allows green vendor trash with no sell value. Ignored while gray-only is on."] = "Разрешает зеленый мусор продавца без стоимости продажи. Игнорируется, пока включен только серый цвет.",
     ["Already permanently locked"] = "Уже навсегда заблокировано",
     ["Also shares this with other EbonBuilds users of the SAME class over the sync channel, and merges what they share back into your own data -- aggregate numbers only (per-echo average + sample count), never raw combat logs. Both directions use the same toggle. Received data is sanity-checked and can't be inflated by someone re-sending the same numbers."] = "Ð¢Ð°ÐºÐ¶Ðµ Ð´ÐµÐ»Ð¸ÑÑÑ ÑÑÐ¸Ð¼Ð¸ Ð´Ð°Ð½Ð½ÑÐ¼Ð¸ Ñ Ð´ÑÑÐ³Ð¸Ð¼Ð¸ Ð¿Ð¾Ð»ÑÐ·Ð¾Ð²Ð°ÑÐµÐ»ÑÐ¼Ð¸ EbonBuilds ÑÐ¾Ð³Ð¾ Ð¶Ðµ ÐºÐ»Ð°ÑÑÐ° Ð¿Ð¾ ÐºÐ°Ð½Ð°Ð»Ñ ÑÐ¸Ð½ÑÑÐ¾Ð½Ð¸Ð·Ð°ÑÐ¸Ð¸ Ð¸ Ð¾Ð±ÑÐµÐ´Ð¸Ð½ÑÐµÑ ÑÐ¾, ÑÐµÐ¼ Ð¾Ð½Ð¸ Ð´ÐµÐ»ÑÑÑÑ, Ð¾Ð±ÑÐ°ÑÐ½Ð¾ Ð² Ð²Ð°ÑÐ¸ ÑÐ¾Ð±ÑÑÐ²ÐµÐ½Ð½ÑÐµ Ð´Ð°Ð½Ð½ÑÐµ â ÑÐ¾Ð»ÑÐºÐ¾ ÑÐ¾Ð²Ð¾ÐºÑÐ¿Ð½ÑÐµ ÑÐ¸ÑÐ»Ð° (ÑÑÐµÐ´Ð½ÐµÐµ Ð½Ð° ÑÑÐ¾ + ÐºÐ¾Ð»Ð¸ÑÐµÑÑÐ²Ð¾ Ð²ÑÐ±Ð¾ÑÐ¾Ðº), Ð° Ð½Ðµ Ð½ÐµÐ¾Ð±ÑÐ°Ð±Ð¾ÑÐ°Ð½Ð½ÑÐµ Ð±Ð¾ÐµÐ²ÑÐµ Ð¶ÑÑÐ½Ð°Ð»Ñ. ÐÐ±Ð° Ð½Ð°Ð¿ÑÐ°Ð²Ð»ÐµÐ½Ð¸Ñ Ð¸ÑÐ¿Ð¾Ð»ÑÐ·ÑÑÑ Ð¾Ð´Ð¸Ð½ Ð¸ ÑÐ¾Ñ Ð¶Ðµ Ð¿ÐµÑÐµÐºÐ»ÑÑÐ°ÑÐµÐ»Ñ. ÐÐ¾Ð»ÑÑÐµÐ½Ð½ÑÐµ Ð´Ð°Ð½Ð½ÑÐµ Ð¿ÑÐ¾Ð²ÐµÑÑÑÑÑÑ Ð½Ð° Ð´Ð¾ÑÑÐ¾Ð²ÐµÑÐ½Ð¾ÑÑÑ Ð¸ Ð½Ðµ Ð¼Ð¾Ð³ÑÑ Ð±ÑÑÑ Ð·Ð°Ð²ÑÑÐµÐ½Ñ, ÐµÑÐ»Ð¸ ÐºÑÐ¾-ÑÐ¾ Ð¿Ð¾Ð²ÑÐ¾ÑÐ½Ð¾ Ð¾ÑÐ¿ÑÐ°Ð²Ð¸Ñ Ð¾Ð´Ð½Ð¸ Ð¸ ÑÐµ Ð¶Ðµ ÑÐ¸ÑÑÑ.",
     ["Appears in ~%.1f%% of offers (%d evaluations)"] = "ÐÐ¾ÑÐ²Ð»ÑÐµÑÑÑ Ð² ~%.1f%% Ð¿ÑÐµÐ´Ð»Ð¾Ð¶ÐµÐ½Ð¸Ð¹ (%d Ð¾ÑÐµÐ½Ð¾Ðº)",
@@ -188,7 +191,9 @@ EbonBuilds.Locale.Register("ruRU", {
     ["Apply wishlist"] = "Применить список желаний",
     ["Approximate on purpose either way: echoes stack together and fights vary a lot, so this can't isolate any single echo's true effect. A rough signal to combine with the scoring model, not a precise measurement. Shown in Export (AI) once you've collected some data."] = "Ð Ð»ÑÐ±Ð¾Ð¼ ÑÐ»ÑÑÐ°Ðµ ÑÑÐ¾ Ð¿ÑÐ¸Ð±Ð»Ð¸Ð·Ð¸ÑÐµÐ»ÑÐ½Ð¾Ðµ Ð½Ð°Ð¼ÐµÑÐµÐ½Ð¸Ðµ: ÑÑÐ¾ ÑÑÐ¼Ð¼Ð¸ÑÑÐµÑÑÑ, Ð° Ð±Ð¾Ð¸ ÑÐ¸Ð»ÑÐ½Ð¾ ÑÐ°Ð·Ð»Ð¸ÑÐ°ÑÑÑÑ, Ð¿Ð¾ÑÑÐ¾Ð¼Ñ Ð½ÐµÐ»ÑÐ·Ñ Ð²ÑÐ´ÐµÐ»Ð¸ÑÑ Ð¸ÑÑÐ¸Ð½Ð½ÑÐ¹ ÑÑÑÐµÐºÑ ÐºÐ°ÐºÐ¾Ð³Ð¾-Ð»Ð¸Ð±Ð¾ Ð¾ÑÐ´ÐµÐ»ÑÐ½Ð¾Ð³Ð¾ ÑÑÐ°. ÐÑÑÐ±ÑÐ¹ ÑÐ¸Ð³Ð½Ð°Ð» Ð´Ð»Ñ Ð¾Ð±ÑÐµÐ´Ð¸Ð½ÐµÐ½Ð¸Ñ Ñ Ð¼Ð¾Ð´ÐµÐ»ÑÑ Ð¾ÑÐµÐ½ÐºÐ¸, Ð° Ð½Ðµ ÑÐ¾ÑÐ½Ð¾Ðµ Ð¸Ð·Ð¼ÐµÑÐµÐ½Ð¸Ðµ. ÐÑÐ¾Ð±ÑÐ°Ð¶Ð°ÐµÑÑÑ Ð² ÑÐ°Ð·Ð´ÐµÐ»Ðµ Â«Ð­ÐºÑÐ¿Ð¾ÑÑÂ» (AI) Ð¿Ð¾ÑÐ»Ðµ ÑÐ±Ð¾ÑÐ° Ð½ÐµÐºÐ¾ÑÐ¾ÑÑÑ Ð´Ð°Ð½Ð½ÑÑ.",
     ["Attaching one of these to a bug report is the single fastest way to get"] = "ÐÑÐ¸ÐºÑÐµÐ¿Ð»ÐµÐ½Ð¸Ðµ Ð¾Ð´Ð½Ð¾Ð³Ð¾ Ð¸Ð· Ð½Ð¸Ñ Ðº Ð¾ÑÑÐµÑÑ Ð¾Ð± Ð¾ÑÐ¸Ð±ÐºÐµ â ÑÑÐ¾ ÑÐ°Ð¼ÑÐ¹ Ð±ÑÑÑÑÑÐ¹ ÑÐ¿Ð¾ÑÐ¾Ð± Ð¿Ð¾Ð»ÑÑÐ¸ÑÑ",
+    ["Auto-Sell Keep List"] = "Список сохранений для автоматической продажи",
     ["Auto-sell junk at vendors"] = "ÐÐ²ÑÐ¾Ð¼Ð°ÑÐ¸ÑÐµÑÐºÐ°Ñ Ð¿ÑÐ¾Ð´Ð°Ð¶Ð° Ð¼ÑÑÐ¾ÑÐ° Ñ ÑÐ¾ÑÐ³Ð¾Ð²ÑÐµÐ²",
+    ["Auto-sell preview: %d eligible item(s) (vendor only, nothing sold)."] = "Предварительный просмотр автоматической продажи: %d подходящих предметов (только у продавца, ничего не продано).",
     ["Auto: %s (+%d)"] = "ÐÐ²ÑÐ¾: %s (+%d)",
     ["Automation"] = "ÐÐ²ÑÐ¾Ð¼Ð°ÑÐ¸Ð·Ð°ÑÐ¸Ñ",
     ["Automation logic (%d)"] = "ÐÐ¾Ð³Ð¸ÐºÐ° Ð°Ð²ÑÐ¾Ð¼Ð°ÑÐ¸Ð·Ð°ÑÐ¸Ð¸ (%d)",
@@ -217,6 +222,7 @@ EbonBuilds.Locale.Register("ruRU", {
     ["Based on %d independent local origins — %s. Usage is guidance, not proven performance."] = "На основе независимого местного происхождения %d — %s. Использование – это руководство, а не доказанная эффективность.",
     ["Based on %d matching run%s  ·  %d recorded decision%s"] = "На основе %d соответствующего прогона%s · %d записанного решения%s",
     ["Best eligible current option: %s at %.0f"] = "ÐÑÑÑÐ¸Ð¹ Ð¿Ð¾Ð´ÑÐ¾Ð´ÑÑÐ¸Ð¹ ÑÐµÐºÑÑÐ¸Ð¹ Ð²Ð°ÑÐ¸Ð°Ð½Ñ: %s Ð½Ð° %.0f",
+    ["Blocks Rare and Epic items even when they show zero copper at a vendor."] = "Блокирует редкие и эпические предметы, даже если у продавца на них нет меди.",
     ["Browse Damage"] = "ÐÑÐ¾ÑÐ¼Ð¾ÑÑ Ð¿Ð¾Ð²ÑÐµÐ¶Ð´ÐµÐ½Ð¸Ð¹",
     ["Browse community loadouts, filter by class and specialization, then import a copy to customize."] = "ÐÑÐ¾ÑÐ¼Ð¾ÑÑÐ¸ÑÐµ ÐºÐ¾Ð¼Ð¿Ð»ÐµÐºÑÑ ÑÐ¾Ð¾Ð±ÑÐµÑÑÐ²Ð°, Ð¾ÑÑÐ¸Ð»ÑÑÑÑÐ¹ÑÐµ Ð¿Ð¾ ÐºÐ»Ð°ÑÑÑ Ð¸ ÑÐ¿ÐµÑÐ¸Ð°Ð»Ð¸Ð·Ð°ÑÐ¸Ð¸, Ð° Ð·Ð°ÑÐµÐ¼ Ð¸Ð¼Ð¿Ð¾ÑÑÐ¸ÑÑÐ¹ÑÐµ ÐºÐ¾Ð¿Ð¸Ñ Ð´Ð»Ñ Ð½Ð°ÑÑÑÐ¾Ð¹ÐºÐ¸.",
     ["Build"] = "Билд",
@@ -342,6 +348,7 @@ EbonBuilds.Locale.Register("ruRU", {
     ["Discard all unsaved build details, Echo values, modifiers, protection rules, and Autopilot tuning."] = "Отменяет все несохранённые детали билда, значения эхо, модификаторы, правила защиты и настройки Autopilot.",
     ["Dismiss"] = "Ð£Ð²Ð¾Ð»ÑÐ½ÑÑÑ",
     ["Done"] = "Ð¡Ð´ÐµÐ»Ð°Ð½Ð½ÑÐ¹",
+    ["Dry-run preview (count only)"] = "Предварительный просмотр пробного прогона (только подсчет)",
     ["Duplicate"] = "ÐÑÐ±Ð»Ð¸ÑÐ¾Ð²Ð°ÑÑ",
     ["E %+d"] = "Ð %+d",
     ["EbonBuilds"] = "EbonBuilds",
@@ -381,6 +388,7 @@ EbonBuilds.Locale.Register("ruRU", {
     ["Export EWL"] = "Ð­ÐºÑÐ¿Ð¾ÑÑ EWL",
     ["Export Echo Wish List"] = "Ð­ÐºÑÐ¿Ð¾ÑÑ Echo Ð¡Ð¿Ð¸ÑÐ¾Ðº Ð¶ÐµÐ»Ð°Ð½Ð¸Ð¹",
     ["Export build"] = "Экспортировать билд",
+    ["Extra safety for purple soulbound gear even if other quality filters change."] = "Дополнительная безопасность для фиолетового персонализированного снаряжения, даже если другие фильтры качества меняются.",
     ["FOCUS"] = "Ð¤ÐÐÐ£Ð¡",
     ["FREEZE"] = "FREEZE",
     ["FUNCTION"] = "Ð¤Ð£ÐÐÐ¦ÐÐ¯",
@@ -434,6 +442,7 @@ EbonBuilds.Locale.Register("ruRU", {
     ["Invalid Echo value was not applied"] = "ÐÐµÐ´Ð¾Ð¿ÑÑÑÐ¸Ð¼Ð¾Ðµ Ð·Ð½Ð°ÑÐµÐ½Ð¸Ðµ Echo Ð½Ðµ Ð±ÑÐ»Ð¾ Ð¿ÑÐ¸Ð¼ÐµÐ½ÐµÐ½Ð¾.",
     ["Item data pending from the server"] = "ÐÐ°Ð½Ð½ÑÐµ Ð¾Ð± ÑÐ»ÐµÐ¼ÐµÐ½ÑÐµ Ð¾Ð¶Ð¸Ð´Ð°ÑÑ Ð¿Ð¾ÑÑÑÐ¿Ð»ÐµÐ½Ð¸Ñ Ð¾Ñ ÑÐµÑÐ²ÐµÑÐ°",
     ["Item level %s%s\nAffix: %s"] = "Ð£ÑÐ¾Ð²ÐµÐ½Ñ Ð¿ÑÐµÐ´Ð¼ÐµÑÐ° %s%s\nÐÑÑÐ¸ÐºÑ: %s",
+    ["Items here are never auto-sold, even if they'd otherwise be eligible. Use exact names, #itemIDs, or * patterns."] = "Предметы здесь никогда не продаются автоматически, даже если в противном случае они имели бы на это право. Используйте точные имена, #itemID или * шаблоны.",
     ["Jump to:"] = "ÐÐµÑÐµÐ¹ÑÐ¸ Ðº:",
     ["Keep it off"] = "ÐÐµÑÐ¶Ð¸ ÑÑÐ¾ Ð¿Ð¾Ð´Ð°Ð»ÑÑÐµ",
     ["Known Echoes explicitly unavailable to the selected class. These rows are read-only."] = "ÐÐ·Ð²ÐµÑÑÐ½ÑÐ¹ Echoes ÑÐ²Ð½Ð¾ Ð½ÐµÐ´Ð¾ÑÑÑÐ¿ÐµÐ½ Ð´Ð»Ñ Ð²ÑÐ±ÑÐ°Ð½Ð½Ð¾Ð³Ð¾ ÐºÐ»Ð°ÑÑÐ°. Ð­ÑÐ¸ ÑÑÑÐ¾ÐºÐ¸ Ð´Ð¾ÑÑÑÐ¿Ð½Ñ ÑÐ¾Ð»ÑÐºÐ¾ Ð´Ð»Ñ ÑÑÐµÐ½Ð¸Ñ.",
@@ -462,6 +471,7 @@ EbonBuilds.Locale.Register("ruRU", {
     ["Lv %d    Banish: %d    Reroll: %d    Freeze: %d"] = "Lv %d    Banish: %d    Reroll: %d    Freeze: %d",
     ["Lv %d · Rolls left: %d    Banish: %d    Reroll: %d    Freeze: %d"] = "Уровень %d · Перекатывается влево: %d Banish: %d Reroll: %d Freeze: %d",
     ["Major %d/3 · Minor %d/3"] = "Большой %d/3 · Малый %d/3",
+    ["Manage Auto-Sell Keep List..."] = "Управление списком сохраненных автоматических продаж...",
     ["Manual Training Mode"] = "Manual Training Ð ÐµÐ¶Ð¸Ð¼",
     ["Many restrictive policies can cause Autopilot to pause when no eligible Echo remains."] = "ÐÐ½Ð¾Ð³Ð¸Ðµ Ð¾Ð³ÑÐ°Ð½Ð¸ÑÐ¸ÑÐµÐ»ÑÐ½ÑÐµ Ð¿Ð¾Ð»Ð¸ÑÐ¸ÐºÐ¸ Ð¼Ð¾Ð³ÑÑ Ð¿ÑÐ¸Ð²ÐµÑÑÐ¸ Ðº Ð¿ÑÐ¸Ð¾ÑÑÐ°Ð½Ð¾Ð²ÐºÐµ Autopilot, ÐºÐ¾Ð³Ð´Ð° Ð½Ðµ Ð¾ÑÑÐ°Ð½ÐµÑÑÑ Ð¿Ð¾Ð´ÑÐ¾Ð´ÑÑÐ¸Ñ Echo.",
     ["Marks bag items with an unlearned affix/rank (red/purple), an unbound BoE item (blue), or a likely disenchant candidate (teal)."] = "ÐÑÐ¼ÐµÑÐ°ÐµÑ Ð¿ÑÐµÐ´Ð¼ÐµÑÑ ÑÑÐ¼ÐºÐ¸ Ñ Ð½ÐµÐ²ÑÑÑÐµÐ½Ð½ÑÐ¼ Ð°ÑÑÐ¸ÐºÑÐ¾Ð¼/ÑÐ°Ð½Ð³Ð¾Ð¼ (ÐºÑÐ°ÑÐ½ÑÐ¹/ÑÐ¸Ð¾Ð»ÐµÑÐ¾Ð²ÑÐ¹), Ð½ÐµÑÐ²ÑÐ·Ð°Ð½Ð½ÑÐ¼ Ð¿ÑÐµÐ´Ð¼ÐµÑÐ¾Ð¼ BoE (ÑÐ¸Ð½Ð¸Ð¹) Ð¸Ð»Ð¸ Ð²ÐµÑÐ¾ÑÑÐ½ÑÐ¼ ÐºÐ°Ð½Ð´Ð¸Ð´Ð°ÑÐ¾Ð¼ Ð½Ð° ÑÐ°ÑÐ¿ÑÐ»ÐµÐ½Ð¸Ðµ (Ð±Ð¸ÑÑÐ·Ð¾Ð²ÑÐ¹).",
@@ -473,8 +483,10 @@ EbonBuilds.Locale.Register("ruRU", {
     ["Matching Echoes from every canonical function group. Each row shows its navigation group."] = "Ð¡Ð¾Ð¾ÑÐ²ÐµÑÑÑÐ²Ð¸Ðµ Echoes Ð¸Ð· ÐºÐ°Ð¶Ð´Ð¾Ð¹ ÐºÐ°Ð½Ð¾Ð½Ð¸ÑÐµÑÐºÐ¾Ð¹ Ð³ÑÑÐ¿Ð¿Ñ ÑÑÐ½ÐºÑÐ¸Ð¹. ÐÐ°Ð¶Ð´Ð°Ñ ÑÑÑÐ¾ÐºÐ° Ð¿Ð¾ÐºÐ°Ð·ÑÐ²Ð°ÐµÑ ÑÐ²Ð¾Ñ Ð³ÑÑÐ¿Ð¿Ñ Ð½Ð°Ð²Ð¸Ð³Ð°ÑÐ¸Ð¸.",
     ["Materials sometimes show as zero-copper but are still worth keeping (e.g. for professions)."] = "ÐÐ½Ð¾Ð³Ð´Ð° Ð¼Ð°ÑÐµÑÐ¸Ð°Ð»Ñ Ð¾ÑÐ¾Ð±ÑÐ°Ð¶Ð°ÑÑÑÑ ÐºÐ°Ðº Ð½Ðµ ÑÐ¾Ð´ÐµÑÐ¶Ð°ÑÐ¸Ðµ Ð¼ÐµÐ´Ð¸, Ð½Ð¾ Ð¸Ñ Ð²ÑÐµ ÑÐ°Ð²Ð½Ð¾ ÑÑÐ¾Ð¸Ñ ÑÐ¾ÑÑÐ°Ð½Ð¸ÑÑ (Ð½Ð°Ð¿ÑÐ¸Ð¼ÐµÑ, Ð´Ð»Ñ Ð¿ÑÐ¾ÑÐµÑÑÐ¸Ð¹).",
     ["Max %d"] = "ÐÐ°ÐºÑ %d",
+    ["Max item level to sell"] = "Максимальный уровень предмета для продажи",
     ["Measured combat DPS"] = "Measured combat DPS",
     ["Melee DPS"] = "ÐÐÐ¡ Ð±Ð»Ð¸Ð¶Ð½ÐµÐ³Ð¾ Ð±Ð¾Ñ",
+    ["Minimum stack size to sell"] = "Минимальный размер стека для продажи",
     ["Missing %d saved ranks"] = "ÐÑÑÑÑÑÑÐ²ÑÑÑ %d ÑÐ¾ÑÑÐ°Ð½ÐµÐ½Ð½ÑÑ ÑÐ°Ð½Ð³Ð¾Ð².",
     ["Missing Echoes"] = "ÐÑÑÑÑÑÑÐ²ÑÐµÑ Echoes",
     ["Mob: one row per mob, tomes it drops."] = "ÐÐ¾Ð±: Ð¾Ð´Ð¸Ð½ ÑÑÐ´ Ð½Ð° Ð¼Ð¾Ð±Ð°, ÑÐ¾Ð¼Ð° Ð²ÑÐ¿Ð°Ð´Ð°ÑÑ.",
@@ -487,6 +499,7 @@ EbonBuilds.Locale.Register("ruRU", {
     ["Move to the previous run in the current build history."] = "ÐÐµÑÐµÑÐ¾Ð´ Ðº Ð¿ÑÐµÐ´ÑÐ´ÑÑÐµÐ¼Ñ Ð·Ð°Ð¿ÑÑÐºÑ Ð² ÑÐµÐºÑÑÐµÐ¹ Ð¸ÑÑÐ¾ÑÐ¸Ð¸ ÑÐ±Ð¾ÑÐºÐ¸.",
     ["Multiply"] = "Ð£Ð¼Ð½Ð¾Ð¶Ð¸ÑÑ",
     ["N/A"] = "Ð/Ð",
+    ["Name, #12345, or *pattern*..."] = "Имя, #12345 или *шаблон*...",
     ["Needs Classification"] = "Ð¢ÑÐµÐ±ÑÐµÑÑÑ ÐºÐ»Ð°ÑÑÐ¸ÑÐ¸ÐºÐ°ÑÐ¸Ñ",
     ["Needs attention · %d ranks missing · %d additional"] = "Требует внимания · %d рангов нет · %d дополнительных",
     ["Needs class."] = "ÐÑÐ¶ÐµÐ½ ÐºÐ»Ð°ÑÑ.",
@@ -495,6 +508,10 @@ EbonBuilds.Locale.Register("ruRU", {
     ["Never auto-sell Recipes"] = "ÐÐ¸ÐºÐ¾Ð³Ð´Ð° Ð½Ðµ Ð¿ÑÐ¾Ð´Ð°Ð²Ð°Ð¹ÑÐµ ÑÐµÑÐµÐ¿ÑÑ Ð°Ð²ÑÐ¾Ð¼Ð°ÑÐ¸ÑÐµÑÐºÐ¸",
     ["Never auto-sell Trade Goods"] = "ÐÐ¸ÐºÐ¾Ð³Ð´Ð° Ð½Ðµ Ð¿ÑÐ¾Ð´Ð°Ð²Ð°Ð¹ÑÐµ ÑÐ¾Ð²Ð°ÑÑ Ð°Ð²ÑÐ¾Ð¼Ð°ÑÐ¸ÑÐµÑÐºÐ¸",
     ["Never select this Echo automatically. This rule does not spend a banish."] = "ÐÐ¸ÐºÐ¾Ð³Ð´Ð° Ð½Ðµ Ð²ÑÐ±Ð¸ÑÐ°Ð¹ÑÐµ ÑÑÐ¾Ñ Echo Ð°Ð²ÑÐ¾Ð¼Ð°ÑÐ¸ÑÐµÑÐºÐ¸. Ð­ÑÐ¾ Ð¿ÑÐ°Ð²Ð¸Ð»Ð¾ Ð½Ðµ Ð¿ÑÐ¾Ð²Ð¾Ð´Ð¸Ñ Ð¸Ð·Ð³Ð½Ð°Ð½Ð¸Ðµ.",
+    ["Never sell Rare or Epic quality"] = "Никогда не продавайте редкое или эпическое качество.",
+    ["Never sell soulbound Epic items"] = "Никогда не продавайте персонализированные эпические предметы.",
+    ["Never sell soulbound items"] = "Никогда не продавайте персональные предметы",
+    ["Never sell unbound BoE items"] = "Никогда не продавайте несвязанные предметы BoE.",
     ["New Build"] = "ÐÐ¾Ð²ÑÐ¹ Build",
     ["New builds start with Autopilot enabled. Save the build to activate these rules."] = "ÐÐ¾Ð²ÑÐµ ÑÐ±Ð¾ÑÐºÐ¸ Ð½Ð°ÑÐ¸Ð½Ð°ÑÑÑÑ Ñ Ð²ÐºÐ»ÑÑÐµÐ½Ð½Ð¾Ð³Ð¾ Autopilot. Ð¡Ð¾ÑÑÐ°Ð½Ð¸ÑÐµ ÑÐ±Ð¾ÑÐºÑ, ÑÑÐ¾Ð±Ñ Ð°ÐºÑÐ¸Ð²Ð¸ÑÐ¾Ð²Ð°ÑÑ ÑÑÐ¸ Ð¿ÑÐ°Ð²Ð¸Ð»Ð°.",
     ["New runs will be counted"] = "ÐÐ¾Ð²ÑÐµ Ð¿ÑÐ¾Ð±ÐµÐ³Ð¸ Ð±ÑÐ´ÑÑ Ð·Ð°ÑÑÐ¸ÑÐ°Ð½Ñ.",
@@ -524,6 +541,7 @@ EbonBuilds.Locale.Register("ruRU", {
     ["No events are available in the current view."] = "Ð ÑÐµÐºÑÑÐµÐ¼ Ð¿ÑÐµÐ´ÑÑÐ°Ð²Ð»ÐµÐ½Ð¸Ð¸ Ð½ÐµÑ Ð´Ð¾ÑÑÑÐ¿Ð½ÑÑ ÑÐ¾Ð±ÑÑÐ¸Ð¹.",
     ["No family"] = "ÐÐµÑ ÑÐµÐ¼ÑÐ¸",
     ["No finished run is available for this build yet"] = "ÐÐ»Ñ ÑÑÐ¾Ð¹ ÑÐ±Ð¾ÑÐºÐ¸ Ð¿Ð¾ÐºÐ° Ð½ÐµÑ Ð·Ð°ÐºÐ¾Ð½ÑÐµÐ½Ð½Ð¾Ð³Ð¾ Ð·Ð°Ð¿ÑÑÐºÐ°.",
+    ["No items on the keep-list yet."] = "В списке сохранения пока нет позиций.",
     ["No locked echoes to apply"] = "ÐÐµÑ Ð·Ð°Ð±Ð»Ð¾ÐºÐ¸ÑÐ¾Ð²Ð°Ð½Ð½ÑÑ ÑÑÐ¾ Ð´Ð»Ñ Ð¿ÑÐ¸Ð¼ÐµÐ½ÐµÐ½Ð¸Ñ",
     ["No matching Echoes"] = "ÐÐµÑ ÑÐ¾Ð²Ð¿Ð°Ð´ÐµÐ½Ð¸Ð¹ Echoes",
     ["No matching decisions"] = "Нет соответствующих решений",
@@ -559,15 +577,18 @@ EbonBuilds.Locale.Register("ruRU", {
     ["OPEN A WINDOW"] = "ÐÐ¢ÐÐ Ð«Ð¢Ð¬ ÐÐÐÐ",
     ["OPTIONAL FEATURES"] = "ÐÐÐÐÐÐÐÐ¢ÐÐÐ¬ÐÐ«Ð Ð¤Ð£ÐÐÐ¦ÐÐ",
     ["Observed usable in live Project Ebonhold gameplay."] = "ÐÐ°Ð±Ð»ÑÐ´Ð°ÐµÑÑÑ Ð²Ð¾Ð·Ð¼Ð¾Ð¶Ð½Ð¾ÑÑÑ Ð¸ÑÐ¿Ð¾Ð»ÑÐ·Ð¾Ð²Ð°Ð½Ð¸Ñ Ð² ÑÐµÐ°Ð»ÑÐ½Ð¾Ð¼ Ð¸Ð³ÑÐ¾Ð²Ð¾Ð¼ Ð¿ÑÐ¾ÑÐµÑÑÐµ Project Ebonhold.",
+    ["Off"] = "Выключенный",
     ["Off by default. Doesn't need Details! -- separate from DPS tracking above. Tracks how often each echo actually shows up on a choice screen (not how good it scores, just how often the server offers it), as a % of all evaluations. Always recorded locally; this toggle only controls sharing it with other same-class EbonBuilds users and merging theirs back into yours."] = "ÐÐ¾ ÑÐ¼Ð¾Ð»ÑÐ°Ð½Ð¸Ñ Ð²ÑÐºÐ»ÑÑÐµÐ½Ð¾. ÐÐµ ÑÑÐµÐ±ÑÐµÑÑÑ Details! â Ð¾ÑÐ´ÐµÐ»ÑÐ½Ð¾ Ð¾Ñ Ð¾ÑÑÐ»ÐµÐ¶Ð¸Ð²Ð°Ð½Ð¸Ñ ÐÐÐ¡, Ð¾Ð¿Ð¸ÑÐ°Ð½Ð½Ð¾Ð³Ð¾ Ð²ÑÑÐµ. ÐÑÑÐ»ÐµÐ¶Ð¸Ð²Ð°ÐµÑ, ÐºÐ°Ðº ÑÐ°ÑÑÐ¾ ÐºÐ°Ð¶Ð´Ð¾Ðµ ÑÑÐ¾ ÑÐ°ÐºÑÐ¸ÑÐµÑÐºÐ¸ Ð¿Ð¾ÑÐ²Ð»ÑÐµÑÑÑ Ð½Ð° ÑÐºÑÐ°Ð½Ðµ Ð²ÑÐ±Ð¾ÑÐ° (Ð½Ðµ ÑÐ¾, Ð½Ð°ÑÐºÐ¾Ð»ÑÐºÐ¾ ÑÐ¾ÑÐ¾ÑÐ¾ Ð¾Ð½Ð¾ Ð¾ÑÐµÐ½Ð¸Ð²Ð°ÐµÑÑÑ, Ð° ÑÐ¾Ð»ÑÐºÐ¾ ÑÐ¾, ÐºÐ°Ðº ÑÐ°ÑÑÐ¾ ÐµÐ³Ð¾ Ð¿ÑÐµÐ´Ð»Ð°Ð³Ð°ÐµÑ ÑÐµÑÐ²ÐµÑ), Ð² % Ð¾Ñ Ð²ÑÐµÑ Ð¾ÑÐµÐ½Ð¾Ðº. ÐÑÐµÐ³Ð´Ð° Ð·Ð°Ð¿Ð¸ÑÑÐ²Ð°ÐµÑÑÑ Ð»Ð¾ÐºÐ°Ð»ÑÐ½Ð¾; ÑÑÐ¾Ñ Ð¿ÐµÑÐµÐºÐ»ÑÑÐ°ÑÐµÐ»Ñ Ð¿Ð¾Ð·Ð²Ð¾Ð»ÑÐµÑ ÑÐ¾Ð»ÑÐºÐ¾ Ð´ÐµÐ»Ð¸ÑÑÑÑ Ð¸Ð¼ Ñ Ð´ÑÑÐ³Ð¸Ð¼Ð¸ Ð¿Ð¾Ð»ÑÐ·Ð¾Ð²Ð°ÑÐµÐ»ÑÐ¼Ð¸ ÑÐ¾Ð³Ð¾ Ð¶Ðµ ÐºÐ»Ð°ÑÑÐ° EbonBuilds Ð¸ Ð¾Ð±ÑÐµÐ´Ð¸Ð½ÑÑÑ Ð¸Ñ Ð¾Ð±ÑÐ°ÑÐ½Ð¾ Ñ Ð²Ð°ÑÐ¸Ð¼Ð¸.",
     ["Off by default. Every ~20 new offers, prepares a small evidence-based proposal and tells you it is ready. It never changes the live build automatically; use the Apply controls after reviewing the evidence."] = "ÐÐ¾ ÑÐ¼Ð¾Ð»ÑÐ°Ð½Ð¸Ñ Ð²ÑÐºÐ»ÑÑÐµÐ½Ð¾. ÐÐ°Ð¶Ð´ÑÐµ ~20 Ð½Ð¾Ð²ÑÑ Ð¿ÑÐµÐ´Ð»Ð¾Ð¶ÐµÐ½Ð¸Ð¹ Ð¿Ð¾Ð´Ð³Ð¾ÑÐ°Ð²Ð»Ð¸Ð²Ð°ÐµÑ Ð½ÐµÐ±Ð¾Ð»ÑÑÐ¾Ðµ Ð¿ÑÐµÐ´Ð»Ð¾Ð¶ÐµÐ½Ð¸Ðµ, Ð¾ÑÐ½Ð¾Ð²Ð°Ð½Ð½Ð¾Ðµ Ð½Ð° ÑÐ°ÐºÑÐ¸ÑÐµÑÐºÐ¸Ñ Ð´Ð°Ð½Ð½ÑÑ, Ð¸ ÑÐ¾Ð¾Ð±ÑÐ°ÐµÑ Ð²Ð°Ð¼, ÑÑÐ¾ Ð¾Ð½Ð¾ Ð³Ð¾ÑÐ¾Ð²Ð¾. ÐÐ½ Ð½Ð¸ÐºÐ¾Ð³Ð´Ð° Ð½Ðµ Ð¼ÐµÐ½ÑÐµÑ Ð¶Ð¸Ð²ÑÑ ÑÐ±Ð¾ÑÐºÑ Ð°Ð²ÑÐ¾Ð¼Ð°ÑÐ¸ÑÐµÑÐºÐ¸; Ð¸ÑÐ¿Ð¾Ð»ÑÐ·ÑÐ¹ÑÐµ ÑÐ»ÐµÐ¼ÐµÐ½ÑÑ ÑÐ¿ÑÐ°Ð²Ð»ÐµÐ½Ð¸Ñ Â«ÐÑÐ¸Ð¼ÐµÐ½Ð¸ÑÑÂ» Ð¿Ð¾ÑÐ»Ðµ Ð¿ÑÐ¾ÑÐ¼Ð¾ÑÑÐ° Ð´Ð¾ÐºÐ°Ð·Ð°ÑÐµÐ»ÑÑÑÐ².",
     ["Off by default. Includes DPS-based and Manual Training weight changes in the staged tuning proposal. Nothing is applied automatically."] = "ÐÐ¾ ÑÐ¼Ð¾Ð»ÑÐ°Ð½Ð¸Ñ Ð²ÑÐºÐ»ÑÑÐµÐ½Ð¾. ÐÐºÐ»ÑÑÐ°ÐµÑ Ð¸Ð·Ð¼ÐµÐ½ÐµÐ½Ð¸Ñ Ð²ÐµÑÐ° Ð½Ð° Ð¾ÑÐ½Ð¾Ð²Ðµ DPS Ð¸ Manual Training Ð² Ð¿ÑÐµÐ´Ð»Ð¾Ð¶ÐµÐ½Ð¸Ð¸ Ð¿Ð¾ÑÑÐ°Ð¿Ð½Ð¾Ð¹ Ð½Ð°ÑÑÑÐ¾Ð¹ÐºÐ¸. ÐÐ¸ÑÐµÐ³Ð¾ Ð½Ðµ Ð¿ÑÐ¸Ð¼ÐµÐ½ÑÐµÑÑÑ Ð°Ð²ÑÐ¾Ð¼Ð°ÑÐ¸ÑÐµÑÐºÐ¸.",
     ["Off by default. Requires the Details! damage meter addon. Every 10s in combat, samples your current DPS and credits it to every echo you currently have active, building a rough real-performance average per echo over time."] = "ÐÐ¾ ÑÐ¼Ð¾Ð»ÑÐ°Ð½Ð¸Ñ Ð²ÑÐºÐ»ÑÑÐµÐ½Ð¾. Ð¢ÑÐµÐ±ÑÐµÑÑÑ Ð´Ð¾Ð¿Ð¾Ð»Ð½ÐµÐ½Ð¸Ðµ Â«ÐÐ·Ð¼ÐµÑÐ¸ÑÐµÐ»Ñ ÑÑÐ¾Ð½Ð° Details!Â». ÐÐ°Ð¶Ð´ÑÐµ 10 ÑÐµÐºÑÐ½Ð´ Ð² Ð±Ð¾Ñ Ð¸Ð·Ð¼ÐµÑÑÐµÑ Ð²Ð°Ñ ÑÐµÐºÑÑÐ¸Ð¹ ÑÑÐ¾Ð½ Ð² ÑÐµÐºÑÐ½Ð´Ñ Ð¸ Ð·Ð°ÑÐ¸ÑÐ»ÑÐµÑ ÐµÐ³Ð¾ Ð² ÐºÐ°Ð¶Ð´Ð¾Ðµ Ð°ÐºÑÐ¸Ð²Ð½Ð¾Ðµ ÑÑÐ¾, ÑÐ¾Ð·Ð´Ð°Ð²Ð°Ñ Ð¿ÑÐ¸Ð±Ð»Ð¸Ð·Ð¸ÑÐµÐ»ÑÐ½ÑÐ¹ ÑÑÐµÐ´Ð½Ð¸Ð¹ Ð¿Ð¾ÐºÐ°Ð·Ð°ÑÐµÐ»Ñ ÑÐµÐ°Ð»ÑÐ½Ð¾Ð¹ Ð¿ÑÐ¾Ð¸Ð·Ð²Ð¾Ð´Ð¸ÑÐµÐ»ÑÐ½Ð¾ÑÑÐ¸ Ð´Ð»Ñ ÐºÐ°Ð¶Ð´Ð¾Ð³Ð¾ ÑÑÐ° Ñ ÑÐµÑÐµÐ½Ð¸ÐµÐ¼ Ð²ÑÐµÐ¼ÐµÐ½Ð¸.",
     ["Older run"] = "Ð¡ÑÐ°ÑÐ°Ñ Ð²ÐµÑÑÐ¸Ñ",
     ["On Sight"] = "ÐÐ° Ð¼ÐµÑÑÐµ",
+    ["On vendor open, shows how many items would sell without actually selling them."] = "При открытом продавце показывает, сколько товаров будет продано без фактической продажи.",
     ["One sample per combat segment: total damage by you and your pets divided by active fight time. Informational only; never affects automation."] = "One sample per combat segment: total damage by you and your pets divided by active fight time. Informational only; never affects automation.",
     ["Only %d independent origins are stored. Recommendations are limited; manual setup remains available."] = "Ð¡Ð¾ÑÑÐ°Ð½ÑÑÑÑÑ ÑÐ¾Ð»ÑÐºÐ¾ %d Ð½ÐµÐ·Ð°Ð²Ð¸ÑÐ¸Ð¼ÑÑ Ð¸ÑÑÐ¾ÑÐ½Ð¸ÐºÐ¾Ð². Ð ÐµÐºÐ¾Ð¼ÐµÐ½Ð´Ð°ÑÐ¸Ð¸ Ð¾Ð³ÑÐ°Ð½Ð¸ÑÐµÐ½Ñ; ÑÑÑÐ½Ð°Ñ Ð½Ð°ÑÑÑÐ¾Ð¹ÐºÐ° Ð¾ÑÑÐ°ÐµÑÑÑ Ð´Ð¾ÑÑÑÐ¿Ð½Ð¾Ð¹.",
     ["Only sell Poor (gray) quality"] = "ÐÑÐ¾Ð´Ð°ÐµÐ¼ ÑÐ¾Ð»ÑÐºÐ¾ Ð¿Ð»Ð¾ÑÐ¾Ðµ (ÑÐµÑÐ¾Ðµ) ÐºÐ°ÑÐµÑÑÐ²Ð¾.",
+    ["Only sells stacks with at least this many items (useful for partial herb/ore stacks)."] = "Продаются только стопки, содержащие как минимум такое количество предметов (полезно для частичных стопок трав/руды).",
     ["Only the \"Tomes in this zone\" list panel (per character). The panel's X button unchecks this. The green continent highlights are governed by the master switch above."] = "Ð¢Ð¾Ð»ÑÐºÐ¾ Ð¿Ð°Ð½ÐµÐ»Ñ ÑÐ¿Ð¸ÑÐºÐ° Â«Ð¢Ð¾Ð¼Ð° Ð² ÑÑÐ¾Ð¹ Ð·Ð¾Ð½ÐµÂ» (Ð¿Ð¾ ÐºÐ°Ð¶Ð´Ð¾Ð¼Ñ Ð¿ÐµÑÑÐ¾Ð½Ð°Ð¶Ñ). ÐÐ½Ð¾Ð¿ÐºÐ° X Ð½Ð° Ð¿Ð°Ð½ÐµÐ»Ð¸ ÑÐ½Ð¸Ð¼Ð°ÐµÑ ÑÑÐ¾Ñ ÑÐ»Ð°Ð¶Ð¾Ðº. ÐÐ¾Ð´ÑÐ²ÐµÑÐºÐ° Ð·ÐµÐ»ÐµÐ½Ð¾Ð³Ð¾ ÐºÐ¾Ð½ÑÐ¸Ð½ÐµÐ½ÑÐ° ÑÐ¿ÑÐ°Ð²Ð»ÑÐµÑÑÑ Ð³Ð»Ð°Ð²Ð½ÑÐ¼ Ð¿ÐµÑÐµÐºÐ»ÑÑÐ°ÑÐµÐ»ÐµÐ¼ Ð²ÑÑÐµ.",
     ["Only verified "] = "Ð¢Ð¾Ð»ÑÐºÐ¾ Ð¿ÑÐ¾Ð²ÐµÑÐµÐ½Ð¾",
     ["Open Character"] = "ÐÑÐºÑÑÑÑÐ¹ Ð¿ÐµÑÑÐ¾Ð½Ð°Ð¶",
@@ -709,6 +730,9 @@ EbonBuilds.Locale.Register("ruRU", {
     ["Selected Echo quality: no selections recorded"] = "Selected Echo ÐºÐ°ÑÐµÑÑÐ²Ð¾: Ð²ÑÐ±Ð¾Ñ Ð½Ðµ Ð·Ð°Ð¿Ð¸ÑÐ°Ð½",
     ["Selecting a family adds +%d score to matching Echoes. None adds +0."] = "Select Ð´Ð¾Ð±Ð°Ð²Ð»ÐµÐ½Ð¸Ðµ ÑÐµÐ¼ÑÐ¸ Ð´Ð¾Ð±Ð°Ð²Ð»ÑÐµÑ +%d Ð±Ð°Ð»Ð» Ðº ÑÐ¾Ð²Ð¿Ð°Ð´ÐµÐ½Ð¸Ñ Echoes. ÐÐ¸ÑÑÐ¾ Ð½Ðµ Ð´Ð¾Ð±Ð°Ð²Ð»ÑÐµÑ +0.",
     ["Selection rules"] = "SelectÐ¸Ð¾Ð½Ð½ÑÐµ Ð¿ÑÐ°Ð²Ð¸Ð»Ð°",
+    ["Sell Common (white) zero-copper items"] = "Продать обычные (белые) предметы с нулевым содержанием меди.",
+    ["Sell Uncommon (green) zero-copper items"] = "Продавайте необычные (зеленые) предметы с нулевым содержанием меди.",
+    ["Sells eligible zero-copper items while a vendor is open. Does not list on the Auction House; use Auctionator for AH selling."] = "Продает подходящие предметы с нулевым содержанием меди, пока продавец открыт. Не выставлен на аукционе; используйте аукцион для продажи AH.",
     ["Sells eligible zero-copper items while a vendor is open; unlearned affixes remain protected."] = "ÐÑÐ¾Ð´Ð°ÐµÑ Ð¿Ð¾Ð´ÑÐ¾Ð´ÑÑÐ¸Ðµ Ð¿ÑÐµÐ´Ð¼ÐµÑÑ Ñ Ð½ÑÐ»ÐµÐ²ÑÐ¼ ÑÐ¾Ð´ÐµÑÐ¶Ð°Ð½Ð¸ÐµÐ¼ Ð¼ÐµÐ´Ð¸, Ð¿Ð¾ÐºÐ° Ð¿ÑÐ¾Ð´Ð°Ð²ÐµÑ Ð¾ÑÐºÑÑÑ; Ð½ÐµÐ²ÑÑÑÐµÐ½Ð½ÑÐµ Ð°ÑÑÐ¸ÐºÑÑ Ð¾ÑÑÐ°ÑÑÑÑ Ð·Ð°ÑÐ¸ÑÐµÐ½Ð½ÑÐ¼Ð¸.",
     ["Server doesn't support Active Echo Loadout"] = "Ð¡ÐµÑÐ²ÐµÑ Ð½Ðµ Ð¿Ð¾Ð´Ð´ÐµÑÐ¶Ð¸Ð²Ð°ÐµÑ Ð°ÐºÑÐ¸Ð²Ð½ÑÑ Echo Ð·Ð°Ð³ÑÑÐ·ÐºÑ.",
     ["Server doesn't support echo snapshot"] = "Сервер не поддерживает эхо-снимок",
@@ -828,11 +852,14 @@ EbonBuilds.Locale.Register("ruRU", {
     ["Use broad rules sparingly; individual Echo priorities remain the clearest source of intent."] = "ÐÑÐ¿Ð¾Ð»ÑÐ·ÑÐ¹ÑÐµ Ð¾Ð±ÑÐ¸Ðµ Ð¿ÑÐ°Ð²Ð¸Ð»Ð° ÑÐ¼ÐµÑÐµÐ½Ð½Ð¾; Ð¸Ð½Ð´Ð¸Ð²Ð¸Ð´ÑÐ°Ð»ÑÐ½ÑÐµ Ð¿ÑÐ¸Ð¾ÑÐ¸ÑÐµÑÑ Echo Ð¾ÑÑÐ°ÑÑÑÑ ÑÐ°Ð¼ÑÐ¼ Ð¾ÑÐµÐ²Ð¸Ð´Ð½ÑÐ¼ Ð¸ÑÑÐ¾ÑÐ½Ð¸ÐºÐ¾Ð¼ Ð½Ð°Ð¼ÐµÑÐµÐ½Ð¸Ð¹.",
     ["Use this Echo"] = "ÐÑÐ¿Ð¾Ð»ÑÐ·ÑÐ¹ÑÐµ ÑÑÐ¾ Echo",
     ["Use this Echo's score, weight, rarity, and normal Autopilot rules."] = "ÐÑÐ¿Ð¾Ð»ÑÐ·ÑÐ¹ÑÐµ Ð¾ÑÐµÐ½ÐºÑ, Ð²ÐµÑ, ÑÐµÐ´ÐºÐ¾ÑÑÑ Ð¸ Ð¾Ð±ÑÑÐ½ÑÐµ Ð¿ÑÐ°Ð²Ð¸Ð»Ð° Autopilot ÑÑÐ¾Ð³Ð¾ Echo.",
+    ["Uses tooltip bind text (ITEM_BIND_ON_EQUIP) to keep tradeable gear."] = "Использует текст привязки всплывающей подсказки (ITEM_BIND_ON_EQUIP), чтобы сохранить продаваемое снаряжение.",
+    ["Uses tooltip bind text (ITEM_SOULBOUND) to skip bound gear and materials."] = "Использует текст привязки всплывающей подсказки (ITEM_SOULBOUND), чтобы пропустить связанное снаряжение и материалы.",
     ["Using an Echo automatically assigns the lowest positive weight when needed. Choosing a priority also activates it."] = "ÐÑÐ¿Ð¾Ð»ÑÐ·Ð¾Ð²Ð°Ð½Ð¸Ðµ Echo Ð°Ð²ÑÐ¾Ð¼Ð°ÑÐ¸ÑÐµÑÐºÐ¸ Ð¿ÑÐ¸ÑÐ²Ð°Ð¸Ð²Ð°ÐµÑ Ð½Ð°Ð¸Ð¼ÐµÐ½ÑÑÐ¸Ð¹ Ð¿Ð¾Ð»Ð¾Ð¶Ð¸ÑÐµÐ»ÑÐ½ÑÐ¹ Ð²ÐµÑ, ÐºÐ¾Ð³Ð´Ð° ÑÑÐ¾ Ð½ÐµÐ¾Ð±ÑÐ¾Ð´Ð¸Ð¼Ð¾. ÐÑÐ±Ð¾Ñ Ð¿ÑÐ¸Ð¾ÑÐ¸ÑÐµÑÐ° ÑÐ°ÐºÐ¶Ðµ Ð°ÐºÑÐ¸Ð²Ð¸ÑÑÐµÑ ÐµÐ³Ð¾.",
     ["Utilities that operate on the currently active build."] = "Ð£ÑÐ¸Ð»Ð¸ÑÑ, ÐºÐ¾ÑÐ¾ÑÑÐµ ÑÐ°Ð±Ð¾ÑÐ°ÑÑ Ñ ÑÐµÐºÑÑÐµÐ¹ Ð°ÐºÑÐ¸Ð²Ð½Ð¾Ð¹ ÑÐ±Ð¾ÑÐºÐ¾Ð¹.",
     ["Utility"] = "Ð£ÑÐ¸Ð»Ð¸ÑÐ°",
     ["Validate active fields and save build details, Echo values, bonuses, and visibility."] = "Проверяет активные поля и сохраняет детали билда, значения эхо, бонусы и видимость.",
     ["Validation ready · %d included Echoes checked."] = "Проверка готова · %d включено Echoes проверено.",
+    ["Vendor-only: items are sold to the merchant NPC, never posted to the AH."] = "Только для торговцев: предметы продаются торговому NPC и никогда не отправляются в AH.",
     ["Verbose sync logging"] = "ÐÐ¾Ð´ÑÐ¾Ð±Ð½Ð¾Ðµ Ð²ÐµÐ´ÐµÐ½Ð¸Ðµ Ð¶ÑÑÐ½Ð°Ð»Ð° ÑÐ¸Ð½ÑÑÐ¾Ð½Ð¸Ð·Ð°ÑÐ¸Ð¸",
     ["View full character"] = "ÐÐ¾ÑÐ¼Ð¾ÑÑÐµÑÑ Ð²ÐµÑÑ Ð¿ÐµÑÑÐ¾Ð½Ð°Ð¶",
     ["WORLD MAP"] = "ÐÐÐ Ð¢Ð ÐÐÐ Ð",
@@ -849,6 +876,7 @@ EbonBuilds.Locale.Register("ruRU", {
     ["When enabled, the priorities list shows only Echoes your character has learned. Discovery data is used first, with the Echoes spellbook as a compatibility fallback."] = "ÐÑÐ»Ð¸ ÑÑÐ¾Ñ Ð¿Ð°ÑÐ°Ð¼ÐµÑÑ Ð²ÐºÐ»ÑÑÐµÐ½, Ð² ÑÐ¿Ð¸ÑÐºÐµ Ð¿ÑÐ¸Ð¾ÑÐ¸ÑÐµÑÐ¾Ð² Ð¾ÑÐ¾Ð±ÑÐ°Ð¶Ð°ÐµÑÑÑ ÑÐ¾Ð»ÑÐºÐ¾ Echoes, ÑÐµÐ¼Ñ Ð½Ð°ÑÑÐ¸Ð»ÑÑ Ð²Ð°Ñ Ð¿ÐµÑÑÐ¾Ð½Ð°Ð¶. ÐÐ°Ð½Ð½ÑÐµ Ð¾Ð±Ð½Ð°ÑÑÐ¶ÐµÐ½Ð¸Ñ Ð¸ÑÐ¿Ð¾Ð»ÑÐ·ÑÑÑÑÑ Ð² Ð¿ÐµÑÐ²ÑÑ Ð¾ÑÐµÑÐµÐ´Ñ, Ð° ÐºÐ½Ð¸Ð³Ð° Ð·Ð°ÐºÐ»Ð¸Ð½Ð°Ð½Ð¸Ð¹ Echoes Ð¸ÑÐ¿Ð¾Ð»ÑÐ·ÑÐµÑÑÑ Ð² ÐºÐ°ÑÐµÑÑÐ²Ðµ Ð·Ð°Ð¿Ð°ÑÐ½Ð¾Ð³Ð¾ Ð²Ð°ÑÐ¸Ð°Ð½ÑÐ° ÑÐ¾Ð²Ð¼ÐµÑÑÐ¸Ð¼Ð¾ÑÑÐ¸.",
     ["When enabled, this build can be discovered by other EbonBuilds users through Public Builds."] = "ÐÑÐ»Ð¸ ÑÑÐ° Ð¾Ð¿ÑÐ¸Ñ Ð²ÐºÐ»ÑÑÐµÐ½Ð°, ÑÑÐ° ÑÐ±Ð¾ÑÐºÐ° Ð¼Ð¾Ð¶ÐµÑ Ð±ÑÑÑ Ð¾Ð±Ð½Ð°ÑÑÐ¶ÐµÐ½Ð° Ð´ÑÑÐ³Ð¸Ð¼Ð¸ Ð¿Ð¾Ð»ÑÐ·Ð¾Ð²Ð°ÑÐµÐ»ÑÐ¼Ð¸ EbonBuilds Ð´Ð¾ Public Builds.",
     ["When every offer is banned"] = "ÐÐ¾Ð³Ð´Ð° ÐºÐ°Ð¶Ð´Ð¾Ðµ Ð¿ÑÐµÐ´Ð»Ð¾Ð¶ÐµÐ½Ð¸Ðµ Ð·Ð°Ð¿ÑÐµÑÐµÐ½Ð¾",
+    ["When gray-only is off, allows white-quality vendor trash. Ignored while gray-only is on."] = "Если параметр «Только серый» отключен, разрешается использовать мусор от поставщиков белого качества. Игнорируется, пока включен только серый цвет.",
     ["Windows & Tools"] = "ÐÐºÐ½Ð° Ð¸ Ð¸Ð½ÑÑÑÑÐ¼ÐµÐ½ÑÑ",
     ["Wipes score samples for the active strategy revision and all local appearance-rate data. Older strategy streams remain isolated and bounded. Worth doing when you want a clean current baseline."] = "Ð£Ð´Ð°Ð»ÐµÐ½Ð¸Ðµ Ð´Ð°Ð½Ð½ÑÑ Ð¾ÑÐµÐ½Ð¸Ð²Ð°ÐµÑ Ð¾Ð±ÑÐ°Ð·ÑÑ Ð´Ð»Ñ Ð°ÐºÑÐ¸Ð²Ð½Ð¾Ð¹ Ð²ÐµÑÑÐ¸Ð¸ ÑÑÑÐ°ÑÐµÐ³Ð¸Ð¸ Ð¸ Ð²ÑÐµ Ð»Ð¾ÐºÐ°Ð»ÑÐ½ÑÐµ Ð´Ð°Ð½Ð½ÑÐµ Ð¾ ÑÐ°ÑÑÐ¾ÑÐµ Ð¿Ð¾ÑÐ²Ð»ÐµÐ½Ð¸Ñ. Ð¡ÑÐ°ÑÑÐµ Ð½Ð°Ð¿ÑÐ°Ð²Ð»ÐµÐ½Ð¸Ñ ÑÑÑÐ°ÑÐµÐ³Ð¸Ð¸ Ð¾ÑÑÐ°ÑÑÑÑ Ð¸Ð·Ð¾Ð»Ð¸ÑÐ¾Ð²Ð°Ð½Ð½ÑÐ¼Ð¸ Ð¸ Ð¾Ð³ÑÐ°Ð½Ð¸ÑÐµÐ½Ð½ÑÐ¼Ð¸. Ð­ÑÐ¾ ÑÑÐ¾Ð¸Ñ Ð´ÐµÐ»Ð°ÑÑ, ÐµÑÐ»Ð¸ Ð²Ð°Ð¼ Ð½ÑÐ¶ÐµÐ½ ÑÐ¸ÑÑÑÐ¹ ÑÐµÐºÑÑÐ¸Ð¹ Ð±Ð°Ð·Ð¾Ð²ÑÐ¹ ÑÑÐ¾Ð²ÐµÐ½Ñ.",
     ["With your OK, EbonBuilds tracks your DPS per Echo (via Details!, if installed) to power the Tuning Advisor, and shares those aggregates with other EbonBuilds players of your class. This is off until you decide -- and one checkbox in Settings, either way, if you change your mind later."] = "ÐÑÐ¸ Ð²Ð°ÑÐµÐ¼ Ð¾Ð´Ð¾Ð±ÑÐµÐ½Ð¸Ð¸ EbonBuilds Ð¾ÑÑÐ»ÐµÐ¶Ð¸Ð²Ð°ÐµÑ Ð²Ð°Ñ DPS Ð¿Ð¾ Echo (ÑÐµÑÐµÐ· Details!, ÐµÑÐ»Ð¸ Ð¾Ð½ ÑÑÑÐ°Ð½Ð¾Ð²Ð»ÐµÐ½) Ð´Ð»Ñ Ð¿Ð¸ÑÐ°Ð½Ð¸Ñ Tuning Advisor Ð¸ Ð´ÐµÐ»Ð¸ÑÑÑ ÑÑÐ¸Ð¼Ð¸ Ð¿Ð¾ÐºÐ°Ð·Ð°ÑÐµÐ»ÑÐ¼Ð¸ Ñ Ð´ÑÑÐ³Ð¸Ð¼Ð¸ Ð¸Ð³ÑÐ¾ÐºÐ°Ð¼Ð¸ EbonBuilds Ð²Ð°ÑÐµÐ³Ð¾ ÐºÐ»Ð°ÑÑÐ°. Ð­ÑÐ¾ Ð¾ÑÐºÐ»ÑÑÐµÐ½Ð¾, Ð¿Ð¾ÐºÐ° Ð²Ñ Ð½Ðµ ÑÐµÑÐ¸ÑÐµ, Ð¸ Ð² Ð»ÑÐ±Ð¾Ð¼ ÑÐ»ÑÑÐ°Ðµ Ð¾Ð´Ð¸Ð½ ÑÐ»Ð°Ð¶Ð¾Ðº Ð² Ð½Ð°ÑÑÑÐ¾Ð¹ÐºÐ°Ñ, ÐµÑÐ»Ð¸ Ð²Ñ Ð¿ÐµÑÐµÐ´ÑÐ¼Ð°ÐµÑÐµ Ð¿Ð¾Ð·Ð¶Ðµ.",
