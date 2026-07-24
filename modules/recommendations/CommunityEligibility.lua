@@ -43,7 +43,11 @@ function Eligibility.IsEligible(build, classToken, spec, options)
     options = type(options) == "table" and options or nil
     if type(build) ~= "table" or build.wizardMeta ~= nil or build.recommendationOrigin ~= nil then return false end
     if tostring(build.class or ""):upper() ~= tostring(classToken or ""):upper() then return false end
-    if not (options and options.anySpec) then
+    -- PE Echo Journal loadouts omit talent-spec; only admit them when the
+    -- caller already widened to same-class any-spec (or asked for anySpec).
+    if build.peSharedLoadout then
+        if not (options and options.anySpec) then return false end
+    elseif not (options and options.anySpec) then
         if (tonumber(build.spec) or 1) ~= (tonumber(spec) or 1) then return false end
     end
     return type(build.echoWeightsByRef) == "table" or type(build.echoWeights) == "table" or type(build.lockedEchoes) == "table"
@@ -197,6 +201,13 @@ function Eligibility.CollectSources(classToken, spec, options)
     end
     for id, build in pairs(EbonBuildsDB and EbonBuildsDB.builds or {}) do if build.isPublic then Consider(id, build) end end
     for id, build in pairs(EbonBuildsDB and EbonBuildsDB.remoteBuilds or {}) do Consider(id, build) end
+    -- PE Echo Journal community loadouts (ephemeral; never peer-synced).
+    local bridge = EbonBuilds.SharedLoadoutBridge
+    if bridge and type(bridge.ListPseudoBuilds) == "function" then
+        for _, build in ipairs(bridge.ListPseudoBuilds(classToken) or {}) do
+            Consider(build.id, build)
+        end
+    end
     table.sort(sources, function(a, b) return tostring(a._lastSeenAt or a.lastModified or "") > tostring(b._lastSeenAt or b.lastModified or "") end)
     return sources
 end

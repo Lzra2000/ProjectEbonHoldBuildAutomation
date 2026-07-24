@@ -16,7 +16,7 @@ instructions and download links also live on
 [GitHub Releases](https://github.com/Lzra2000/ProjectEbonHoldBuildAutomation/releases)
 and on the [Releases page](https://lzra2000.github.io/ProjectEbonHoldBuildAutomation/releases/).
 
-[Unreleased]: https://github.com/Lzra2000/ProjectEbonHoldBuildAutomation/compare/v3.86.5...HEAD
+[Unreleased]: https://github.com/Lzra2000/ProjectEbonHoldBuildAutomation/compare/v3.86.6...HEAD
 
 ### Unreleased
 
@@ -32,6 +32,16 @@ and on the [Releases page](https://lzra2000.github.io/ProjectEbonHoldBuildAutoma
 - **Details_ProjectEbonhold 1.0.6-pe1:** **PE Proc Sources** was empty on Details segment **Overall Data** (and wrong/empty after `/reload`) because attribution lived only in a wiped in-memory CLEU map. Proc rows now store on each Details combat (`pe_proc_attribution`), merge into overall when Details accepts the segment, and the Custom Display reads the selected combat ? same model as DPS Overall. Custom Display script v7.
 - **Details_ProjectEbonhold 1.0.7-pe1:** Soft default `overall_clear_newboss = false` so Details **Overall Data** is not wiped on every new raid boss (stock default cleared it and felt like data not saving). One-shot migration for existing PE installs; re-enable wipe in Details options if desired. Docs: [details-project-ebonhold-pe.md](details-project-ebonhold-pe.md).
 
+### 3.86.6 (2026-07-24) -- Echo Journal community loadouts in Public Builds
+
+#### Added
+- **SharedLoadoutBridge:** ProjectEbonhold Echo Journal community loadouts (`GetSharedEchoLoadouts`) appear in Public Builds and feed CommunityEligibility as ephemeral pseudo-builds (`lockedEchoes` from PE echoes). Not stored in `remoteBuilds` / `Build.ListPublic()`, so peer WNT/BLD sync never rebroadcasts them.
+
+#### Changed
+- Public Builds Reload also requests PE shared loadouts; PE cards stay visible under any Spec filter (Echo Journal has no Spec field). Community evidence only admits PE loadouts on same-class any-spec widen.
+
+#### Tests
+- `tests/test_shared_loadout_bridge.lua` covers mapping, cache isolation from peer sync, eligibility widen, and title dedupe vs peer builds.
 ### 3.86.5 (2026-07-24) -- Apply visible recommendations
 
 #### Added

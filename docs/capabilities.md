@@ -66,6 +66,7 @@ nil/false returns, not capability gates:
 |--------|---------------|
 | `BuildOverview.lua` | `lockPerk`, `unlockPerk`, `lockedPerks`, `maxPermanentEchoes`, `snapshotEchoes` |
 | `TomeAtlasView.lua` | `tomeToggle` |
+| `SharedLoadoutBridge.lua` | `sharedLoadouts` (Echo Journal community loadouts for Public Builds / evidence) |
 
 Automation reads pending state via `GetPendingAction()` / `GetBoardState()` rather
 than capability flags directly, but relies on `pendingFlags` / `pendingBuildSlot`

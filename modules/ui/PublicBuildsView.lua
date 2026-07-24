@@ -69,7 +69,27 @@ local SORT_LABELS = {
 ------------------------------------------------------------------------
 
 local function FetchPublicBuilds()
-    return EbonBuilds.Build.ListPublic()
+    -- Peer/local public builds only from ListPublic (also what Sync relays).
+    -- PE Echo Journal shared loadouts are merged here as ephemeral cards --
+    -- never written into remoteBuilds, so they are not rebroadcast.
+    local out = EbonBuilds.Build.ListPublic()
+    local bridge = EbonBuilds.SharedLoadoutBridge
+    if not (bridge and bridge.ListPseudoBuilds) then return out end
+
+    local seenTitle = {}
+    for _, b in ipairs(out) do
+        local key = (b.title or ""):lower():gsub("^%s+", ""):gsub("%s+$", "")
+        if key ~= "" then seenTitle[key] = true end
+    end
+    for _, b in ipairs(bridge.ListPseudoBuilds()) do
+        local key = (b.title or ""):lower():gsub("^%s+", ""):gsub("%s+$", "")
+        -- Prefer richer peer-synced copies when titles collide.
+        if key == "" or not seenTitle[key] then
+            out[#out + 1] = b
+            if key ~= "" then seenTitle[key] = true end
+        end
+    end
+    return out
 end
 
 ------------------------------------------------------------------------
@@ -1328,7 +1348,9 @@ GetFilteredBuilds = function()
     local filtered = {}
     for _, build in ipairs(all) do
         if filterClass and build.class ~= filterClass then
-        elseif filterSpec and build.spec ~= filterSpec then
+        -- PE shared loadouts have no talent-spec; keep them visible under any
+        -- Spec filter once the class matches (Echo Journal has no Spec field).
+        elseif filterSpec and not build.peSharedLoadout and build.spec ~= filterSpec then
         elseif not MatchesSearch(build, filterText) then
         else
             -- Own builds are now INCLUDED (not hidden) -- seeing your own
@@ -1462,6 +1484,11 @@ local function BuildViewFrame(parent)
             EbonBuilds.Sync.RequestSync(filterClass)
         else
             EbonBuilds.Sync.RequestSyncAllClasses()
+        end
+        -- Also refresh PE Echo Journal community loadouts (separate source).
+        if EbonBuilds.SharedLoadoutBridge then
+            EbonBuilds.SharedLoadoutBridge.Request(filterClass or "")
+            EbonBuilds.SharedLoadoutBridge.RefreshFromService()
         end
     end)
     refreshBtn:SetScript("OnUpdate", function(self, dt)
