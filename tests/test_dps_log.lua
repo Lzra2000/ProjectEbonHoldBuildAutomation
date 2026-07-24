@@ -145,7 +145,8 @@ end
 
 equal(DpsLog.FormatDps(950), "950", "sub-1k DPS is whole number")
 equal(DpsLog.FormatDps(1500), "1.5k", "1k-10k DPS uses one decimal k")
-equal(DpsLog.FormatDps(12500), "13k", "10k+ DPS uses whole k")
+equal(DpsLog.FormatDps(12400), "12k", "10k+ DPS uses whole k")
+equal(DpsLog.FormatDps(1500000), "1.5m", "1m+ DPS uses one decimal m")
 equal(DpsLog.FormatSampleDuration(45), "45s", "sub-minute duration")
 equal(DpsLog.FormatSampleDuration(125), "2m 05s", "minute+duration")
 equal(DpsLog.FormatBestSample(nil, true), "", "no session yields empty best text")
