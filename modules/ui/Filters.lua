@@ -5,6 +5,8 @@ local addonName, EbonBuilds = ...
 
 EbonBuilds.Filters = {}
 
+
+local L = EbonBuilds.L
 local FAMILIES = { "Tank", "Survivability", "Healer", "Caster DPS", "Melee DPS", "Ranged DPS", "No family" }
 local QUALITY_OPTIONS = { { label = "All qualities", quality = nil } }
 for _, quality in ipairs(EbonBuilds.Quality.ORDER or {}) do
@@ -107,17 +109,17 @@ end
 
 local function UpdateToggleVisuals()
     if allClassesToggle then
-        allClassesToggle:SetText(state.showAllClasses and "All classes: ON" or "All classes")
+        allClassesToggle:SetText(state.showAllClasses and L["All classes: ON"] or L["All classes"])
         EbonBuilds.Theme.SetTabSelected(allClassesToggle, state.showAllClasses)
     end
     if learnedToggle then
         local text
         if state.learnedOnly and not state.learnedReady then
-            text = "Learned only: ..."
+            text = L["Learned only: ..."]
         elseif state.learnedOnly then
-            text = "Learned only: ON"
+            text = L["Learned only: ON"]
         else
-            text = "Learned only"
+            text = L["Learned only"]
         end
         learnedToggle:SetText(text)
         EbonBuilds.Theme.SetTabSelected(learnedToggle, state.learnedOnly)
@@ -202,7 +204,7 @@ local function CreateSearchBox(bar)
 
     local placeholder = container:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     placeholder:SetPoint("LEFT", edit, "LEFT", 0, 0)
-    placeholder:SetText("Search echoes...")
+    placeholder:SetText(L["Search echoes..."])
     placeholder:SetTextColor(unpack(EbonBuilds.Theme.TEXT_MUTED))
     searchPlaceholder = placeholder
 
@@ -226,7 +228,7 @@ local function CreateSearchBox(bar)
         edit:ClearFocus()
         UpdateSearchPlaceholder()
     end)
-    EbonBuilds.Theme.AttachTooltip(clear, "Clear search", "Remove the current Echo name filter.")
+    EbonBuilds.Theme.AttachTooltip(clear, L["Clear search"], L["Remove the current Echo name filter."])
 
     edit:SetScript("OnTextChanged", function(self)
         local text = self:GetText() or ""
@@ -251,7 +253,7 @@ function EbonBuilds.Filters.ShowAllClasses()
 end
 
 local function CreateQualityDropdown(bar, leftAnchor)
-    local dropdown = EbonBuilds.Theme.CreateDropdown(bar, 150, "All qualities")
+    local dropdown = EbonBuilds.Theme.CreateDropdown(bar, 150, L["All qualities"])
     dropdown:SetPoint("LEFT", leftAnchor, "RIGHT", 10, 0)
     dropdown:SetMenuBuilder(function()
         local items = {}
@@ -277,12 +279,12 @@ local function UpdateFamilyLabel()
     if not familyDropdown then return end
     local count = 0
     for _ in pairs(state.families) do count = count + 1 end
-    familyDropdown:SetText(count == 0 and "All families" or ("Families (" .. count .. ")"))
+    familyDropdown:SetText(count == 0 and L["All families"] or string.format(L["Families (%d)"], count))
     familyDropdown:RefreshMenu()
 end
 
 local function CreateFamilyDropdown(bar, leftAnchor)
-    local dropdown = EbonBuilds.Theme.CreateDropdown(bar, 150, "All families", { multiSelect = true })
+    local dropdown = EbonBuilds.Theme.CreateDropdown(bar, 150, L["All families"], { multiSelect = true })
     dropdown:SetPoint("LEFT", leftAnchor, "RIGHT", 10, 0)
     familyDropdown = dropdown
     dropdown:SetMenuBuilder(function()
@@ -290,7 +292,7 @@ local function CreateFamilyDropdown(bar, leftAnchor)
         for _, family in ipairs(FAMILIES) do
             local fam = family
             items[#items + 1] = {
-                text = fam,
+                text = L[fam],
                 checked = state.families[fam] and true or false,
                 func = function()
                     -- Same broken toggle as issue #39: `x and nil or true`
@@ -313,14 +315,14 @@ local function CreateFamilyDropdown(bar, leftAnchor)
 end
 
 local function CreatePolicyDropdown(bar)
-    local dropdown = EbonBuilds.Theme.CreateDropdown(bar, 138, "All policies", { menuWidth = 230, rowHeight = 28 })
+    local dropdown = EbonBuilds.Theme.CreateDropdown(bar, 138, L["All policies"], { menuWidth = 230, rowHeight = 28 })
     dropdown:SetPoint("TOPLEFT", bar, "TOPLEFT", 248, -30)
     dropdown:SetMenuBuilder(function()
         local items = {
             {
-                text = "All policies",
+                text = L["All policies"],
                 checked = state.policy == nil,
-                func = function() state.policy = nil; dropdown:SetText("All policies"); Notify() end,
+                func = function() state.policy = nil; dropdown:SetText(L["All policies"]); Notify() end,
             },
         }
         local api = EbonBuilds.EchoPolicy
@@ -329,12 +331,12 @@ local function CreatePolicyDropdown(bar)
                 local policyKey = policy
                 local definition = api.Definition(policyKey)
                 items[#items + 1] = {
-                    text = definition.label,
+                    text = L[definition.label],
                     checked = state.policy == policyKey,
                     color = definition.color,
-                    tooltipTitle = definition.label,
-                    tooltipBody = definition.description,
-                    func = function() state.policy = policyKey; dropdown:SetText(definition.shortLabel or definition.label); Notify() end,
+                    tooltipTitle = L[definition.label],
+                    tooltipBody = L[definition.description],
+                    func = function() state.policy = policyKey; dropdown:SetText(L[definition.shortLabel or definition.label]); Notify() end,
                 }
             end
         end
@@ -345,7 +347,7 @@ local function CreatePolicyDropdown(bar)
 end
 
 local function CreateBulkPolicyDropdown(bar)
-    local dropdown = EbonBuilds.Theme.CreateDropdown(bar, 120, "Set results", { menuWidth = 250, rowHeight = 28 })
+    local dropdown = EbonBuilds.Theme.CreateDropdown(bar, 120, L["Set results"], { menuWidth = 250, rowHeight = 28 })
     dropdown:SetPoint("TOPLEFT", bar, "TOPLEFT", 394, -30)
     dropdown:SetMenuBuilder(function()
         local items = {}
@@ -355,15 +357,15 @@ local function CreateBulkPolicyDropdown(bar)
             local policyKey = policy
             local definition = api.Definition(policyKey)
             items[#items + 1] = {
-                text = definition.label,
+                text = L[definition.label],
                 color = definition.color,
-                tooltipTitle = "Apply to visible results",
-                tooltipBody = "Stage " .. definition.label .. " for every Echo matching the current filters. Cancel Build editing to discard the bulk change.",
+                tooltipTitle = L["Apply to visible results"],
+                tooltipBody = string.format(L["Stage %s for every Echo matching the current filters. Cancel Build editing to discard the bulk change."], L[definition.label]),
                 func = function()
                     local count = EbonBuilds.EchoTable and EbonBuilds.EchoTable.ApplyPolicyToFiltered and EbonBuilds.EchoTable.ApplyPolicyToFiltered(policyKey) or 0
-                    dropdown:SetText("Set results")
+                    dropdown:SetText(L["Set results"])
                     if EbonBuilds.Toast and EbonBuilds.Toast.Show then
-                        EbonBuilds.Toast.Show(string.format("%s applied to %d filtered Echo%s", definition.label, count, count == 1 and "" or "es"))
+                        EbonBuilds.Toast.Show(string.format(L["%s applied to %d filtered Echo%s"], L[definition.label], count, count == 1 and "" or "es"))
                     end
                 end,
             }
@@ -371,7 +373,7 @@ local function CreateBulkPolicyDropdown(bar)
         return items
     end)
     bulkPolicyDropdown = dropdown
-    EbonBuilds.Theme.AttachTooltip(dropdown._button or dropdown, "Bulk policy", "Apply one policy to every Echo matching the current search, quality, family, class, learned, and policy filters. Changes remain staged until Save.")
+    EbonBuilds.Theme.AttachTooltip(dropdown._button or dropdown, L["Bulk policy"], L["Apply one policy to every Echo matching the current search, quality, family, class, learned, and policy filters. Changes remain staged until Save."])
     return dropdown
 end
 
@@ -386,29 +388,29 @@ end
 
 local function CreateAllClassesToggle(bar)
     allClassesToggle = CreateFilterToggle(
-        bar, "All classes", 0, 108,
+        bar, L["All classes"], 0, 108,
         function()
             state.showAllClasses = not state.showAllClasses
             UpdateToggleVisuals()
             Notify()
         end,
-        "Show all classes",
-        "Include Echoes that are not normally available to the build's selected class."
+        L["Show all classes"],
+        L["Include Echoes that are not normally available to the build's selected class."]
     )
     return allClassesToggle
 end
 
 local function CreateLearnedToggle(bar)
     learnedToggle = CreateFilterToggle(
-        bar, "Learned only", 116, 124,
+        bar, L["Learned only"], 116, 124,
         function()
             state.learnedOnly = not state.learnedOnly
             state.learnedReady = true
             UpdateToggleVisuals()
             Notify()
         end,
-        "Hide unlearned Echoes",
-        "When enabled, the priorities list shows only Echoes your character has learned. Discovery data is used first, with the Echoes spellbook as a compatibility fallback."
+        L["Hide unlearned Echoes"],
+        L["When enabled, the priorities list shows only Echoes your character has learned. Discovery data is used first, with the Echoes spellbook as a compatibility fallback."]
     )
     return learnedToggle
 end
@@ -420,7 +422,7 @@ local function ChipDefinitionList()
             label = EbonBuilds.Quality.LABELS[state.quality] or tostring(state.quality),
             clear = function()
                 state.quality = nil
-                if qualityDropdown then qualityDropdown:SetText("All qualities") end
+                if qualityDropdown then qualityDropdown:SetText(L["All qualities"]) end
             end,
         }
     end
@@ -430,7 +432,7 @@ local function ChipDefinitionList()
             label = definition.shortLabel or definition.label,
             clear = function()
                 state.policy = nil
-                if policyDropdown then policyDropdown:SetText("All policies") end
+                if policyDropdown then policyDropdown:SetText(L["All policies"]) end
             end,
         }
     end
@@ -441,10 +443,10 @@ local function ChipDefinitionList()
         end
     end
     if state.showAllClasses then
-        out[#out + 1] = { label = "All classes", clear = function() state.showAllClasses = false; UpdateToggleVisuals() end }
+        out[#out + 1] = { label = L["All classes"], clear = function() state.showAllClasses = false; UpdateToggleVisuals() end }
     end
     if state.learnedOnly then
-        out[#out + 1] = { label = "Learned only", clear = function() state.learnedOnly = false; state.learnedReady = true; UpdateToggleVisuals() end }
+        out[#out + 1] = { label = L["Learned only"], clear = function() state.learnedOnly = false; state.learnedReady = true; UpdateToggleVisuals() end }
     end
     return out
 end
@@ -462,7 +464,7 @@ UpdateChips = function()
             chipPool[i] = chip
         end
         chip._chipLabel = chipDef.label
-        chip:SetText(chipDef.label .. "  x")
+        chip:SetText(L[chipDef.label] .. "  x")
         chip:SetWidth(math.max(54, 28 + math.min(150, #chipDef.label * 6)))
         chip:ClearAllPoints()
         chip:SetPoint("TOPLEFT", chipFrame, "TOPLEFT", x, 0)
@@ -545,8 +547,8 @@ function EbonBuilds.Filters.Reset()
     state.text, state.quality, state.policy, state.families = "", nil, nil, {}
     state.showAllClasses, state.learnedOnly, state.learnedReady = false, false, true
     if searchEditBox then searchEditBox:SetText(""); searchEditBox:ClearFocus() end
-    if qualityDropdown then qualityDropdown:SetText("All qualities") end
-    if policyDropdown then policyDropdown:SetText("All policies") end
+    if qualityDropdown then qualityDropdown:SetText(L["All qualities"]) end
+    if policyDropdown then policyDropdown:SetText(L["All policies"]) end
     UpdateFamilyLabel()
     UpdateToggleVisuals()
     UpdateSearchPlaceholder()
@@ -602,16 +604,16 @@ function EbonBuilds.Filters.Init(parent)
     resetButton = resetBtn
     resetBtn:SetSize(58, 22)
     resetBtn:SetPoint("TOPRIGHT", bar, "TOPRIGHT", 0, 0)
-    resetBtn:SetText("Reset")
+    resetBtn:SetText(L["Reset"])
     resetBtn:SetScript("OnClick", EbonBuilds.Filters.Reset)
-    EbonBuilds.Theme.AttachTooltip(resetBtn, "Reset filters", "Show all Echoes for the selected class and clear the search.")
+    EbonBuilds.Theme.AttachTooltip(resetBtn, L["Reset filters"], L["Show all Echoes for the selected class and clear the search."])
 
     resultLabel = bar:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     resultLabel:SetPoint("TOPRIGHT", bar, "TOPRIGHT", 0, -33)
     resultLabel:SetWidth(170)
     resultLabel:SetJustifyH("RIGHT")
     resultLabel:SetTextColor(unpack(EbonBuilds.Theme.TEXT_MUTED))
-    resultLabel:SetText("0 echoes")
+    resultLabel:SetText(L["0 echoes"])
 
     resultHitFrame = CreateFrame("Frame", nil, bar)
     if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
@@ -625,14 +627,14 @@ function EbonBuilds.Filters.Init(parent)
         local summary = self._policySummary
         if not api or not summary then return end
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:AddLine("Configured Echo policies", 1, 0.82, 0)
-        GameTooltip:AddLine("Banish on Sight: " .. tostring(summary[api.BANISH_ON_SIGHT] or 0), 1, 0.35, 0.30)
-        GameTooltip:AddLine("Banish After Pick: " .. tostring(summary[api.BANISH_AFTER_PICK] or 0), 1, 0.62, 0.24)
-        GameTooltip:AddLine("Ignore After Pick: " .. tostring(summary[api.IGNORE_AFTER_PICK] or 0), 0.40, 0.72, 1)
-        GameTooltip:AddLine("Never Pick: " .. tostring(summary[api.NEVER_PICK] or 0), 0.96, 0.42, 0.52)
+        GameTooltip:AddLine(L["Configured Echo policies"], 1, 0.82, 0)
+        GameTooltip:AddLine(L["Banish on Sight: "] .. tostring(summary[api.BANISH_ON_SIGHT] or 0), 1, 0.35, 0.30)
+        GameTooltip:AddLine(L["Banish After Pick: "] .. tostring(summary[api.BANISH_AFTER_PICK] or 0), 1, 0.62, 0.24)
+        GameTooltip:AddLine(L["Ignore After Pick: "] .. tostring(summary[api.IGNORE_AFTER_PICK] or 0), 0.40, 0.72, 1)
+        GameTooltip:AddLine(L["Never Pick: "] .. tostring(summary[api.NEVER_PICK] or 0), 0.96, 0.42, 0.52)
         if (summary.total or 0) >= 30 then
             GameTooltip:AddLine(" ")
-            GameTooltip:AddLine("Many restrictive policies can cause Autopilot to pause when no eligible Echo remains.", 1, 0.72, 0.20, true)
+            GameTooltip:AddLine(L["Many restrictive policies can cause Autopilot to pause when no eligible Echo remains."], 1, 0.72, 0.20, true)
         end
         GameTooltip:Show()
     end)
@@ -644,7 +646,7 @@ function EbonBuilds.Filters.Init(parent)
     chipFrame:SetHeight(20)
     local empty = chipFrame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     empty:SetPoint("LEFT", chipFrame, "LEFT", 2, 0)
-    empty:SetText("No active filters")
+    empty:SetText(L["No active filters"])
     empty:SetTextColor(0.48, 0.50, 0.55, 1)
     chipFrame._empty = empty
     bar:SetScript("OnSizeChanged", LayoutControls)

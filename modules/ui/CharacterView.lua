@@ -7,6 +7,8 @@ local addonName, EbonBuilds = ...
 
 EbonBuilds.CharacterView = {}
 
+
+local L = EbonBuilds.L
 local V = EbonBuilds.CharacterView
 
 -- Pure data layer, split out to modules/build/CharacterViewData.lua (issue #19).
@@ -112,6 +114,50 @@ local function SetStatusText(label, text, kind)
 end
 
 V._HasCompleteTalentCatalogForTests = HasCompleteTalentCatalog
+
+local function ComparisonText(result)
+    if not result or result.reason == "NO_SNAPSHOT" then
+        return "No saved talent snapshot"
+    elseif result.reason == "CLASS_MISMATCH" then
+        return "Saved snapshot belongs to another class"
+    elseif not result.comparable then
+        return "Talent comparison unavailable"
+    elseif result.unknownTalentCount > 0 then
+        return string.format(L["Incomplete data · %d unresolved · %d ranks missing"],
+            result.unknownTalentCount, result.missingRanks)
+    elseif result.missingRanks > 0 then
+        return string.format(L["Needs attention · %d ranks missing · %d additional"],
+            result.missingRanks, result.additionalRanks)
+    elseif result.additionalRanks > 0 then
+        return string.format(L["Snapshot matched · %d additional ranks"], result.additionalRanks)
+    end
+    return "Saved talent snapshot matched"
+end
+
+local function ComparisonKind(result)
+    if not result or not result.comparable then return "warning" end
+    if result.missingRanks > 0 or result.unknownTalentCount > 0 then return "warning" end
+    return "success"
+end
+
+local function BuildGearSummary(gear)
+    local equipped, resolved, pending = 0, 0, 0
+    for _, slot in ipairs(EbonBuilds.CharacterSnapshot.EQUIPMENT_SLOTS or {}) do
+        local item = gear and gear[slot.id]
+        if item then
+            equipped = equipped + 1
+            if item.resolved then resolved = resolved + 1 else pending = pending + 1 end
+        end
+    end
+    return {
+        total = #(EbonBuilds.CharacterSnapshot.EQUIPMENT_SLOTS or {}),
+        equipped = equipped,
+        resolved = resolved,
+        pending = pending,
+        empty = #(EbonBuilds.CharacterSnapshot.EQUIPMENT_SLOTS or {}) - equipped,
+    }
+end
+
 V._BuildGearSummaryForTests = BuildGearSummary
 V._LayoutForTests = Data.LayoutBreakpoints
 V._ResolveViewportWidthForTests = ResolveViewportWidth
@@ -231,7 +277,7 @@ local function CreateOverviewPage(parent)
     Theme.ApplyCard(O.talents)
     O.talentTitle = O.talents:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     O.talentTitle:SetPoint("TOPLEFT", O.talents, "TOPLEFT", 14, -14)
-    O.talentTitle:SetText("Talent snapshot")
+    O.talentTitle:SetText(L["Talent snapshot"])
     O.talentTitle:SetTextColor(unpack(Theme.ACCENT_GOLD))
     O.talentBody = O.talents:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     O.talentBody:SetPoint("TOPLEFT", O.talentTitle, "BOTTOMLEFT", 0, -10)
@@ -242,14 +288,14 @@ local function CreateOverviewPage(parent)
     O.talentBtn = Theme.CreateButton(O.talents, "gold")
     O.talentBtn:SetSize(112, 24)
     O.talentBtn:SetPoint("BOTTOMLEFT", O.talents, "BOTTOMLEFT", 14, 12)
-    O.talentBtn:SetText("Open Talents")
+    O.talentBtn:SetText(L["Open Talents"])
     O.talentBtn:SetScript("OnClick", function() ShowSubview("talents") end)
 
     O.gear = CreateFrame("Frame", nil, page)
     Theme.ApplyCard(O.gear)
     O.gearTitle = O.gear:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     O.gearTitle:SetPoint("TOPLEFT", O.gear, "TOPLEFT", 14, -14)
-    O.gearTitle:SetText("Equipped gear")
+    O.gearTitle:SetText(L["Equipped gear"])
     O.gearTitle:SetTextColor(unpack(Theme.ACCENT_GOLD))
     O.gearBody = O.gear:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     O.gearBody:SetPoint("TOPLEFT", O.gearTitle, "BOTTOMLEFT", 0, -10)
@@ -260,14 +306,14 @@ local function CreateOverviewPage(parent)
     O.gearBtn = Theme.CreateButton(O.gear, "gold")
     O.gearBtn:SetSize(104, 24)
     O.gearBtn:SetPoint("BOTTOMLEFT", O.gear, "BOTTOMLEFT", 14, 12)
-    O.gearBtn:SetText("Open Gear")
+    O.gearBtn:SetText(L["Open Gear"])
     O.gearBtn:SetScript("OnClick", function() ShowSubview("gear") end)
 
     O.glyphs = CreateFrame("Frame", nil, page)
     Theme.ApplyCard(O.glyphs)
     O.glyphTitle = O.glyphs:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     O.glyphTitle:SetPoint("TOPLEFT", O.glyphs, "TOPLEFT", 14, -12)
-    O.glyphTitle:SetText("Glyphs")
+    O.glyphTitle:SetText(L["Glyphs"])
     O.glyphTitle:SetTextColor(unpack(Theme.ACCENT_GOLD))
     O.glyphBody = O.glyphs:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     O.glyphBody:SetPoint("LEFT", O.glyphTitle, "RIGHT", 16, 0)
@@ -310,11 +356,11 @@ local function RefreshOverview()
     if stored then
         O.name:SetText((displayed.characterName or "Saved character snapshot")
             .. " · " .. ClassLabel(displayed.classToken))
-        O.talentPoints:SetText("Saved talent distribution: " .. TalentPointsText(displayed))
+        O.talentPoints:SetText(L["Saved talent distribution: "] .. TalentPointsText(displayed))
         SetStatusText(O.talentState, "Captured " .. (displayed.capturedAt or "at an unknown time"), "success")
     else
-        O.name:SetText("No character snapshot · " .. ClassLabel(EditingClassToken()))
-        O.talentPoints:SetText("Saved talent distribution: none")
+        O.name:SetText(L["No character snapshot · "] .. ClassLabel(EditingClassToken()))
+        O.talentPoints:SetText(L["Saved talent distribution: none"])
         SetStatusText(O.talentState, "Adopt a matching character snapshot to populate this build.", "warning")
     end
 
@@ -322,11 +368,11 @@ local function RefreshOverview()
         and "\nLegacy talent visuals restored from the built-in 3.3.5a catalog."
         or stored and not HasCompleteTalentCatalog(displayed)
         and "\nLegacy snapshot: only originally stored talent nodes are available." or ""
-    O.talentBody:SetText("Snapshot distribution: "
+    O.talentBody:SetText(L["Snapshot distribution: "]
         .. (stored and TalentPointsText(displayed) or "not adopted") .. catalogNote)
     local gear = BuildGearSummary(displayed.gear)
     O.gearBody:SetText(string.format(
-        "%d of %d snapshotted slots equipped\n%d resolved · %d pending · %d empty\nScores use the active build's spec model.",
+        L["%d of %d snapshotted slots equipped\n%d resolved · %d pending · %d empty\nScores use the active build's spec model."],
         gear.equipped, gear.total, gear.resolved, gear.pending, gear.empty))
 
     local major, minor = {}, {}
@@ -336,7 +382,7 @@ local function RefreshOverview()
             targetList[#targetList + 1] = glyph.name or ("Glyph " .. glyph.spellId)
         end
     end
-    O.glyphBody:SetText(string.format("Major %d/3 · Minor %d/3", #major, #minor))
+    O.glyphBody:SetText(string.format(L["Major %d/3 · Minor %d/3"], #major, #minor))
 end
 
 ------------------------------------------------------------------------
@@ -387,6 +433,15 @@ local function FindSelectedTalent()
     return first
 end
 
+local function TalentStatusText(state)
+    if not state then return "Saved snapshot allocation" end
+    if state.state == "exact" then return "Matches saved snapshot" end
+    if state.state == "missing" then return string.format(L["Missing %d saved ranks"], -state.delta) end
+    if state.state == "additional" then return string.format(L["%d additional ranks"], state.delta) end
+    if state.state == "unknown" then return "Saved talent could not be resolved" end
+    return "Unselected in both"
+end
+
 local function TalentSpellId(tab, talent)
     return Data.TalentSpellId(displayed.classToken, tab, talent)
 end
@@ -412,23 +467,40 @@ local function ShowTalentTooltip(button)
     if not usedNative then
         GameTooltip:ClearLines()
         GameTooltip:AddLine(talent.name or "Talent", 1, 0.82, 0)
-        GameTooltip:AddLine("The native description is unavailable for this legacy talent record.",
+        GameTooltip:AddLine(L["The native description is unavailable for this legacy talent record."],
             0.72, 0.72, 0.76, true)
     end
     GameTooltip:AddLine(" ")
     local state = button._comparison
-    GameTooltip:AddLine(string.format("Snapshot: %d/%d", tonumber(talent.rank) or 0,
+    GameTooltip:AddLine(string.format(L["Snapshot: %d/%d"], tonumber(talent.rank) or 0,
         tonumber(talent.maxRank) or 0), 0.82, 0.82, 0.86)
     if state then
-        GameTooltip:AddLine(string.format("Saved snapshot: %d/%d", state.snapshot or 0,
+        GameTooltip:AddLine(string.format(L["Saved snapshot: %d/%d"], state.snapshot or 0,
             state.maxRank or talent.maxRank or 0), 0.82, 0.82, 0.86)
         GameTooltip:AddLine(TalentStatusText(state), 1, 0.82, 0)
     end
     GameTooltip:Show()
 end
 
-local function GlyphPresentationForDisplay()
-    return GlyphPresentation(displayed.glyphs)
+local function GlyphPresentation()
+    local major, minor = {}, {}
+    for socket = 1, 6 do
+        local glyph = displayed.glyphs and (displayed.glyphs[socket]
+            or displayed.glyphs[tostring(socket)])
+        if glyph and glyph.spellId then
+            local name = glyph.name
+            if (not name or name == "") and GetSpellInfo then name = GetSpellInfo(glyph.spellId) end
+            local kind = glyph.kind or EbonBuilds.CharacterSnapshot.GLYPH_SOCKET_TYPE[socket]
+            local target = kind == "major" and major or minor
+            target[#target + 1] = name or ("Glyph " .. tostring(glyph.spellId))
+        end
+    end
+
+    local lines = {}
+    for _, name in ipairs(major) do lines[#lines + 1] = "|cffffd100M|r · " .. name end
+    for _, name in ipairs(minor) do lines[#lines + 1] = "|cff7fc8ffm|r · " .. name end
+    if #lines == 0 then lines[1] = "No glyphs stored in this snapshot." end
+    return string.format(L["Glyphs · Major %d/3 · Minor %d/3"], #major, #minor), table.concat(lines, "\n")
 end
 
 V._GlyphPresentationForTests = GlyphPresentationForDisplay
@@ -438,7 +510,7 @@ local function ApplyTalentNodeVisual(button)
     if not talent then return end
     local displayRank = TalentDisplayRank(talent, state)
     local maxRank = tonumber(talent.maxRank) or state and state.maxRank or 0
-    button._rank:SetText(string.format("%d/%d", displayRank, maxRank))
+    button._rank:SetText(string.format(L["%d/%d"], displayRank, maxRank))
     button._marker:SetText("")
 
     local border, background = Theme.BORDER_DIM, { 0.055, 0.055, 0.075, 0.98 }
@@ -473,23 +545,23 @@ end
 local function RefreshTalentInspector()
     local talent = FindSelectedTalent()
     if not talent then
-        TUI.inspectorTitle:SetText("No talent selected")
+        TUI.inspectorTitle:SetText(L["No talent selected"])
         TUI.inspectorRank:SetText("")
-        TUI.inspectorStatus:SetText("No talent data is available for this tree.")
+        TUI.inspectorStatus:SetText(L["No talent data is available for this tree."])
         TUI.inspectorBody:SetText("")
         return
     end
     local state = TalentComparison(TUI.activeTree, talent)
     TUI.inspectorIcon:SetTexture(talent.icon or "Interface\\Icons\\INV_Misc_QuestionMark")
     TUI.inspectorTitle:SetText(talent.name or "Talent")
-    TUI.inspectorRank:SetText(string.format("Snapshot %d/%d%s", tonumber(talent.rank) or 0,
-        tonumber(talent.maxRank) or 0, state and string.format(" · Saved %d/%d",
+    TUI.inspectorRank:SetText(string.format(L["Snapshot %d/%d%s"], tonumber(talent.rank) or 0,
+        tonumber(talent.maxRank) or 0, state and string.format(L[" · Saved %d/%d"],
             state.snapshot or 0, state.maxRank or talent.maxRank or 0) or ""))
     SetStatusText(TUI.inspectorStatus, TalentStatusText(state),
         state and state.state == "exact" and "success"
         or state and (state.state == "missing" or state.state == "unknown") and "warning" or nil)
     TUI.inspectorBody:SetText(string.format(
-        "Tree position: tier %d, column %d\n%s\n\nHover the talent icon\nfor the full game description.",
+        L["Tree position: tier %d, column %d\n%s\n\nHover the talent icon\nfor the full game description."],
         tonumber(talent.tier) or 0, tonumber(talent.column) or 0,
         talent.available == false and "Prerequisites are not currently met." or "Talent is currently available."))
 end
@@ -763,10 +835,10 @@ local function RenderTalentList()
         row._talent, row._comparison, row._tab = talent, state, TUI.activeTree
         row._key = EbonBuilds.CharacterSnapshot.TalentKey(TUI.activeTree, talent)
         row._icon:SetTexture(talent.icon or "Interface\\Icons\\INV_Misc_QuestionMark")
-        row._name:SetText(string.format("Tier %d · %s", talent.tier or 0, talent.name or "Talent"))
+        row._name:SetText(string.format(L["Tier %d · %s"], talent.tier or 0, talent.name or "Talent"))
         row._state:SetText(TalentStatusText(state))
-        row._rank:SetText(string.format("%d/%d%s", talent.rank or 0, talent.maxRank or 0,
-            state and string.format("  saved %d", state.snapshot or 0) or ""))
+        row._rank:SetText(string.format(L["%d/%d%s"], talent.rank or 0, talent.maxRank or 0,
+            state and string.format(L["  saved %d"], state.snapshot or 0) or ""))
         local border = state and state.state == "exact" and Theme.SUCCESS
             or state and state.state == "missing" and Theme.WARNING
             or state and state.state == "additional" and { 0.25, 0.65, 1, 1 }
@@ -797,10 +869,10 @@ local function RefreshTalentControls()
     for tab = 1, 3 do
         local tree, button = displayed.talents and displayed.talents[tab], TUI.treeButtons[tab]
         if tree then
-            button:SetText(string.format("%s · %d", tree.name or ("Tree " .. tab), tree.points or 0))
+            button:SetText(string.format(L["%s · %d"], tree.name or ("Tree " .. tab), tree.points or 0))
             button:Enable()
         else
-            button:SetText("Tree " .. tab)
+            button:SetText(L["Tree "] .. tab)
             button:Disable()
         end
         Theme.SetTabSelected(button, tab == TUI.activeTree)
@@ -1077,7 +1149,7 @@ local function RefreshGearInspector()
     if not item then
         G.inspectorIcon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
         G.inspectorIcon:SetVertexColor(0.4, 0.4, 0.45, 0.55)
-        G.itemName:SetText("Empty slot")
+        G.itemName:SetText(L["Empty slot"])
         G.itemName:SetTextColor(unpack(Theme.TEXT_MUTED))
         G.metadata:SetText(slot and slot.cosmetic and "Cosmetic slot · not scored" or "No item equipped")
         G.score:SetText("")
@@ -1091,36 +1163,36 @@ local function RefreshGearInspector()
     G.itemName:SetText(item.name or item.link or "Item data pending")
     G.itemName:SetTextColor(unpack(QUALITY_COLORS[item.quality] or QUALITY_COLORS[1]))
     if not item.resolved then
-        G.metadata:SetText("Item data pending from the server")
-        G.score:SetText("No score assigned while data is unresolved")
+        G.metadata:SetText(L["Item data pending from the server"])
+        G.score:SetText(L["No score assigned while data is unresolved"])
         G.stats:SetText("")
         SetStatusText(G.warning, "Unknown data is not treated as zero.", "warning")
         return
     end
 
     local affix = SavedItemAffix(item)
-    G.metadata:SetText(string.format("Item level %s%s\nAffix: %s", tostring(item.itemLevel or "?"),
+    G.metadata:SetText(string.format(L["Item level %s%s\nAffix: %s"], tostring(item.itemLevel or "?"),
         item.itemSubType and " · " .. item.itemSubType or "", affix or "none"))
     local specKey = SpecKeyForContext()
     if slot and slot.cosmetic then
-        G.score:SetText("Cosmetic slot · excluded from the gear model")
+        G.score:SetText(L["Cosmetic slot · excluded from the gear model"])
         G.stats:SetText("")
         G.warning:SetText("")
         return
     elseif not specKey or not EbonBuilds.GearScore.HasWeights(specKey) then
-        G.score:SetText("No scoring profile for the edited build")
+        G.score:SetText(L["No scoring profile for the edited build"])
         G.stats:SetText("")
         SetStatusText(G.warning, "The item is shown without a modeled verdict.", "warning")
         return
     end
 
     local score = EbonBuilds.GearScore.ScoreItem(item.link, specKey)
-    G.score:SetText(string.format("Modeled score: %.0f", score))
+    G.score:SetText(string.format(L["Modeled score: %.0f"], score))
     G.score:SetTextColor(unpack(Theme.ACCENT_GOLD))
     local stats, count = BuildRecognizedStats(item, specKey)
     local lines = {}
     for index = 1, math.min(7, #stats) do
-        lines[#lines + 1] = string.format("%s: %s", stats[index].name, tostring(stats[index].value))
+        lines[#lines + 1] = string.format(L["%s: %s"], stats[index].name, tostring(stats[index].value))
     end
     G.stats:SetText(#lines > 0 and table.concat(lines, "\n") or "No weighted stats were recognized.")
     if count > 0 then
@@ -1191,7 +1263,7 @@ local function CreateGearPage(parent)
     G.centerName = G.center:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     G.centerName:SetJustifyH("CENTER")
     G.centerNote = G.center:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    G.centerNote:SetText("Saved equipment snapshot")
+    G.centerNote:SetText(L["Saved equipment snapshot"])
 
     G.affixPanel = CreateFrame("Frame", nil, G.center)
     G.affixTitle = G.affixPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
@@ -1390,15 +1462,15 @@ end
 local function RefreshGear()
     local summary = BuildGearSummary(displayed.gear)
     SetStatusText(G.summary, string.format(
-        "Snapshot · %d/%d equipped · %d resolved · %d pending · %d empty · modeled for the edited build",
+        L["Snapshot · %d/%d equipped · %d resolved · %d pending · %d empty · modeled for the edited build"],
         summary.equipped, summary.total, summary.resolved, summary.pending, summary.empty),
         summary.pending > 0 and "warning" or nil)
     SetClassIcon(G.centerIcon, displayed.classToken)
     local name = displayed.characterName or (StoredSnapshot() and "Saved character" or "No saved snapshot")
     local specKey = SpecKeyForContext()
     G.centerName:SetText(name .. (specKey and "\n" .. specKey:gsub("_", " · ") or ""))
-    local affixLeft, affixRight, affixCount = BuildGearAffixColumns(displayed.gear)
-    G.affixTitle:SetText(string.format("Equipped affixes · %d", affixCount))
+    local affixLeft, affixRight, affixCount = BuildGearAffixColumns()
+    G.affixTitle:SetText(string.format(L["Equipped affixes · %d"], affixCount))
     G.affixLeft:SetText(affixLeft)
     G.affixRight:SetText(affixRight)
     for _, button in pairs(G.slotButtons) do ApplyGearSlotVisual(button) end
@@ -1418,7 +1490,7 @@ local function RefreshSnapshotStatus()
     local allowed = CanAdoptCurrentCharacter()
     if not allowed then
         adoptBtn:Disable()
-        snapshotStatus:SetText(string.format("Snapshot unavailable · %s character does not match %s build",
+        snapshotStatus:SetText(string.format(L["Snapshot unavailable · %s character does not match %s build"],
             ClassLabel(CurrentClassToken()), ClassLabel(EditingClassToken())))
         snapshotStatus:SetTextColor(unpack(Theme.DANGER))
         return
@@ -1426,11 +1498,11 @@ local function RefreshSnapshotStatus()
     adoptBtn:Enable()
     local stored = StoredSnapshot()
     if stored then
-        snapshotStatus:SetText(string.format("Saved snapshot: %s · %s",
+        snapshotStatus:SetText(string.format(L["Saved snapshot: %s · %s"],
             EbonBuilds.CharacterSnapshot.Summarize(stored) or "?", stored.capturedAt or "unknown time"))
         snapshotStatus:SetTextColor(unpack(Theme.TEXT_MUTED))
     else
-        snapshotStatus:SetText("No snapshot saved on this build. Adopt a matching character to populate it.")
+        snapshotStatus:SetText(L["No snapshot saved on this build. Adopt a matching character to populate it."])
         snapshotStatus:SetTextColor(unpack(Theme.TEXT_MUTED))
     end
 end
@@ -1504,15 +1576,14 @@ local function EnsureBuilt(container)
     adoptBtn = Theme.CreateButton(actionBar, "gold")
     adoptBtn:SetSize(160, 24)
     adoptBtn:SetPoint("LEFT", actionBar, "LEFT", 4, 0)
-    adoptBtn:SetText("Adopt current snapshot")
-    Theme.AttachTooltip(adoptBtn, "Adopt current snapshot",
-        "Copies current gear, selected talent ranks, and glyphs into this build draft when the character and build classes match. Save commits it; Cancel discards it.")
+    adoptBtn:SetText(L["Adopt current snapshot"])
+    Theme.AttachTooltip(adoptBtn, L["Adopt current snapshot"], L["Copies current gear, selected talent ranks, and glyphs into this build draft when the character and build classes match. Save commits it; Cancel discards it."])
     adoptBtn:SetScript("OnClick", function()
         if EbonBuilds.BuildForm and EbonBuilds.BuildForm.AdoptCharacterSnapshot then
             local allowed = CanAdoptCurrentCharacter()
             if not allowed then
                 if EbonBuilds.Toast and EbonBuilds.Toast.Show then
-                    EbonBuilds.Toast.Show("Current character class must match the build class before taking a snapshot.")
+                    EbonBuilds.Toast.Show(L["Current character class must match the build class before taking a snapshot."])
                 end
                 RefreshSnapshotStatus()
                 return

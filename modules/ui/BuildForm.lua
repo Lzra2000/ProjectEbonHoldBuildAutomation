@@ -7,6 +7,8 @@ local addonName, EbonBuilds = ...
 
 EbonBuilds.BuildForm = {}
 
+
+local L = EbonBuilds.L
 local classChangeCallbacks = {}
 
 local function NotifyClassChange()
@@ -191,7 +193,7 @@ end
 local function BuildClassGrid(parent, xAnchor, yAnchor)
     local label = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     label:SetPoint("TOPLEFT", parent, "TOPLEFT", xAnchor, yAnchor)
-    label:SetText("Class:")
+    label:SetText(L["Class:"])
     for i, token in ipairs(CLASS_ORDER) do
         local btn = CreateIconButton(parent, 28)
         SetClassIcon(btn._icon, token)
@@ -216,7 +218,7 @@ end
 local function BuildSpecGrid(parent, xAnchor, yAnchor)
     local label = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     label:SetPoint("TOPLEFT", parent, "TOPLEFT", xAnchor, yAnchor)
-    label:SetText("Spec:")
+    label:SetText(L["Spec:"])
     for i = 1, 3 do
         local btn = CreateIconButton(parent, 36)
         btn:SetPoint("TOPLEFT", parent, "TOPLEFT", xAnchor + 56 + (i - 1) * 40, yAnchor + 6)
@@ -262,7 +264,7 @@ end
 local function BuildTitleField(parent, x, y)
     local lbl = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     lbl:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
-    lbl:SetText("Build name:")
+    lbl:SetText(L["Build name:"])
     local box, container = CreateBackdropEditBox(parent, 360, 24, false)
     container:SetPoint("TOPLEFT", parent, "TOPLEFT", x + 88, y + 7)
     titleBox, titleContainer = box, container
@@ -288,7 +290,7 @@ local function BuildLockedSlots(parent, x, y)
     local slotStartX = x + 96
 
     local lbl = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    lbl:SetText("Locked Echoes:")
+    lbl:SetText(L["Locked Echoes:"])
     lbl:SetWidth(84)
     lbl:SetJustifyH("RIGHT")
 
@@ -349,7 +351,7 @@ local function BuildLockedSlots(parent, x, y)
     end
 
     local hint = parent:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    hint:SetText("Left-click: choose    Right-click: clear")
+    hint:SetText(L["Left-click: choose    Right-click: clear"])
     hint:SetTextColor(unpack(EbonBuilds.Theme.TEXT_MUTED))
     hint:SetJustifyH("LEFT")
     hint:SetWidth(210)
@@ -379,13 +381,13 @@ end
 local function BuildDescriptionField(parent, x, y, height)
     local lbl = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     lbl:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
-    lbl:SetText("Description:")
+    lbl:SetText(L["Description:"])
 
     local insertBtn = EbonBuilds.Theme.CreateButton(parent)
     insertBtn:SetWidth(110)
     insertBtn:SetHeight(20)
     insertBtn:SetPoint("TOPLEFT", parent, "TOPLEFT", x + 90, y + 2)
-    insertBtn:SetText("+ Insert Echo Link")
+    insertBtn:SetText(L["+ Insert Echo Link"])
     insertBtn:SetScript("OnClick", function()
         EbonBuilds.EchoPicker.Show(function(spellId, quality, name)
             local color = QUALITY_COLOR[quality] or "ffffff"
@@ -400,11 +402,11 @@ local function BuildDescriptionField(parent, x, y, height)
     insertBtn:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         GameTooltip:ClearLines()
-        GameTooltip:AddLine("Insert Echo Link", 1, 0.82, 0, 1)
-        GameTooltip:AddLine("Inserts a clickable echo reference into the description.", 0.8, 0.8, 0.8, 1)
+        GameTooltip:AddLine(L["Insert Echo Link"], 1, 0.82, 0, 1)
+        GameTooltip:AddLine(L["Inserts a clickable echo reference into the description."], 0.8, 0.8, 0.8, 1)
         GameTooltip:AddLine(" ", 1, 1, 1, 1)
-        GameTooltip:AddLine("To set Echo priorities and broad modifiers for this build,", 0.6, 0.6, 0.6, 1)
-        GameTooltip:AddLine("use the Priorities and Modifiers tabs after saving.", 0.6, 0.6, 0.6, 1)
+        GameTooltip:AddLine(L["To set Echo priorities and broad modifiers for this build,"], 0.6, 0.6, 0.6, 1)
+        GameTooltip:AddLine(L["use the Priorities and Modifiers tabs after saving."], 0.6, 0.6, 0.6, 1)
         GameTooltip:Show()
     end)
     insertBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -464,7 +466,7 @@ local function BuildDescriptionField(parent, x, y, height)
     hint:SetJustifyH("LEFT")
     hint:SetJustifyV("TOP")
     hint:SetTextColor(0.5, 0.5, 0.5, 1)
-    hint:SetText("Explain the outcome this build is meant to achieve. Use Priorities and Modifiers for scoring details.")
+    hint:SetText(L["Explain the outcome this build is meant to achieve. Use Priorities and Modifiers for scoring details."])
     descriptionPlaceholder = hint
 
     box:SetScript("OnEditFocusGained", function()
@@ -573,7 +575,7 @@ local function OnSave()
     if state.title == "" then
         if EbonBuilds.BuildTabs and EbonBuilds.BuildTabs.ShowTab then EbonBuilds.BuildTabs.ShowTab(1) end
         titleBox._error = true
-        titleErrorLabel:SetText("A build name is required.")
+        titleErrorLabel:SetText(L["A build name is required."])
         EbonBuilds.Theme.SetInputState(titleContainer, "error")
         titleBox:SetFocus()
         return
@@ -625,7 +627,7 @@ local function OnSave()
             savedBuild = saved
         else
             if EbonBuilds.Toast and EbonBuilds.Toast.Show then
-                EbonBuilds.Toast.Show("This build changed elsewhere. Reopen it before saving your draft.")
+                EbonBuilds.Toast.Show(L["This build changed elsewhere. Reopen it before saving your draft."])
             end
             return
         end
@@ -644,7 +646,7 @@ local function OnSave()
         EbonBuilds.BuildTabs.EnableEchoesTab()
     end
     if savedBuild then
-        if EbonBuilds.Toast and EbonBuilds.Toast.Show then EbonBuilds.Toast.Show("Build saved: " .. (savedBuild.title or "Untitled")) end
+        if EbonBuilds.Toast and EbonBuilds.Toast.Show then EbonBuilds.Toast.Show(L["Build saved: "] .. (savedBuild.title or "Untitled")) end
     end
 end
 
@@ -887,25 +889,25 @@ local function BuildViewFrame()
 
     local header = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     header:SetPoint("TOPLEFT", f, "TOPLEFT", 10, -8)
-    header:SetText("Build intent")
+    header:SetText(L["Build intent"])
     header:SetTextColor(unpack(EbonBuilds.Theme.TEXT_PRIMARY))
 
     local sub = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     sub:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -3)
-    sub:SetText("Define who this build is for and which starting Echoes are non-negotiable.")
+    sub:SetText(L["Define who this build is for and which starting Echoes are non-negotiable."])
     sub:SetTextColor(unpack(EbonBuilds.Theme.TEXT_MUTED))
 
     publicToggle = EbonBuilds.Theme.CreateButton(f)
     publicToggle:SetSize(118, 24)
     publicToggle:SetPoint("TOPRIGHT", f, "TOPRIGHT", -10, -8)
-    publicToggle:SetText("Sharing: Off")
+    publicToggle:SetText(L["Sharing: Off"])
     publicToggle:SetScript("OnClick", function(self)
         state.isPublic = not state.isPublic
         MarkDirty()
         self:SetText(state.isPublic and "Sharing: On" or "Sharing: Off")
         if state.isPublic then EbonBuilds.Theme.SetButtonAccent(self, "good") else EbonBuilds.Theme.ClearButtonAccent(self) end
     end)
-    EbonBuilds.Theme.AttachTooltip(publicToggle, "Public sharing", "When enabled, this build can be discovered by other EbonBuilds users through Public Builds.")
+    EbonBuilds.Theme.AttachTooltip(publicToggle, L["Public sharing"], L["When enabled, this build can be discovered by other EbonBuilds users through Public Builds."])
 
     BuildClassGrid(f, 10, -50)
     BuildSpecGrid(f, 10, -90)

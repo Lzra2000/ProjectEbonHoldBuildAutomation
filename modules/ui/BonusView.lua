@@ -5,6 +5,8 @@ local addonName, EbonBuilds = ...
 
 EbonBuilds.BonusView = {}
 
+
+local L = EbonBuilds.L
 local QUALITY_ORDER = EbonBuilds.Quality.ORDER or {}
 local FAMILY_ORDER = { "Tank", "Survivability", "Healer", "Caster", "Melee", "Ranged", "No family" }
 local FAMILY_ROW1 = { "Tank", "Survivability", "Healer", "Caster" }
@@ -88,7 +90,7 @@ local function CreateNumberField(parent, width)
         if self._error then
             GameTooltip:AddLine(self._error, 1, 0.3, 0.3, true)
         else
-            GameTooltip:AddLine("Numbers from -9999 to 9999 are accepted. Decimals are supported.", 0.82, 0.82, 0.86, true)
+            GameTooltip:AddLine(L["Numbers from -9999 to 9999 are accepted. Decimals are supported."], 0.82, 0.82, 0.86, true)
         end
         GameTooltip:Show()
     end)
@@ -100,10 +102,10 @@ end
 
 local function RefreshModeButton(btn)
     if btn.multiplicative then
-        btn:SetText("Multiply")
+        btn:SetText(L["Multiply"])
         EbonBuilds.Theme.SetButtonAccent(btn, "good")
     else
-        btn:SetText("Add")
+        btn:SetText(L["Add"])
         EbonBuilds.Theme.ClearButtonAccent(btn)
     end
 end
@@ -117,8 +119,7 @@ local function CreateModeButton(parent)
         RefreshModeButton(self)
         if self._setMode then self._setMode(self.multiplicative) end
     end)
-    EbonBuilds.Theme.AttachTooltip(btn, "Modifier mode",
-        "Add applies the value after the base score. Multiply scales the base score; values below 1 reduce it. Negative base values can become more negative when multiplied.")
+    EbonBuilds.Theme.AttachTooltip(btn, L["Modifier mode"], L["Add applies the value after the base score. Multiply scales the base score; values below 1 reduce it. Negative base values can become more negative when multiplied."])
     RefreshModeButton(btn)
     return btn
 end
@@ -266,12 +267,12 @@ local function BuildViewFrame(parent)
 
     local header = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     header:SetPoint("TOPLEFT", f, "TOPLEFT", 10, -8)
-    header:SetText("Modifiers")
+    header:SetText(L["Modifiers"])
     header:SetTextColor(unpack(EbonBuilds.Theme.TEXT_PRIMARY))
 
     local sub = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     sub:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -3)
-    sub:SetText("Use broad rules sparingly; individual Echo priorities remain the clearest source of intent.")
+    sub:SetText(L["Use broad rules sparingly; individual Echo priorities remain the clearest source of intent."])
     sub:SetTextColor(unpack(EbonBuilds.Theme.TEXT_MUTED))
 
     scrollFrame = CreateFrame("ScrollFrame", nil, f)

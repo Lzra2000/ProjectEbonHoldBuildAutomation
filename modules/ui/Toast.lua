@@ -8,6 +8,8 @@ local addonName, EbonBuilds = ...
 
 EbonBuilds.Toast = {}
 
+
+local L = EbonBuilds.L
 local TOAST_W  = 540
 local TOAST_H  = 72
 local function GetToastDuration()
@@ -91,7 +93,7 @@ local function ShowNext()
         }
         local colorKey = entry.action:match("^(%a+)") or entry.action
         local ac = actionColors[colorKey] or "|cffffffff"
-        header:SetText(ac .. "Autopilot: " .. entry.action .. "|r")
+        header:SetText(ac .. L["Autopilot: "] .. entry.action .. "|r")
 
         -- Build inline echo line:  Echo1 (s)    >> Echo2 (s) <<    Echo3 (s)
         local parts = {}
@@ -104,7 +106,7 @@ local function ShowNext()
             if isTarget then
                 parts[#parts + 1] = "|cffffff00>> |r"
             end
-            parts[#parts + 1] = string.format("|cff%s%s (%.0f)|r", hex, ch.name, ch.score)
+            parts[#parts + 1] = string.format(L["|cff%s%s (%.0f)|r"], hex, ch.name, ch.score)
             if isTarget then
                 parts[#parts + 1] = " |cffffff00<<|r"
             end
@@ -115,11 +117,11 @@ local function ShowNext()
         local level, banRemain, rerollRemain, freezeRemain, _, rollsLeft = GetRunInfo()
         if rollsLeft ~= nil then
             footerLine:SetText(string.format(
-                "Lv %d · Rolls left: %d    Banish: %d    Reroll: %d    Freeze: %d",
+                L["Lv %d · Rolls left: %d    Banish: %d    Reroll: %d    Freeze: %d"],
                 level or 0, rollsLeft, banRemain, rerollRemain, freezeRemain))
         else
             footerLine:SetText(string.format(
-                "Lv %d    Banish: %d    Reroll: %d    Freeze: %d",
+                L["Lv %d    Banish: %d    Reroll: %d    Freeze: %d"],
                 level or 0, banRemain, rerollRemain, freezeRemain))
         end
 
@@ -226,7 +228,7 @@ local function BuildFrame()
 
     dismissHint = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     dismissHint:SetPoint("TOPRIGHT", f, "TOPRIGHT", -8, -6)
-    dismissHint:SetText("Click to dismiss")
+    dismissHint:SetText(L["Click to dismiss"])
     dismissHint:SetTextColor(unpack(EbonBuilds.Theme.TEXT_MUTED))
     dismissHint:Hide()
 

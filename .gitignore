@@ -21,3 +21,5 @@ site/
 
 # Local / CI check logs (scripts/check.sh, tests/run.sh)
 .cache/
+.tools/
+

@@ -7,6 +7,8 @@ local addonName, EbonBuilds = ...
 
 EbonBuilds.AffixView = {}
 
+
+local L = EbonBuilds.L
 local ROW_HEIGHT   = 30
 local VISIBLE_ROWS = 12
 
@@ -139,10 +141,10 @@ local function CreateRow(parent)
         GameTooltip:AddLine(a.learned and "|cff1eff00Learned|r" or "|cffff4444Not learned|r")
         GameTooltip:AddLine(a.weaponOnly and "Weapon-only affix" or "Armor / any slot", 0.7, 0.7, 0.7)
         if a.applyCost and a.applyCost > 0 then
-            GameTooltip:AddLine(("Apply cost: %d"):format(a.applyCost), 0.7, 0.7, 0.7)
+            GameTooltip:AddLine((L["Apply cost: %d"]):format(a.applyCost), 0.7, 0.7, 0.7)
         end
         if a.appliedCount and a.appliedCount > 0 then
-            GameTooltip:AddLine(("Applied %d time(s)"):format(a.appliedCount), 0.7, 0.7, 0.7)
+            GameTooltip:AddLine((L["Applied %d time(s)"]):format(a.appliedCount), 0.7, 0.7, 0.7)
         end
         local bridge = AuctionBridge()
         if bridge and bridge.IsAvailable and bridge.IsAvailable() then
@@ -224,13 +226,13 @@ local function Render()
     local all = EbonBuilds.Affix.GetLearned()
     local learnedCount = 0
     for _, a in ipairs(all) do if a.learned then learnedCount = learnedCount + 1 end end
-    countLabel:SetText(string.format("%d / %d learned", learnedCount, #all))
+    countLabel:SetText(string.format(L["%d / %d learned"], learnedCount, #all))
 
     if #filtered == 0 then
         if #all == 0 then
-            emptyText:SetText("No affix data yet.\n\nPress Refresh to request your learned affixes from the server.")
+            emptyText:SetText(L["No affix data yet.\n\nPress Refresh to request your learned affixes from the server."])
         else
-            emptyText:SetText("No affix matches your filter.")
+            emptyText:SetText(L["No affix matches your filter."])
         end
         emptyText:Show()
     else
@@ -248,8 +250,7 @@ local function BuildViewFrame(parent)
 
     EbonBuilds.Theme.CreatePageHeader(
         f,
-        "Affixes",
-        "Track learned gear affixes, find collection gaps, and request a fresh server snapshot."
+        L["Affixes"], L["Track learned gear affixes, find collection gaps, and request a fresh server snapshot."]
     )
 
     -- Row 1: search box, full width. Fixed offset from f (not chained off
@@ -310,7 +311,7 @@ local function BuildViewFrame(parent)
     refreshBtn = EbonBuilds.Theme.CreateButton(f)
     refreshBtn:SetSize(80, 20)
     refreshBtn:SetPoint("TOPRIGHT", controlsRow, "TOPRIGHT", 0, 0)
-    refreshBtn:SetText("Refresh")
+    refreshBtn:SetText(L["Refresh"])
     refreshBtn:SetScript("OnClick", function()
         EbonBuilds.Affix.RequestLearned(true)
     end)
@@ -326,7 +327,7 @@ local function BuildViewFrame(parent)
                 self:SetText(remaining .. "s")
             else
                 self:Enable()
-                self:SetText("Refresh")
+                self:SetText(L["Refresh"])
             end
         end
     end)
@@ -360,10 +361,10 @@ local function BuildViewFrame(parent)
     filterBtn = EbonBuilds.Theme.CreateButton(f)
     filterBtn:SetSize(130, 20)
     filterBtn:SetPoint("RIGHT", syncAhBtn, "LEFT", -8, 0)
-    filterBtn:SetText("Show: All")
+    filterBtn:SetText(L["Show: All"])
     filterBtn:SetScript("OnClick", function(self)
         state.missingOnly = not state.missingOnly
-        self:SetText(state.missingOnly and "Show: Missing only" or "Show: All")
+        self:SetText(state.missingOnly and L["Show: Missing only"] or L["Show: All"])
         offset = 0
         Render()
     end)

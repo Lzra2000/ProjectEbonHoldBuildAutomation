@@ -6,6 +6,8 @@ local addonName, EbonBuilds = ...
 
 EbonBuilds.BuildWizard = {}
 
+
+local L = EbonBuilds.L
 local Wizard = EbonBuilds.BuildWizard
 local Theme = EbonBuilds.Theme
 local Draft = EbonBuilds.WizardDraft
@@ -168,12 +170,12 @@ local function UpdateStatusStrip()
     local summary = state.draft and Summary and Summary.Compute(state.draft)
     local intent = EbonBuilds.WizardPresets and EbonBuilds.WizardPresets.Label(state.intentKey) or "Community baseline"
     if summary then
-        statusText:SetText(string.format("%s · %s | %s | %d/6 locks | %d included",
+        statusText:SetText(string.format(L["%s · %s | %s | %d/6 locks | %d included"],
             CLASS_LABEL[state.class] or state.class, CurrentSpecName(), summary.intentLabel or intent,
-            summary.lockedCount or 0, summary.includedCount or 0) .. string.format(" | %d class Echoes", tonumber(state.draft.catalogCount) or 0))
+            summary.lockedCount or 0, summary.includedCount or 0) .. string.format(L[" | %d class Echoes"], tonumber(state.draft.catalogCount) or 0))
         SetPill(confidencePill, summary.confidenceText or "Manual setup", ConfidenceKind(summary.confidenceLevel))
     else
-        statusText:SetText(string.format("%s · %s | %s",
+        statusText:SetText(string.format(L["%s · %s | %s"],
             CLASS_LABEL[state.class] or state.class, CurrentSpecName(), intent))
         SetPill(confidencePill, state.loading and "Loading evidence" or "Not loaded", state.loading and "warning" or nil)
     end
@@ -185,13 +187,13 @@ local function ReasonText(snapshot)
         return "No matching community sample is stored. All Echoes remain available for manual setup."
     end
     if snapshot.reasonCode == "NOT_ENOUGH_ORIGINS" then
-        return string.format("Only %d independent origins are stored. Recommendations are limited; manual setup remains available.", snapshot.originCount or 0)
+        return string.format(L["Only %d independent origins are stored. Recommendations are limited; manual setup remains available."], snapshot.originCount or 0)
     end
     if snapshot.reasonCode == "NO_STABLE_CORE" then
         return "No stable community pattern was found. All Echoes remain available for manual setup."
     end
     local _, label = Evidence and Evidence.CohortConfidence(snapshot.originCount or 0)
-    return string.format("Based on %d independent local origins — %s. Usage is guidance, not proven performance.",
+    return string.format(L["Based on %d independent local origins — %s. Usage is guidance, not proven performance."],
         snapshot.originCount or 0, label or "Limited local sample")
 end
 
@@ -275,10 +277,10 @@ local function BuildContextStep()
 
     local title = MakeText(frame, "GameFontHighlightLarge", nil, "CENTER")
     title:SetPoint("TOP", frame, "TOP", 0, -8)
-    title:SetText("Choose the build goal")
+    title:SetText(L["Choose the build goal"])
     local subtitle = MakeText(frame, "GameFontDisableSmall", 650, "CENTER")
     subtitle:SetPoint("TOP", title, "BOTTOM", 0, -5)
-    subtitle:SetText("Select the class, specialization, and how untouched recommendations should begin.")
+    subtitle:SetText(L["Select the class, specialization, and how untouched recommendations should begin."])
 
     local classPanel = Theme.CreateSection(frame, "Class", "Only Echoes verified for the selected class are used by the Wizard.")
     classPanel:SetPoint("TOPLEFT", frame, "TOPLEFT", 18, -52)
@@ -335,14 +337,14 @@ local function BuildContextStep()
         desc:SetPoint("TOPLEFT", button, "TOPLEFT", 10, -30)
         desc:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", -10, 7)
         desc:SetJustifyV("TOP")
-        desc:SetText(def.description)
+        desc:SetText(L[def.description])
         button._description = desc
         button:SetScript("OnClick", function()
             state.intentKey = key
             if state.draft then Draft.SetIntent(state.draft, key, true) end
             RefreshContextStep()
             if state.draft and EbonBuilds.Toast and EbonBuilds.Toast.Show then
-                EbonBuilds.Toast.Show("Intent applied to untouched wizard choices")
+                EbonBuilds.Toast.Show(L["Intent applied to untouched wizard choices"])
             end
         end)
         intentButtons[key] = button
@@ -399,7 +401,7 @@ local function CreateLockCard(parent, slot)
     card:SetHeight(96)
     local number = MakeText(card, "GameFontDisableSmall")
     number:SetPoint("TOPLEFT", card, "TOPLEFT", 6, -4)
-    number:SetText("Slot " .. slot)
+    number:SetText(L["Slot "] .. slot)
     local pill = Theme.CreateStatusPill(card, "Empty")
     pill:SetSize(58, 16)
     pill:SetPoint("TOPRIGHT", card, "TOPRIGHT", -5, -4)
@@ -423,7 +425,7 @@ local function CreateLockCard(parent, slot)
     local clear = Theme.CreateButton(card)
     clear:SetSize(42, 18)
     clear:SetPoint("LEFT", left, "RIGHT", 2, 0)
-    clear:SetText("Clear")
+    clear:SetText(L["Clear"])
     local right = Theme.CreateButton(card)
     right:SetSize(22, 18)
     right:SetPoint("LEFT", clear, "RIGHT", 2, 0)
@@ -468,7 +470,7 @@ local function CreateLockSuggestion(parent)
     local use = Theme.CreateButton(row)
     use:SetSize(62, 22)
     use:SetPoint("RIGHT", row, "RIGHT", -5, 0)
-    use:SetText("Use")
+    use:SetText(L["Use"])
     inspect:SetScript("OnEnter", function(self)
         local item = row._item
         if item then ShowEchoTooltip(self, SnapshotRef(item) or item.name, item.lockedSpellId, item, "lock") end
@@ -479,7 +481,7 @@ local function CreateLockSuggestion(parent)
         if not item or not state.draft then return end
         local slot = FirstEmptyLock()
         if not slot then
-            if EbonBuilds.Toast and EbonBuilds.Toast.Show then EbonBuilds.Toast.Show("All six lock slots are filled. Clear a slot first.") end
+            if EbonBuilds.Toast and EbonBuilds.Toast.Show then EbonBuilds.Toast.Show(L["All six lock slots are filled. Clear a slot first."]) end
             return
         end
         local refKey = SnapshotRef(item)
@@ -543,11 +545,11 @@ local function BuildLocksStep()
     local apply = Theme.CreateButton(recPanel, "gold")
     apply:SetSize(142, 22)
     apply:SetPoint("TOPRIGHT", recPanel, "TOPRIGHT", -82, -7)
-    apply:SetText("Apply suggested core")
+    apply:SetText(L["Apply suggested core"])
     local clear = Theme.CreateButton(recPanel)
     clear:SetSize(68, 22)
     clear:SetPoint("TOPRIGHT", recPanel, "TOPRIGHT", -8, -7)
-    clear:SetText("Clear all")
+    clear:SetText(L["Clear all"])
     local rows = {}
     for index = 1, 6 do
         rows[index] = CreateLockSuggestion(recPanel)
@@ -584,7 +586,7 @@ RefreshLocks = function()
             else SetPill(ui.pill, "Manual", nil) end
         else
             ui.icon:SetTexture(QUESTION_ICON)
-            ui.name:SetText("Choose Echo")
+            ui.name:SetText(L["Choose Echo"])
             ui.clear:Disable(); ui.left:Disable(); ui.right:Disable()
             SetPill(ui.pill, "Empty", nil)
         end
@@ -659,7 +661,7 @@ end
 local function FamilyChoiceLabel(value, bonus)
     value = value or "None"
     if value == "None" then return "None (+0)" end
-    return string.format("%s (+%d)", value, tonumber(bonus) or 0)
+    return string.format(L["%s (+%d)"], value, tonumber(bonus) or 0)
 end
 
 local function FamilyMenu(dropdown, values, setter, bonus)
@@ -690,7 +692,7 @@ local function SetScoringCardSelected(card, selected)
         card:SetBackdropBorderColor(unpack(Theme.ACCENT_GOLD))
         card.title:SetTextColor(1, 0.90, 0.35, 1)
         card.description:SetTextColor(unpack(Theme.TEXT_PRIMARY))
-        card.selectedText:SetText("Selected")
+        card.selectedText:SetText(L["Selected"])
         card.selectedText:Show()
     else
         Theme.ApplyCard(card)
@@ -726,7 +728,7 @@ local function CreateScoringCard(parent, style, description)
     priorityText:SetPoint("BOTTOMLEFT", card, "BOTTOMLEFT", 10, 20)
     priorityText:SetPoint("RIGHT", card, "RIGHT", -10, 0)
     priorityText:SetJustifyH("LEFT")
-    priorityText:SetText(string.format("Priority E %+d · S %+d · U %+d",
+    priorityText:SetText(string.format(L["Priority E %+d · S %+d · U %+d"],
         profile.weights.Essential or 0, profile.weights.Strong or 0, profile.weights.Useful or 0))
     priorityText:SetTextColor(0.45, 0.82, 1, 1)
 
@@ -735,18 +737,18 @@ local function CreateScoringCard(parent, style, description)
     rarityText:SetPoint("RIGHT", card, "RIGHT", -10, 0)
     rarityText:SetJustifyH("LEFT")
     rarityText:SetText(
-        "Rarity "
-        .. EbonBuilds.Quality.Colorize(string.format("C %+d", profile.quality[0] or 0), 0)
+        L["Rarity "]
+        .. EbonBuilds.Quality.Colorize(string.format(L["C %+d"], profile.quality[0] or 0), 0)
         .. " · "
-        .. EbonBuilds.Quality.Colorize(string.format("U %+d", profile.quality[1] or 0), 1)
+        .. EbonBuilds.Quality.Colorize(string.format(L["U %+d"], profile.quality[1] or 0), 1)
         .. " · "
-        .. EbonBuilds.Quality.Colorize(string.format("R %+d", profile.quality[2] or 0), 2)
+        .. EbonBuilds.Quality.Colorize(string.format(L["R %+d"], profile.quality[2] or 0), 2)
         .. " · "
-        .. EbonBuilds.Quality.Colorize(string.format("E %+d", profile.quality[3] or 0), 3)
+        .. EbonBuilds.Quality.Colorize(string.format(L["E %+d"], profile.quality[3] or 0), 3)
     )
     local selectedText = MakeText(card, "GameFontNormalSmall", 58, "RIGHT")
     selectedText:SetPoint("TOPRIGHT", card, "TOPRIGHT", -9, -9)
-    selectedText:SetText("Selected")
+    selectedText:SetText(L["Selected"])
     selectedText:SetTextColor(unpack(Theme.ACCENT_GOLD))
     selectedText:Hide()
 
@@ -767,7 +769,7 @@ local function CreateScoringCard(parent, style, description)
             GameTooltip:Hide()
         end)
     end
-    Theme.AttachTooltip(card, "Scoring profile", "The cyan line shows priority values. The quality-colored line shows Common, Uncommon, Rare, and Epic bonuses added on top of that priority.")
+    Theme.AttachTooltip(card, L["Scoring profile"], L["The cyan line shows priority values. The quality-colored line shows Common, Uncommon, Rare, and Epic bonuses added on top of that priority."])
     return card
 end
 
@@ -886,11 +888,11 @@ local function BuildScoringStep()
 
     local title = MakeText(frame, "GameFontHighlightLarge", nil, "CENTER")
     title:SetPoint("TOP", frame, "TOP", 0, -8)
-    title:SetText("Choose how priorities become weights")
+    title:SetText(L["Choose how priorities become weights"])
     local subtitle = MakeText(frame, "GameFontDisableSmall", nil, "CENTER")
     subtitle:SetPoint("TOPLEFT", frame, "TOPLEFT", 18, -31)
     subtitle:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -18, -31)
-    subtitle:SetText("Using an Echo automatically assigns the lowest positive weight when needed. Choosing a priority also activates it.")
+    subtitle:SetText(L["Using an Echo automatically assigns the lowest positive weight when needed. Choosing a priority also activates it."])
 
     local styleButtons = {}
     local orderedCards = {}
@@ -915,20 +917,20 @@ local function BuildScoringStep()
 
     local advancedToggle = Theme.CreateButton(frame)
     advancedToggle:SetSize(150, 24)
-    advancedToggle:SetText("Advanced tuning v")
+    advancedToggle:SetText(L["Advanced tuning v"])
     local advanced = Theme.CreateSection(frame, "Advanced tuning", "Optional family modifiers are disabled by default.")
 
     local primaryBonus = Draft.PRIMARY_FAMILY_BONUS or 20
     local secondaryBonus = Draft.SECONDARY_FAMILY_BONUS or 10
 
     local primaryLabel = MakeText(advanced, "GameFontNormal")
-    primaryLabel:SetText(string.format("Primary family bonus (+%d)", primaryBonus))
-    local primary = Theme.CreateDropdown(advanced, 150, "None (+0)")
+    primaryLabel:SetText(string.format(L["Primary family bonus (+%d)"], primaryBonus))
+    local primary = Theme.CreateDropdown(advanced, 150, L["None (+0)"])
     local primaryResolved = MakeText(advanced, "GameFontDisableSmall")
 
     local secondaryLabel = MakeText(advanced, "GameFontNormal")
-    secondaryLabel:SetText(string.format("Secondary family bonus (+%d)", secondaryBonus))
-    local secondary = Theme.CreateDropdown(advanced, 150, "None (+0)")
+    secondaryLabel:SetText(string.format(L["Secondary family bonus (+%d)"], secondaryBonus))
+    local secondary = Theme.CreateDropdown(advanced, 150, L["None (+0)"])
 
     local values = MakeText(advanced, "GameFontHighlightSmall")
     values:SetJustifyV("TOP")
@@ -937,13 +939,13 @@ local function BuildScoringStep()
 
     advancedToggle:SetScript("OnClick", function()
         state.advancedScoring = not state.advancedScoring
-        if state.advancedScoring then advanced:Show(); advancedToggle:SetText("Advanced tuning ^")
-        else advanced:Hide(); advancedToggle:SetText("Advanced tuning v") end
+        if state.advancedScoring then advanced:Show(); advancedToggle:SetText(L["Advanced tuning ^"])
+        else advanced:Hide(); advancedToggle:SetText(L["Advanced tuning v"]) end
     end)
     FamilyMenu(primary, FAMILY_VALUES, function(value) Draft.SetPrimaryFamily(state.draft, value) end, primaryBonus)
     FamilyMenu(secondary, SECONDARY_VALUES, function(value) Draft.SetSecondaryFamily(state.draft, value) end, secondaryBonus)
-    Theme.AttachTooltip(primary._button or primary, "Primary family bonus", string.format("Selecting a family adds +%d score to matching Echoes. None adds +0.", primaryBonus))
-    Theme.AttachTooltip(secondary._button or secondary, "Secondary family bonus", string.format("Selecting a family adds +%d score to matching Echoes. None adds +0.", secondaryBonus))
+    Theme.AttachTooltip(primary._button or primary, "Primary family bonus", string.format(L["Selecting a family adds +%d score to matching Echoes. None adds +0."], primaryBonus))
+    Theme.AttachTooltip(secondary._button or secondary, "Secondary family bonus", string.format(L["Selecting a family adds +%d score to matching Echoes. None adds +0."], secondaryBonus))
 
     scoringUI = {
         frame = frame, styleButtons = styleButtons, orderedCards = orderedCards,
@@ -976,27 +978,27 @@ RefreshScoring = function()
     scoringUI.secondary:SetText(FamilyChoiceLabel(scoringUI.secondary._familyValue, secondaryBonus))
     local resolved = Draft.ResolvePrimaryFamily(state.draft) or "None"
     if not state.draft.primaryFamily or state.draft.primaryFamily == "None" then
-        scoringUI.primaryResolved:SetText("No primary family bonus (+0)")
+        scoringUI.primaryResolved:SetText(L["No primary family bonus (+0)"])
     elseif state.draft.primaryFamily == "Auto" then
-        scoringUI.primaryResolved:SetText(string.format("Auto: %s (+%d)", resolved, primaryBonus))
+        scoringUI.primaryResolved:SetText(string.format(L["Auto: %s (+%d)"], resolved, primaryBonus))
     else
-        scoringUI.primaryResolved:SetText(string.format("%s family (+%d)", resolved, primaryBonus))
+        scoringUI.primaryResolved:SetText(string.format(L["%s family (+%d)"], resolved, primaryBonus))
     end
     local profile = Draft.StyleProfile(state.draft.scoringStyle)
     scoringUI.values:SetText(string.format(
-        "Importance values\nEssential %+d · Strong %+d · Useful %+d · Neutral %+d · Avoid %+d\n\nQuality bonuses\nCommon %+d · Uncommon %+d · Rare %+d · Epic %+d\n\nFamily bonuses\nPrimary %+d · Secondary %+d when selected",
+        L["Importance values\nEssential %+d · Strong %+d · Useful %+d · Neutral %+d · Avoid %+d\n\nQuality bonuses\nCommon %+d · Uncommon %+d · Rare %+d · Epic %+d\n\nFamily bonuses\nPrimary %+d · Secondary %+d when selected"],
         profile.weights.Essential, profile.weights.Strong, profile.weights.Useful, profile.weights.Neutral, profile.weights.Avoid,
         profile.quality[0], profile.quality[1], profile.quality[2], profile.quality[3], primaryBonus, secondaryBonus))
     local ok, diagnostics = Draft.Calibrate(state.draft)
     if ok then
-        scoringUI.validation:SetText(string.format("Validation ready · %d included Echoes checked.", tonumber(diagnostics.checkedEchoes) or 0))
+        scoringUI.validation:SetText(string.format(L["Validation ready · %d included Echoes checked."], tonumber(diagnostics.checkedEchoes) or 0))
         scoringUI.validation:SetTextColor(unpack(Theme.SUCCESS))
     else
-        scoringUI.validation:SetText("Review warning: " .. table.concat(diagnostics, " "))
+        scoringUI.validation:SetText(L["Review warning: "] .. table.concat(diagnostics, " "))
         scoringUI.validation:SetTextColor(unpack(Theme.WARNING))
     end
-    if state.advancedScoring then scoringUI.advanced:Show(); scoringUI.advancedToggle:SetText("Advanced tuning ^")
-    else scoringUI.advanced:Hide(); scoringUI.advancedToggle:SetText("Advanced tuning v") end
+    if state.advancedScoring then scoringUI.advanced:Show(); scoringUI.advancedToggle:SetText(L["Advanced tuning ^"])
+    else scoringUI.advanced:Hide(); scoringUI.advancedToggle:SetText(L["Advanced tuning v"]) end
     UpdateStatusStrip()
 end
 
@@ -1020,7 +1022,7 @@ local function CreateReviewSection(parent, title, topOffset, editStep)
     local edit = Theme.CreateButton(panel)
     edit:SetSize(48, 20)
     edit:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -8, -8)
-    edit:SetText("Edit")
+    edit:SetText(L["Edit"])
     edit:SetScript("OnClick", function() EditStep(editStep) end)
     return panel, value
 end
@@ -1032,11 +1034,11 @@ local function BuildReviewStep()
     stepFrames[5] = frame
     local title = MakeText(frame, "GameFontHighlightLarge", nil, "CENTER")
     title:SetPoint("TOP", frame, "TOP", 0, -6)
-    title:SetText("Review and create")
+    title:SetText(L["Review and create"])
 
     local nameLabel = MakeText(frame, "GameFontNormal")
     nameLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -38)
-    nameLabel:SetText("Build name")
+    nameLabel:SetText(L["Build name"])
     local nameBox = CreateFrame("EditBox", nil, frame)
     if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
         EbonBuilds.Debug.ProtectScript(nameBox, "BuildWizard.NameBox")
@@ -1077,37 +1079,37 @@ RefreshReview = function()
     if not state.title or state.title == "" then state.title = CurrentSpecName() .. " Community Build" end
     if reviewUI.nameBox:GetText() ~= state.title then reviewUI.nameBox:SetText(state.title) end
     local summary = Summary.Compute(state.draft)
-    reviewUI.contextValue:SetText(string.format("%s · %s · %s · %s",
+    reviewUI.contextValue:SetText(string.format(L["%s · %s · %s · %s"],
         CLASS_LABEL[state.class] or state.class, CurrentSpecName(), summary.intentLabel or "Community baseline",
-        summary.confidenceText or "Manual setup") .. string.format(" · %d verified class Echoes", tonumber(state.draft.catalogCount) or 0))
+        summary.confidenceText or "Manual setup") .. string.format(L[" · %d verified class Echoes"], tonumber(state.draft.catalogCount) or 0))
 
     local lockNames = {}
     for slot = 1, EbonBuilds.Build.LOCKED_SLOTS do
         local lock = state.draft.locks[slot]
         if lock then lockNames[#lockNames + 1] = VisibleName(lock.name) end
     end
-    reviewUI.lockValue:SetText(string.format("%d selected · %d manual — %s",
+    reviewUI.lockValue:SetText(string.format(L["%d selected · %d manual — %s"],
         summary.lockedCount or 0, summary.manualLockCount or 0,
         #lockNames > 0 and table.concat(lockNames, ", ") or "No locked Echoes"))
     local d = summary.distribution
-    reviewUI.priorityValue:SetText(string.format("%d included · %d changed — Essential %d · Strong %d · Useful %d · Neutral %d · Avoid %d",
+    reviewUI.priorityValue:SetText(string.format(L["%d included · %d changed — Essential %d · Strong %d · Useful %d · Neutral %d · Avoid %d"],
         summary.includedCount or 0, summary.changedPriorityCount or 0,
         d.Essential or 0, d.Strong or 0, d.Useful or 0, d.Neutral or 0, d.Avoid or 0))
     local primary = state.draft.primaryFamily == "Auto" and ("Auto (" .. tostring(Draft.ResolvePrimaryFamily(state.draft) or "None") .. ")") or state.draft.primaryFamily
-    reviewUI.scoringValue:SetText(string.format("%s · Primary %s · Secondary %s",
+    reviewUI.scoringValue:SetText(string.format(L["%s · Primary %s · Secondary %s"],
         state.draft.scoringStyle, primary, state.draft.secondaryFamily or "None"))
 
     local warnings = {}
     if (state.draft.originCount or 0) < 8 then warnings[#warnings + 1] = "• Recommendations are based on a limited local sample." end
-    if summary.manualLockCount > 0 then warnings[#warnings + 1] = string.format("• %d locked Echo choice(s) are manual.", summary.manualLockCount) end
-    if summary.excludedRecommendedCount > 0 then warnings[#warnings + 1] = string.format("• %d recommended priorit%s excluded.", summary.excludedRecommendedCount, summary.excludedRecommendedCount == 1 and "y is" or "ies are") end
-    if summary.promotedAvoidCount > 0 then warnings[#warnings + 1] = string.format("• %d negative-signal Echo(s) were promoted.", summary.promotedAvoidCount) end
-    if (summary.avoidPolicyCount or 0) > 0 then warnings[#warnings + 1] = string.format("• %d Avoid Echo(s) will receive the Never Pick policy.", summary.avoidPolicyCount) end
-    if (state.draft.unverifiedCount or 0) > 0 then warnings[#warnings + 1] = string.format("• %d Echo record(s) were excluded because class availability could not be verified.", state.draft.unverifiedCount) end
-    if (state.draft.unavailableCount or 0) > 0 then warnings[#warnings + 1] = string.format("• %d known Echo record(s) are unavailable to this class and remain inspectable in Diagnostics.", state.draft.unavailableCount) end
-    if (state.draft.conflictedCount or 0) > 0 then warnings[#warnings + 1] = string.format("• %d Echo record(s) use runtime availability despite bundled-data conflicts.", state.draft.conflictedCount) end
+    if summary.manualLockCount > 0 then warnings[#warnings + 1] = string.format(L["• %d locked Echo choice(s) are manual."], summary.manualLockCount) end
+    if summary.excludedRecommendedCount > 0 then warnings[#warnings + 1] = string.format(L["• %d recommended priorit%s excluded."], summary.excludedRecommendedCount, summary.excludedRecommendedCount == 1 and "y is" or "ies are") end
+    if summary.promotedAvoidCount > 0 then warnings[#warnings + 1] = string.format(L["• %d negative-signal Echo(s) were promoted."], summary.promotedAvoidCount) end
+    if (summary.avoidPolicyCount or 0) > 0 then warnings[#warnings + 1] = string.format(L["• %d Avoid Echo(s) will receive the Never Pick policy."], summary.avoidPolicyCount) end
+    if (state.draft.unverifiedCount or 0) > 0 then warnings[#warnings + 1] = string.format(L["• %d Echo record(s) were excluded because class availability could not be verified."], state.draft.unverifiedCount) end
+    if (state.draft.unavailableCount or 0) > 0 then warnings[#warnings + 1] = string.format(L["• %d known Echo record(s) are unavailable to this class and remain inspectable in Diagnostics."], state.draft.unavailableCount) end
+    if (state.draft.conflictedCount or 0) > 0 then warnings[#warnings + 1] = string.format(L["• %d Echo record(s) use runtime availability despite bundled-data conflicts."], state.draft.conflictedCount) end
     local unresolvedCount = Draft.UnresolvedCount and Draft.UnresolvedCount(state.draft) or 0
-    if unresolvedCount > 0 then warnings[#warnings + 1] = string.format("• %d legacy recommendation reference(s) could not be resolved safely.", unresolvedCount) end
+    if unresolvedCount > 0 then warnings[#warnings + 1] = string.format(L["• %d legacy recommendation reference(s) could not be resolved safely."], unresolvedCount) end
     if state.catalogChangedWhileOpen then warnings[#warnings + 1] = "• Echo data changed while this Wizard was open. Restart the Wizard before creating this build." end
     if #warnings == 0 then warnings[1] = "No material conflicts detected. Community usage still does not guarantee performance." end
     reviewUI.warningText:SetText(table.concat(warnings, "\n"))
@@ -1124,12 +1126,12 @@ end
 
 local function ValidateCreate()
     if state.catalogChangedWhileOpen then
-        if EbonBuilds.Toast and EbonBuilds.Toast.Show then EbonBuilds.Toast.Show("Echo data changed. Restart the Build Wizard before creating this build.") end
+        if EbonBuilds.Toast and EbonBuilds.Toast.Show then EbonBuilds.Toast.Show(L["Echo data changed. Restart the Build Wizard before creating this build."]) end
         return false
     end
     local title = tostring(state.title or ""):gsub("^%s+", ""):gsub("%s+$", "")
     if title == "" then
-        if EbonBuilds.Toast and EbonBuilds.Toast.Show then EbonBuilds.Toast.Show("Enter a build name before creating the build") end
+        if EbonBuilds.Toast and EbonBuilds.Toast.Show then EbonBuilds.Toast.Show(L["Enter a build name before creating the build"]) end
         if reviewUI and reviewUI.nameBox then reviewUI.nameBox:SetFocus() end
         return false
     end
@@ -1145,7 +1147,7 @@ local function CreateDirect()
     EbonBuilds.Build.SetActive(build.id)
     if EbonBuilds.BuildList and EbonBuilds.BuildList.Refresh then EbonBuilds.BuildList.Refresh() end
     EbonBuilds.ViewRouter.Show("buildOverview", { build = build })
-    if EbonBuilds.Toast and EbonBuilds.Toast.Show then EbonBuilds.Toast.Show("Build created: " .. build.title) end
+    if EbonBuilds.Toast and EbonBuilds.Toast.Show then EbonBuilds.Toast.Show(L["Build created: "] .. build.title) end
 end
 
 local function CreateAndCustomize()
@@ -1208,7 +1210,7 @@ local function ValidateForward()
     if state.step == 3 then
         local summary = state.draft and Summary.Compute(state.draft)
         if not summary or summary.includedCount < 1 then
-            if EbonBuilds.Toast and EbonBuilds.Toast.Show then EbonBuilds.Toast.Show("Include at least one Echo priority before continuing") end
+            if EbonBuilds.Toast and EbonBuilds.Toast.Show then EbonBuilds.Toast.Show(L["Include at least one Echo priority before continuing"]) end
             return false
         end
     end
@@ -1256,35 +1258,35 @@ RenderCurrentStep = function()
     alternateBtn:Hide()
     backBtn:Show()
     cancelBtn:Show()
-    stepLabel:SetText("Step " .. tostring(state.step) .. "/5")
+    stepLabel:SetText(L["Step "] .. tostring(state.step) .. "/5")
     if state.step == 1 then
         BuildContextStep():Show()
         backBtn:Hide()
-        nextBtn:SetText("Continue")
+        nextBtn:SetText(L["Continue"])
         nextBtn:Enable()
         RefreshContextStep()
         LayoutContextStep()
     elseif state.step == 2 then
         BuildLocksStep():Show()
-        nextBtn:SetText("Continue")
+        nextBtn:SetText(L["Continue"])
         if state.loading then nextBtn:Disable() else nextBtn:Enable() end
         RefreshLocks()
     elseif state.step == 3 then
         BuildPrioritiesStep()
         prioritiesUI:SetContext(state.draft, state.class, SnapshotItem)
         prioritiesUI:Show()
-        nextBtn:SetText("Continue")
+        nextBtn:SetText(L["Continue"])
         nextBtn:Enable()
     elseif state.step == 4 then
         BuildScoringStep():Show()
-        nextBtn:SetText("Continue")
+        nextBtn:SetText(L["Continue"])
         nextBtn:Enable()
         RefreshScoring()
     else
         BuildReviewStep():Show()
-        nextBtn:SetText("Create Build")
+        nextBtn:SetText(L["Create Build"])
         nextBtn:Enable()
-        alternateBtn:SetText("Create & Customize")
+        alternateBtn:SetText(L["Create & Customize"])
         alternateBtn:Show()
         RefreshReview()
     end
@@ -1352,7 +1354,7 @@ local function BuildViewFrame()
     local frame = CreateFrame("Frame", nil, UIParent)
     local header = MakeText(frame, "GameFontHighlight")
     header:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -9)
-    header:SetText("Build Wizard")
+    header:SetText(L["Build Wizard"])
     stepLabel = MakeText(frame, "GameFontNormal")
     stepLabel:SetPoint("TOP", frame, "TOP", 0, -9)
 
@@ -1375,7 +1377,7 @@ local function BuildViewFrame()
     backBtn = Theme.CreateButton(frame)
     backBtn:SetSize(82, 24)
     backBtn:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 10, 14)
-    backBtn:SetText("Back")
+    backBtn:SetText(L["Back"])
     backBtn:SetScript("OnClick", GoBack)
     nextBtn = Theme.CreateButton(frame, "gold")
     nextBtn:SetSize(152, 24)
@@ -1384,7 +1386,7 @@ local function BuildViewFrame()
     cancelBtn = Theme.CreateButton(frame)
     cancelBtn:SetSize(72, 24)
     cancelBtn:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -10, 14)
-    cancelBtn:SetText("Cancel")
+    cancelBtn:SetText(L["Cancel"])
     cancelBtn:SetScript("OnClick", CancelWizard)
     alternateBtn = Theme.CreateButton(frame)
     alternateBtn:SetSize(156, 24)

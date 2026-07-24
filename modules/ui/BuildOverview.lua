@@ -7,6 +7,8 @@ local addonName, EbonBuilds = ...
 
 EbonBuilds.BuildOverview = {}
 
+local L = EbonBuilds.L
+
 -- Pure data layer, split out to modules/analytics/BuildOverviewData.lua (issue #19).
 -- Local aliases keep every existing call site and test hook unchanged.
 local Data = EbonBuilds.BuildOverviewData
@@ -48,13 +50,13 @@ local state = { build = nil }
 
 StaticPopupDialogs["EBONBUILDS_DELETE_BUILD"] = {
     text = "",
-    button1 = "Delete",
-    button2 = "Cancel",
+    button1 = L["Delete"],
+    button2 = L["Cancel"],
     OnAccept = function()
         local build = state.build
         if not build or not build.id then return end
         local id = build.id
-        local deletedTitle = build.title or "Untitled"
+        local deletedTitle = build.title or L["Untitled"]
         EbonBuilds.Build.Delete(id)
         if EbonBuilds.BuildList and EbonBuilds.BuildList.Refresh then
             EbonBuilds.BuildList.Refresh()
@@ -67,7 +69,7 @@ StaticPopupDialogs["EBONBUILDS_DELETE_BUILD"] = {
             EbonBuilds.ViewRouter.Show("welcome")
         end
         StaticPopupDialogs["EBONBUILDS_UNDO_DELETE"].text =
-            "Deleted \"" .. deletedTitle .. "\"."
+            string.format(L["Deleted \"%s\"."], deletedTitle)
         StaticPopup_Show("EBONBUILDS_UNDO_DELETE")
     end,
     timeout = 0,
@@ -78,8 +80,8 @@ StaticPopupDialogs["EBONBUILDS_DELETE_BUILD"] = {
 
 StaticPopupDialogs["EBONBUILDS_UNDO_DELETE"] = {
     text = "",
-    button1 = "Undo",
-    button2 = "OK",
+    button1 = EbonBuilds.L["Undo"],
+    button2 = L["OK"],
     OnAccept = function()
         local restored = EbonBuilds.Build.RestoreLastDeleted()
         if not restored then return end
@@ -88,7 +90,7 @@ StaticPopupDialogs["EBONBUILDS_UNDO_DELETE"] = {
         end
         EbonBuilds.Build.SetActive(restored.id)
         EbonBuilds.ViewRouter.Show("buildOverview", { build = restored })
-        EbonBuilds.Toast.Show("Restored \"" .. (restored.title or "Untitled") .. "\"")
+        EbonBuilds.Toast.Show(L["Restored \""] .. (restored.title or "Untitled") .. "\"")
     end,
     timeout = 10,
     whileDead = true,
@@ -155,9 +157,8 @@ local function BuildOverviewTab(parent)
     local editBtn = EbonBuilds.Theme.CreateButton(outer, "gold")
     editBtn:SetSize(128, 26)
     editBtn:SetPoint("TOPRIGHT", outer, "TOPRIGHT", -10, -10)
-    editBtn:SetText("Edit Build")
-    EbonBuilds.Theme.AttachTooltip(editBtn, "Edit Build",
-        "Opens the complete build editor. Use the Character action below for direct access to saved gear, talents, glyphs, and affixes.")
+    editBtn:SetText(L["Edit Build"])
+    EbonBuilds.Theme.AttachTooltip(editBtn, L["Edit Build"], L["Opens the complete build editor. Use the Character action below for direct access to saved gear, talents, glyphs, and affixes."])
     editBtn:SetScript("OnClick", function()
         if state.build then
             EbonBuilds.ViewRouter.Show("buildTabs", { mode = "edit", build = state.build })
@@ -210,12 +211,12 @@ local function BuildOverviewTab(parent)
         local readiness = EbonBuilds.Readiness.Get(build)
         GameTooltip:SetOwner(self, "ANCHOR_CURSOR")
         GameTooltip:ClearLines()
-        GameTooltip:AddLine("Build readiness", 1, 0.82, 0, 1)
-        GameTooltip:AddLine("State: " .. tostring(readiness.state), 0.85, 0.85, 0.9, 1)
-        GameTooltip:AddLine(string.format("Current strategy evidence: %d completed run(s), %d recorded decisions.",
+        GameTooltip:AddLine(L["Build readiness"], 1, 0.82, 0, 1)
+        GameTooltip:AddLine(L["State: "] .. tostring(readiness.state), 0.85, 0.85, 0.9, 1)
+        GameTooltip:AddLine(string.format(L["Current strategy evidence: %d completed run(s), %d recorded decisions."],
             readiness.completedRuns or 0, readiness.decisionCount or 0), 0.75, 0.75, 0.8, 1)
         if readiness.reviewPending then
-            GameTooltip:AddLine("A completed or interrupted run is ready to review.", 1, 0.72, 0.2, 1)
+            GameTooltip:AddLine(L["A completed or interrupted run is ready to review."], 1, 0.72, 0.2, 1)
         end
         if build.isPublic then
             GameTooltip:AddLine(build.validated and "This strategy revision has a completed local run."
@@ -229,7 +230,7 @@ local function BuildOverviewTab(parent)
     -- Locked echoes
     local lockedHeader = outer:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     lockedHeader:SetPoint("TOPLEFT", statusLabel, "BOTTOMLEFT", 0, -14)
-    lockedHeader:SetText("Locked Echoes:")
+    lockedHeader:SetText(L["Locked Echoes:"])
     outer._lockedHeader = lockedHeader
 
     local lockedButtons = {}
@@ -389,7 +390,7 @@ local function BuildOverviewTab(parent)
             EbonBuilds.Theme.ClearButtonAccent(self)
         end
     end
-    autoToggle:SetText("Autopilot: ON")
+    autoToggle:SetText(L["Autopilot: ON"])
     autoToggle:SetScript("OnClick", function(self)
         local build = state.build
         if not build then return end
@@ -422,11 +423,11 @@ local function BuildOverviewTab(parent)
             EbonBuilds.Theme.ClearButtonAccent(self)
         end
     end
-    trainToggle:SetText("Training: OFF")
+    trainToggle:SetText(L["Training: OFF"])
     trainToggle:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:AddLine("Manual Training Mode", 1, 1, 1)
-        GameTooltip:AddLine("Independent of the Automation toggle above. When on, automation never acts for this build -- you pick manually in the native UI, and EbonBuilds compares your picks against what the current weights would suggest. Builds weight-adjustment suggestions from your own choices, shown in Export (AI).", 0.8, 0.8, 0.8, true)
+        GameTooltip:AddLine(L["Manual Training Mode"], 1, 1, 1)
+        GameTooltip:AddLine(L["Independent of the Automation toggle above. When on, automation never acts for this build -- you pick manually in the native UI, and EbonBuilds compares your picks against what the current weights would suggest. Builds weight-adjustment suggestions from your own choices, shown in Export (AI)."], 0.8, 0.8, 0.8, true)
         GameTooltip:Show()
     end)
     trainToggle:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -441,9 +442,8 @@ local function BuildOverviewTab(parent)
 
     local characterBtn = EbonBuilds.Theme.CreateButton(outer)
     characterBtn:SetSize(120, 22)
-    characterBtn:SetText("Character")
-    EbonBuilds.Theme.AttachTooltip(characterBtn, "Open Character",
-        "Opens this build's saved talents, glyphs, gear, and affixes directly in the Character editor.")
+    characterBtn:SetText(L["Character"])
+    EbonBuilds.Theme.AttachTooltip(characterBtn, L["Open Character"], L["Opens this build's saved talents, glyphs, gear, and affixes directly in the Character editor."])
     characterBtn:SetScript("OnClick", function()
         if state.build then
             EbonBuilds.ViewRouter.Show("buildTabs", { mode = "edit", build = state.build, tab = 5 })
@@ -455,7 +455,7 @@ local function BuildOverviewTab(parent)
     linkBtn:SetWidth(80)
     linkBtn:SetHeight(22)
     linkBtn:SetPoint("LEFT", editBtn, "RIGHT", 8, 0)
-    linkBtn:SetText("Chat Link")
+    linkBtn:SetText(L["Chat Link"])
     linkBtn:SetScript("OnClick", function()
         if state.build then
             EbonBuilds.ChatLink.InsertLink(state.build)
@@ -463,8 +463,8 @@ local function BuildOverviewTab(parent)
     end)
     linkBtn:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:AddLine("Share in chat", 1, 1, 1)
-        GameTooltip:AddLine("Inserts a build link into your chat box. Other EbonBuilds users can click it to fetch this build (public builds only).", 0.8, 0.8, 0.8, true)
+        GameTooltip:AddLine(L["Share in chat"], 1, 1, 1)
+        GameTooltip:AddLine(L["Inserts a build link into your chat box. Other EbonBuilds users can click it to fetch this build (public builds only)."], 0.8, 0.8, 0.8, true)
         GameTooltip:Show()
     end)
     linkBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -473,7 +473,7 @@ local function BuildOverviewTab(parent)
     dupBtn:SetWidth(90)
     dupBtn:SetHeight(22)
     dupBtn:SetPoint("LEFT", linkBtn, "RIGHT", 8, 0)
-    dupBtn:SetText("Duplicate")
+    dupBtn:SetText(L["Duplicate"])
     dupBtn:SetScript("OnClick", function()
         local build = state.build
         if not build or not build.id then return end
@@ -482,7 +482,7 @@ local function BuildOverviewTab(parent)
         if EbonBuilds.BuildList and EbonBuilds.BuildList.Refresh then
             EbonBuilds.BuildList.Refresh()
         end
-        EbonBuilds.Toast.Show("Created \"" .. copy.title .. "\"")
+        EbonBuilds.Toast.Show(L["Created \""] .. copy.title .. "\"")
         EbonBuilds.Build.SetActive(copy.id)
         EbonBuilds.ViewRouter.Show("buildOverview", { build = copy })
     end)
@@ -553,18 +553,40 @@ local function BuildOverviewTab(parent)
     applyBtn:SetWidth(150)
     applyBtn:SetHeight(20)
     applyBtn:SetPoint("TOPLEFT", trainToggle, "BOTTOMLEFT", 0, -8)
-    applyBtn:SetText(L["Apply wishlist"])
+    applyBtn:SetText(L["Apply to Character"])
     applyBtn:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:AddLine(L["Apply wishlist"], 1, 1, 1)
-        GameTooltip:AddLine("Sets this build's locked echoes as your ProjectEbonhold wishlist (Active Echo Loadout). The echo-pick screen highlights matches; with Auto-Accept on, matching picks are taken automatically. This is NOT a designed server slot and does NOT apply gear, talents, or weights.", 0.8, 0.8, 0.8, true)
+        GameTooltip:AddLine(L["Apply to Character"], 1, 1, 1)
+        GameTooltip:AddLine(L["Sets this build's locked echoes as your server-tracked active loadout. The game's own echo-pick screen highlights matching choices while it's active."], 0.8, 0.8, 0.8, true)
         GameTooltip:Show()
     end)
     applyBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
     applyBtn:SetScript("OnClick", function()
         local build = state.build
         if not build then return end
-        ConfirmForeignAutoAccept(build, RunApplyWishlist)
+        local svc = ProjectEbonhold and ProjectEbonhold.PerkService
+        if not (svc and svc.SetActiveEchoLoadout) then
+            EbonBuilds.Toast.Show(L["Server doesn't support Active Echo Loadout"])
+            return
+        end
+        local echoes = {}
+        for i = 1, EbonBuilds.Build.LOCKED_SLOTS do
+            local spellId = build.lockedEchoes and build.lockedEchoes[i]
+            if spellId then
+                local data = ProjectEbonhold.PerkDatabase[spellId]
+                echoes[#echoes + 1] = { spellId = spellId, quality = data and data.quality or 0, stacks = 1 }
+            end
+        end
+        if #echoes == 0 then
+            EbonBuilds.Toast.Show(L["No locked echoes to apply"])
+            return
+        end
+        local ok = svc.SetActiveEchoLoadout({ name = build.title, class = build.class, echoes = echoes })
+        if ok then
+            EbonBuilds.Toast.Show(L["Applied \""] .. (build.title or "?") .. "\" to character")
+        else
+            EbonBuilds.Toast.Show(L["Failed to apply build"])
+        end
     end)
     outer._applyBtn = applyBtn
 
@@ -590,11 +612,11 @@ local function BuildOverviewTab(parent)
     ewlBtn:SetWidth(118)
     ewlBtn:SetHeight(20)
     ewlBtn:SetPoint("LEFT", applyBtn, "RIGHT", 8, 0)
-    ewlBtn:SetText("Export EWL")
+    ewlBtn:SetText(L["Export EWL"])
     ewlBtn:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:AddLine("Export Echo Wish List", 1, 0.82, 0)
-        GameTooltip:AddLine("Resolves locked rank aliases to EchoWishlist's retained catalog ID and marks them :1, then adds one canonical :0 row per remaining weighted Echo family.", 0.82, 0.82, 0.86, true)
+        GameTooltip:AddLine(L["Export Echo Wish List"], 1, 0.82, 0)
+        GameTooltip:AddLine(L["Resolves locked rank aliases to EchoWishlist's retained catalog ID and marks them :1, then adds one canonical :0 row per remaining weighted Echo family."], 0.82, 0.82, 0.86, true)
         GameTooltip:Show()
     end)
     ewlBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -609,21 +631,20 @@ local function BuildOverviewTab(parent)
     reviewBtn:SetWidth(132)
     reviewBtn:SetHeight(20)
     reviewBtn:SetPoint("LEFT", ewlBtn, "RIGHT", 8, 0)
-    reviewBtn:SetText("Review Last Run")
-    EbonBuilds.Theme.AttachTooltip(reviewBtn, "Review last run",
-        "Opens the decision logbook for the latest run and marks its summary as reviewed. Mixed-strategy runs remain clearly labeled.")
+    reviewBtn:SetText(L["Review Last Run"])
+    EbonBuilds.Theme.AttachTooltip(reviewBtn, L["Review last run"], L["Opens the decision logbook for the latest run and marks its summary as reviewed. Mixed-strategy runs remain clearly labeled."])
     reviewBtn:SetScript("OnClick", function()
         local build = state.build
         local summary = build and EbonBuilds.Review.Build(build)
         if not summary then
-            EbonBuilds.Toast.Show("No finished run is available for this build yet")
+            EbonBuilds.Toast.Show(L["No finished run is available for this build yet"])
             return
         end
         EbonBuilds.Review.MarkReviewed(build)
         EbonBuilds.BuildOverview.OpenLogbook()
         local label = summary.completed and "completed" or "interrupted"
         if summary.mixedStrategy then label = label .. ", mixed strategy" end
-        EbonBuilds.Toast.Show(string.format("Reviewing %s run: level %d, %d decisions", label,
+        EbonBuilds.Toast.Show(string.format(L["Reviewing %s run: level %d, %d decisions"], label,
             summary.maxLevel or 1, summary.decisions or 0))
     end)
     outer._reviewBtn = reviewBtn
@@ -684,7 +705,7 @@ local function BuildOverviewTab(parent)
     -- Description header
     local descHeader = outer:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     descHeader:SetPoint("TOPLEFT", actionArea, "BOTTOMLEFT", 0, -14)
-    descHeader:SetText("Description:")
+    descHeader:SetText(L["Description:"])
     outer._descHeader = descHeader
 
     -- Description scroll frame (owns scrollbar)
@@ -750,12 +771,12 @@ local function BuildOverviewTab(parent)
     local deleteBtn = EbonBuilds.Theme.CreateButton(outer, "danger")
     deleteBtn:SetSize(64, 20)
     deleteBtn:SetPoint("BOTTOMLEFT", outer, "BOTTOMLEFT", 10, 4)
-    deleteBtn:SetText("Delete")
+    deleteBtn:SetText(L["Delete"])
     deleteBtn:SetScript("OnClick", function()
         local build = state.build
         if not build then return end
-        local name = build.title or "Untitled"
-        StaticPopupDialogs["EBONBUILDS_DELETE_BUILD"].text = "Delete build \"" .. name .. "\"?"
+        local name = build.title or L["Untitled"]
+        StaticPopupDialogs["EBONBUILDS_DELETE_BUILD"].text = string.format(L["Delete build \"%s\"?"], name)
         StaticPopup_Show("EBONBUILDS_DELETE_BUILD")
     end)
     outer._deleteBtn = deleteBtn
@@ -802,11 +823,11 @@ local function BuildMissingTab(parent)
     missingRefreshBtn = EbonBuilds.Theme.CreateButton(parent)
     missingRefreshBtn:SetSize(70, 20)
     missingRefreshBtn:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -20, -2)
-    missingRefreshBtn:SetText("Refresh")
+    missingRefreshBtn:SetText(L["Refresh"])
     missingRefreshBtn:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:AddLine("Refresh", 1, 1, 1)
-        GameTooltip:AddLine("Re-reads your spellbook for learned echoes right now, " ..
+        GameTooltip:AddLine(L["Refresh"], 1, 1, 1)
+        GameTooltip:AddLine(L["Re-reads your spellbook for learned echoes right now, "] ..
             "instead of waiting for the automatic retry.", 0.8, 0.8, 0.8, true)
         GameTooltip:Show()
     end)
@@ -815,7 +836,7 @@ local function BuildMissingTab(parent)
         RefreshMissing()
     end)
 
-    missingViewDropdown = EbonBuilds.Theme.CreateDropdown(parent, 178, "Weighted missing")
+    missingViewDropdown = EbonBuilds.Theme.CreateDropdown(parent, 178, L["Weighted missing"])
     missingViewDropdown:SetPoint("RIGHT", missingRefreshBtn, "LEFT", -8, 0)
     missingViewDropdown:SetHeight(20)
     missingViewDropdown:SetMenuBuilder(function()
@@ -823,13 +844,13 @@ local function BuildMissingTab(parent)
         for _, option in ipairs(MISSING_VIEW_OPTIONS) do
             local view = option
             items[#items + 1] = {
-                text = view.label,
+                text = L[view.label],
                 checked = missingState.view == view.key,
-                tooltipTitle = view.label,
+                tooltipTitle = L[view.label],
                 tooltipBody = view.tooltip,
                 func = function()
                     missingState.view = view.key
-                    missingViewDropdown:SetText(view.label)
+                    missingViewDropdown:SetText(L[view.label])
                     if missingBar then missingBar:SetValue(0) end
                     RefreshMissing()
                 end,
@@ -839,8 +860,7 @@ local function BuildMissingTab(parent)
     end)
     EbonBuilds.Theme.AttachTooltip(
         missingViewDropdown,
-        "Collection view",
-        "Weighted missing is the default. Use the other views to include learned weighted priorities, every missing Echo, or the learned-and-missing collection view."
+        L["Collection view"], L["Weighted missing is the default. Use the other views to include learned weighted priorities, every missing Echo, or the learned-and-missing collection view."]
     )
 
     local scroll = CreateFrame("ScrollFrame", nil, parent)
@@ -894,7 +914,7 @@ RefreshOverview = function()
 
     local specs = EbonBuilds.SpecData and EbonBuilds.SpecData[build.class]
     local specName = specs and specs[build.spec or 1] and specs[build.spec or 1].name or ""
-    overviewOuter._metaLabel:SetText(string.format("by %s | %s | r%d / strategy r%d | %s",
+    overviewOuter._metaLabel:SetText(string.format(L["by %s | %s | r%d / strategy r%d | %s"],
         build.author or "Unknown",
         specName,
         tonumber(build.revision) or tonumber(build.version) or 1,
@@ -911,7 +931,7 @@ RefreshOverview = function()
     local evidence = tostring(readiness.evidenceTier or "INSUFFICIENT"):gsub("_", " ")
     local runTested = build.validated and " · |cff19ff19Locally run-tested|r" or ""
     local review = readiness.reviewPending and " · |cffffb84dReview ready|r" or ""
-    overviewOuter._statusLabel:SetText(string.format("%s · %s%s|r · Evidence: %s%s%s",
+    overviewOuter._statusLabel:SetText(string.format(L["%s · %s%s|r · Evidence: %s%s%s"],
         publicText, stateColor, readiness.state, evidence, runTested, review))
     if overviewOuter._reviewBtn then
         if EbonBuilds.Review.Latest(build) then overviewOuter._reviewBtn:Enable()
@@ -1037,7 +1057,7 @@ local function TopEntry(counts)
         end
     end
     if not bestName then return "-" end
-    return string.format("%s (%dx)", tostring(bestName), bestCount)
+    return string.format(L["%s (%dx)"], tostring(bestName), bestCount)
 end
 
 local function RefreshStats()
@@ -1070,7 +1090,7 @@ RefreshMissing = function(assumeNoneOwned)
         if missingChild.emptyLabel then missingChild.emptyLabel:Hide() end
         missingChild.loadingLabel = missingChild.loadingLabel or missingChild:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
         missingChild.loadingLabel:SetPoint("TOPLEFT", missingChild, "TOPLEFT", 4, -2)
-        missingChild.loadingLabel:SetText("Requesting data...")
+        missingChild.loadingLabel:SetText(L["Requesting data..."])
         missingChild.loadingLabel:Show()
         missingChild:SetHeight(20)
         -- Auto-retry instead of requiring the player to flip tabs away and
@@ -1120,7 +1140,7 @@ RefreshMissing = function(assumeNoneOwned)
         missingChild:SetHeight(math.max(34, missingScroll:GetHeight()))
         missingBar:SetMinMaxValues(0, 0)
         missingBar:SetValue(0)
-        if missingCountLabel then missingCountLabel:SetText("0 Echoes") end
+        if missingCountLabel then missingCountLabel:SetText(L["0 Echoes"]) end
         return
     end
     missingChild.emptyLabel:Hide()
@@ -1206,7 +1226,7 @@ RefreshMissing = function(assumeNoneOwned)
         btn._labelName:SetText(entry.name)
         btn._labelName:SetTextColor(cc[1], cc[2], cc[3], entry.owned and 0.7 or 1)
         if entry.owned then
-            btn._labelSource:SetText("Learned")
+            btn._labelSource:SetText(L["Learned"])
             btn._labelSource:SetTextColor(0.12, 0.85, 0.12, 1)
             btn._labelScore:SetText("")
         else
@@ -1227,13 +1247,13 @@ RefreshMissing = function(assumeNoneOwned)
     missingBar:SetMinMaxValues(0, math.max(0, missingChild:GetHeight() - missingScroll:GetHeight()))
     if missingCountLabel then
         if view.key == "weighted" then
-            missingCountLabel:SetText(string.format("%d weighted · %d learned · %d missing", #missing, ownedCount, missingCount))
+            missingCountLabel:SetText(string.format(L["%d weighted · %d learned · %d missing"], #missing, ownedCount, missingCount))
         elseif view.key == "weightedMissing" then
-            missingCountLabel:SetText(string.format("%d weighted missing", missingCount))
+            missingCountLabel:SetText(string.format(L["%d weighted missing"], missingCount))
         elseif view.key == "missing" then
-            missingCountLabel:SetText(string.format("%d missing", missingCount))
+            missingCountLabel:SetText(string.format(L["%d missing"], missingCount))
         else
-            missingCountLabel:SetText(string.format("%d learned · %d missing", ownedCount, missingCount))
+            missingCountLabel:SetText(string.format(L["%d learned · %d missing"], ownedCount, missingCount))
         end
     end
 end
@@ -1305,8 +1325,7 @@ local function BuildViewFrame()
 
     overviewHeader = EbonBuilds.Theme.CreatePageHeader(
         f,
-        "Build overview",
-        "Review build identity, performance, collection gaps, and automation decisions."
+        L["Build overview"], L["Review build identity, performance, collection gaps, and automation decisions."]
     )
 
     -- Flat intent-oriented tabs. These share the same geometry and state
@@ -1332,10 +1351,10 @@ local function BuildViewFrame()
     tab4:SetSize(112, 26)
     tab4:SetPoint("LEFT", tab3, "RIGHT", 6, 0)
 
-    EbonBuilds.Theme.AttachTooltip(tab1, "Build overview", "Review the build's identity, locked Echoes, notes, sharing state, and operational controls.")
-    EbonBuilds.Theme.AttachTooltip(tab2, "Build statistics", "Review summary metrics, weighted Echo analytics, action patterns, and evidence-backed recommendations.")
-    EbonBuilds.Theme.AttachTooltip(tab3, "Missing Echoes", "Review missing weighted priorities by default, or switch to learned-and-missing weighted priorities, all missing Echoes, or the full collection view.")
-    EbonBuilds.Theme.AttachTooltip(tab4, "Decision logbook", "Search and audit automatic choices, including recorded score breakdowns when available.")
+    EbonBuilds.Theme.AttachTooltip(tab1, L["Build overview"], L["Review the build's identity, locked Echoes, notes, sharing state, and operational controls."])
+    EbonBuilds.Theme.AttachTooltip(tab2, L["Build statistics"], L["Review summary metrics, weighted Echo analytics, action patterns, and evidence-backed recommendations."])
+    EbonBuilds.Theme.AttachTooltip(tab3, L["Missing Echoes"], L["Review missing weighted priorities by default, or switch to learned-and-missing weighted priorities, all missing Echoes, or the full collection view."])
+    EbonBuilds.Theme.AttachTooltip(tab4, L["Decision logbook"], L["Search and audit automatic choices, including recorded score breakdowns when available."])
 
     -- Bordered workspace beneath the page title and tabs.
     local box = CreateFrame("Frame", nil, f)

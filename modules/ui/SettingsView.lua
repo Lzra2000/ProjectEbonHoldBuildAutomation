@@ -8,6 +8,8 @@ local addonName, EbonBuilds = ...
 
 EbonBuilds.SettingsView = {}
 
+
+local L = EbonBuilds.L
 local View = EbonBuilds.SettingsView
 local Theme = EbonBuilds.Theme
 
@@ -263,7 +265,7 @@ local function CreatePercentControl(parent, action, y)
 
     local title = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     title:SetPoint("TOPLEFT", row, "TOPLEFT", 14, -10)
-    title:SetText(action.label)
+    title:SetText(L[action.label])
     title:SetTextColor(action.color[1], action.color[2], action.color[3], 1)
 
     local description = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
@@ -347,7 +349,7 @@ local function CreatePercentControl(parent, action, y)
             return false
         end
         if value < minValue or value > maxValue then
-            box._error = string.format("Use %d to %d.", minValue, maxValue)
+            box._error = string.format(L["Use %d to %d."], minValue, maxValue)
             Theme.SetInputState(container, "error")
             box._committing = nil
             return false
@@ -511,9 +513,9 @@ local function RefreshAutomationStatus()
         end
         automationToggle:Enable()
     else
-        statusTitle:SetText("AUTOPILOT READY AFTER SAVE")
-        statusSubtitle:SetText("New builds start with Autopilot enabled. Save the build to activate these rules.")
-        automationToggle:SetText("Enabled after save")
+        statusTitle:SetText(L["AUTOPILOT READY AFTER SAVE"])
+        statusSubtitle:SetText(L["New builds start with Autopilot enabled. Save the build to activate these rules."])
+        automationToggle:SetText(L["Enabled after save"])
         automationToggle:Disable()
         statusDot:SetVertexColor(unpack(Theme.WARNING))
         statusDot._active = false
@@ -534,7 +536,7 @@ local function RefreshProfileDisplay()
         SetSelectedButton(profileButtons[profile.key], matched and matched.key == profile.key, matched and matched.key == "balanced" and "good" or "gold")
     end
     if matched then
-        profileStateLabel:SetText("Current intent: " .. matched.label)
+        profileStateLabel:SetText(L["Current intent: "] .. L[matched.label])
         profileStateLabel:SetTextColor(unpack(matched.key == "balanced" and Theme.SUCCESS or Theme.ACCENT_GOLD))
         guidanceLabel:SetText(matched.description)
     else
@@ -568,7 +570,7 @@ local function BuildStatusPanel(parent, y)
 
     statusTitle = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     statusTitle:SetPoint("LEFT", statusDot, "RIGHT", 8, 0)
-    statusTitle:SetText("AUTOPILOT READY")
+    statusTitle:SetText(L["AUTOPILOT READY"])
 
     statusSubtitle = panel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     statusSubtitle:SetPoint("TOPLEFT", statusTitle, "BOTTOMLEFT", 0, -4)
@@ -612,7 +614,7 @@ local function BuildIntentPanel(parent, y)
         local btn = Theme.CreateButton(panel)
         btn:SetSize(180, 30)
         btn:SetPoint("TOPLEFT", panel, "TOPLEFT", 14 + (i - 1) * 194, -48)
-        btn:SetText(profile.label)
+        btn:SetText(L[profile.label])
         btn:SetScript("OnClick", function() ApplyProfile(profile) end)
         Theme.AttachTooltip(btn, profile.label, profile.description)
         profileButtons[profile.key] = btn
@@ -707,7 +709,7 @@ local function RefreshBanList()
             btn:SetScript("OnEnter", function(self)
                 GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
                 GameTooltip:AddLine(EbonBuilds.Weights.CanonicalName(self._spellId) or "Banned Echo", 1, 0.82, 0)
-                GameTooltip:AddLine("Priority ban. Click to remove.", 0.82, 0.82, 0.86, true)
+                GameTooltip:AddLine(L["Priority ban. Click to remove."], 0.82, 0.82, 0.86, true)
                 GameTooltip:Show()
             end)
             btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -737,7 +739,7 @@ end
 local function AddBannedEcho(name, spellId)
     local settings = Settings()
     if EbonBuilds.Scoring.IsWhitelisted(spellId, settings) then
-        EbonBuilds.Toast.Show("This Echo is protected. Remove protection before banning it.")
+        EbonBuilds.Toast.Show(L["This Echo is protected. Remove protection before banning it."])
         return
     end
     settings.echoBanList = settings.echoBanList or {}
@@ -758,16 +760,14 @@ local function BuildGlobalFeaturesPanel(parent, y)
     syncChatMessagesCheckbox:SetScript("OnClick", function(self)
         SetSyncChatMessagesEnabled(self:GetChecked() and true or false)
     end)
-    Theme.AttachTooltip(syncChatMessagesCheckbox, "Sync chat messages",
-        "Shows passive EbonBuilds Sync status, transfer, and update notices in chat. Explicit slash-command replies remain visible.")
+    Theme.AttachTooltip(syncChatMessagesCheckbox, L["Sync chat messages"], L["Shows passive EbonBuilds Sync status, transfer, and update notices in chat. Explicit slash-command replies remain visible."])
 
     tomeAtlasMapCheckbox = Theme.CreateCheckbox(panel, "Tome Atlas map integration")
     tomeAtlasMapCheckbox:SetPoint("TOPLEFT", panel, "TOPLEFT", 14, -88)
     tomeAtlasMapCheckbox:SetScript("OnClick", function(self)
         SetTomeAtlasMapEnabled(self:GetChecked() and true or false)
     end)
-    Theme.AttachTooltip(tomeAtlasMapCheckbox, "Tome Atlas map integration",
-        "Master switch for everything Tome Atlas puts on the world map: the green continent highlights, the zone tome list, pins, and legends. The Tome Atlas window and collected data remain available.")
+    Theme.AttachTooltip(tomeAtlasMapCheckbox, L["Tome Atlas map integration"], L["Master switch for everything Tome Atlas puts on the world map: the green continent highlights, the zone tome list, pins, and legends. The Tome Atlas window and collected data remain available."])
 
     -- Restores the per-character zone-panel toggle the v3.70 Settings
     -- reconciliation lost: the panel's own close (X) button writes this
@@ -780,8 +780,7 @@ local function BuildGlobalFeaturesPanel(parent, y)
             EbonBuilds.WorldIntegration.SetMapPanelEnabled(self:GetChecked() and true or false)
         end
     end)
-    Theme.AttachTooltip(mapZonePanelCheckbox, "Zone tome list on the world map",
-        "Only the \"Tomes in this zone\" list panel (per character). The panel's X button unchecks this. The green continent highlights are governed by the master switch above.")
+    Theme.AttachTooltip(mapZonePanelCheckbox, L["Zone tome list on the world map"], L["Only the \"Tomes in this zone\" list panel (per character). The panel's X button unchecks this. The green continent highlights are governed by the master switch above."])
 end
 
 local function RefreshGlobalFeatureControls()
@@ -801,24 +800,22 @@ local function BuildAdvancedPanel(parent, y)
 
     local modelLabel = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     modelLabel:SetPoint("TOPLEFT", panel, "TOPLEFT", 14, -48)
-    modelLabel:SetText("Decision model")
+    modelLabel:SetText(L["Decision model"])
 
     local smart = Theme.CreateButton(panel)
     smart:SetSize(160, 24)
     smart:SetPoint("TOPLEFT", panel, "TOPLEFT", 14, -68)
-    smart:SetText("Smart expected value")
+    smart:SetText(L["Smart expected value"])
     smart:SetScript("OnClick", function() SetModel("ev") end)
-    Theme.AttachTooltip(smart, "Smart expected value",
-        "Recommended. Asks \"is this offer better than what I'd realistically get by waiting or rerolling?\" instead of comparing it to a fixed ceiling -- so a threshold means the same thing whether the run has been lucky or unlucky so far.")
+    Theme.AttachTooltip(smart, L["Smart expected value"], L["Recommended. Asks \"is this offer better than what I'd realistically get by waiting or rerolling?\" instead of comparing it to a fixed ceiling -- so a threshold means the same thing whether the run has been lucky or unlucky so far."])
     modelButtons.smart = smart
 
     local classic = Theme.CreateButton(panel)
     classic:SetSize(150, 24)
     classic:SetPoint("LEFT", smart, "RIGHT", 6, 0)
-    classic:SetText("Classic peak %")
+    classic:SetText(L["Classic peak %"])
     classic:SetScript("OnClick", function() SetModel("sum") end)
-    Theme.AttachTooltip(classic, "Classic peak percentage",
-        "Legacy model. Asks \"what percent of the single highest score my build could ever roll is this?\" -- a fixed yardstick, kept for builds already tuned around it. Reroll uses the sum of all three offers.")
+    Theme.AttachTooltip(classic, L["Classic peak percentage"], L["Legacy model. Asks \"what percent of the single highest score my build could ever roll is this?\" -- a fixed yardstick, kept for builds already tuned around it. Reroll uses the sum of all three offers."])
     modelButtons.classic = classic
 
     guardControl = CreateCompactSlider(panel, "Reroll guard", "Classic only: keep the screen whenever one Echo reaches this percentage of peak.", "rerollGuardPct", 0, 200, -106)
@@ -826,7 +823,7 @@ local function BuildAdvancedPanel(parent, y)
 
     local familyLabel = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     familyLabel:SetPoint("TOPLEFT", panel, "TOPLEFT", 14, -242)
-    familyLabel:SetText("Protect families from automatic banish")
+    familyLabel:SetText(L["Protect families from automatic banish"])
 
     for i, family in ipairs(FAMILY_ORDER) do
         local btn = Theme.CreateButton(panel)
@@ -855,18 +852,18 @@ local function BuildAdvancedPanel(parent, y)
 
     familyWarning = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     familyWarning:SetPoint("TOPLEFT", panel, "TOPLEFT", 14, -318)
-    familyWarning:SetText("All families are protected, so automatic banish cannot act.")
+    familyWarning:SetText(L["All families are protected, so automatic banish cannot act."])
     familyWarning:SetTextColor(unpack(Theme.WARNING))
     familyWarning:Hide()
 
     local banLabel = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     banLabel:SetPoint("TOPLEFT", panel, "TOPLEFT", 14, -342)
-    banLabel:SetText("Priority bans")
+    banLabel:SetText(L["Priority bans"])
 
     local add = Theme.CreateButton(panel)
     add:SetSize(86, 22)
     add:SetPoint("LEFT", banLabel, "RIGHT", 12, 0)
-    add:SetText("Add Echo")
+    add:SetText(L["Add Echo"])
     add:SetScript("OnClick", function()
         local settings = Settings()
         local classToken = EbonBuilds.BuildForm.GetEditingClass()
@@ -904,7 +901,7 @@ local function BuildAdvancedPanel(parent, y)
 
     banEmpty = banListFrame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     banEmpty:SetPoint("CENTER", banListFrame, "CENTER", 0, 0)
-    banEmpty:SetText("No priority bans. Thresholds decide automatically.")
+    banEmpty:SetText(L["No priority bans. Thresholds decide automatically."])
     banEmpty:SetTextColor(unpack(Theme.TEXT_MUTED))
 
     fallbackButton = Theme.CreateButton(panel)
@@ -916,7 +913,7 @@ local function BuildAdvancedPanel(parent, y)
         self:SetText(settings.echoBanAllMode == "random" and "Fallback: Random" or "Fallback: Highest score")
         PersistSettings()
     end)
-    Theme.AttachTooltip(fallbackButton, "When every offer is banned", "Choose the highest-scoring candidate for consistency, or pick randomly when no banish charges remain.")
+    Theme.AttachTooltip(fallbackButton, L["When every offer is banned"], L["Choose the highest-scoring candidate for consistency, or pick randomly when no banish charges remain."])
 
     -- The ban list extends below the original panel height. Increase after all
     -- controls are anchored so the card remains a single coherent section.
@@ -925,12 +922,12 @@ end
 
 local function RefreshAdvancedVisibility()
     if advancedExpanded then
-        advancedButton:SetText("Hide advanced controls")
+        advancedButton:SetText(L["Hide advanced controls"])
         Theme.SetButtonAccent(advancedButton, "gold")
         advancedPanel:Show()
         scrollChild:SetHeight(EXPANDED_HEIGHT)
     else
-        advancedButton:SetText("Show advanced controls")
+        advancedButton:SetText(L["Show advanced controls"])
         Theme.ClearButtonAccent(advancedButton)
         advancedPanel:Hide()
         scrollChild:SetHeight(COLLAPSED_HEIGHT)
@@ -954,7 +951,7 @@ local function RefreshAdvanced()
     penaltyControl.Refresh()
     if IsSmart() then
         guardControl.slider:Disable()
-        guardControl.value:SetText("Classic only")
+        guardControl.value:SetText(L["Classic only"])
         guardControl.value:SetTextColor(unpack(Theme.TEXT_MUTED))
     else
         guardControl.slider:Enable()
@@ -1005,12 +1002,12 @@ local function BuildViewFrame(parent)
 
     local header = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     header:SetPoint("TOPLEFT", frame, "TOPLEFT", 10, -8)
-    header:SetText("Autopilot")
+    header:SetText(L["Autopilot"])
     header:SetTextColor(unpack(Theme.TEXT_PRIMARY))
 
     local subtitle = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     subtitle:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -3)
-    subtitle:SetText("Choose the outcome you want. The addon translates it into precise banish, reroll, and freeze decisions.")
+    subtitle:SetText(L["Choose the outcome you want. The addon translates it into precise banish, reroll, and freeze decisions."])
     subtitle:SetTextColor(unpack(Theme.TEXT_MUTED))
 
     scrollFrame = CreateFrame("ScrollFrame", nil, frame)
@@ -1048,12 +1045,12 @@ local function BuildViewFrame(parent)
     advancedButton = Theme.CreateButton(scrollChild)
     advancedButton:SetSize(190, ADVANCED_TOGGLE_H)
     advancedButton:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 4, -692)
-    advancedButton:SetText("Show advanced controls")
+    advancedButton:SetText(L["Show advanced controls"])
     advancedButton:SetScript("OnClick", function()
         advancedExpanded = not advancedExpanded
         RefreshAdvancedVisibility()
     end)
-    Theme.AttachTooltip(advancedButton, "Advanced controls", "Reveal the decision model, classic guard, freeze penalty, protected families, explicit bans, and fallback behavior.")
+    Theme.AttachTooltip(advancedButton, L["Advanced controls"], L["Reveal the decision model, classic guard, freeze penalty, protected families, explicit bans, and fallback behavior."])
 
     BuildAdvancedPanel(scrollChild, -724)
     Theme.BindScrollWheel(scrollFrame, scrollBar, 30, scrollChild)

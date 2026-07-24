@@ -6,6 +6,8 @@ local addonName, EbonBuilds = ...
 
 EbonBuilds.WelcomeView = {}
 
+
+local L = EbonBuilds.L
 local viewFrame
 
 local function BuildViewFrame(parent)
@@ -24,11 +26,11 @@ local function BuildViewFrame(parent)
 
     local title = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
     title:SetPoint("TOP", icon, "BOTTOM", 0, -16)
-    title:SetText("No Builds Yet")
+    title:SetText(L["No Builds Yet"])
 
     local sub = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     sub:SetPoint("TOP", title, "BOTTOM", 0, -8)
-    sub:SetText("Create a build to automate Echo choices, or start from a shared community build.")
+    sub:SetText(L["Create a build to automate Echo choices, or start from a shared community build."])
     sub:SetWidth(430)
     sub:SetJustifyH("CENTER")
     sub:SetTextColor(unpack(EbonBuilds.Theme.TEXT_MUTED))
@@ -37,7 +39,7 @@ local function BuildViewFrame(parent)
     newBtn:SetWidth(140)
     newBtn:SetHeight(28)
     newBtn:SetPoint("TOP", sub, "BOTTOM", 0, -24)
-    newBtn:SetText("+ New Build")
+    newBtn:SetText(L["+ New Build"])
     newBtn:SetScript("OnClick", function()
         EbonBuilds.ViewRouter.Show("buildWizard")
     end)
@@ -46,7 +48,7 @@ local function BuildViewFrame(parent)
     publicBtn:SetWidth(140)
     publicBtn:SetHeight(28)
     publicBtn:SetPoint("TOP", newBtn, "BOTTOM", 0, -8)
-    publicBtn:SetText("Public Builds")
+    publicBtn:SetText(L["Public Builds"])
     publicBtn:SetScript("OnClick", function()
         EbonBuilds.ViewRouter.Show("publicBuilds")
     end)
@@ -54,12 +56,12 @@ local function BuildViewFrame(parent)
     -- Getting-started guide
     local guideHeader = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     guideHeader:SetPoint("TOP", publicBtn, "BOTTOM", 0, -28)
-    guideHeader:SetText("Getting started")
+    guideHeader:SetText(L["Getting started"])
 
     local steps = {
-        "|cffffd2001.|r  Choose a class and locked Echoes, then give each available quality rank a value.",
-        "|cffffd2002.|r  Set priorities, then choose an Autopilot intent such as Balanced or Chase upgrades.",
-        "|cffffd2003.|r  Play normally. Review each automated decision later in the Logbook.",
+        "|cffffd2001.|r  " .. L["Choose a class and locked Echoes, then give each available quality rank a value."],
+        "|cffffd2002.|r  " .. L["Set priorities, then choose an Autopilot intent such as Balanced or Chase upgrades."],
+        "|cffffd2003.|r  " .. L["Play normally. Review each automated decision later in the Logbook."],
     }
     local anchor = guideHeader
     for _, text in ipairs(steps) do

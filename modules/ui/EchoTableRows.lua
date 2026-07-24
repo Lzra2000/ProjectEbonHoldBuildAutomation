@@ -6,6 +6,8 @@ local addonName, EbonBuilds = ...
 
 EbonBuilds.EchoTableRows = {}
 
+
+local L = EbonBuilds.L
 local Rows = EbonBuilds.EchoTableRows
 local QUALITY_ORDER = EbonBuilds.Quality.ORDER or {}
 local QUALITY_COLORS = EbonBuilds.Quality.HEX
@@ -212,12 +214,12 @@ local function UpdateProtectionVisual(row, entry, protected)
     row.protectToggle:SetChecked(protected)
     local maxScore = MaxTotalScore(entry)
     if protected then
-        row.statusLabel:SetText(string.format("Protected · Max %d", maxScore))
+        row.statusLabel:SetText(string.format(L["Protected · Max %d"], maxScore))
         row.statusLabel:SetTextColor(unpack(EbonBuilds.Theme.SUCCESS))
         row.protectAccent:Show()
         row._baseBg:SetVertexColor(0.07, 0.11, 0.08, row._stripeEven and 0.28 or 0.20)
     else
-        row.statusLabel:SetText(string.format("Max %d", maxScore))
+        row.statusLabel:SetText(string.format(L["Max %d"], maxScore))
         row.statusLabel:SetTextColor(unpack(EbonBuilds.Theme.TEXT_MUTED))
         row.protectAccent:Hide()
         local alpha = row._stripeEven and 0.22 or 0.12
@@ -232,13 +234,13 @@ local function UpdateScores(row, entry)
         if cell and entry.qualities[quality] and not cell.editBox._error then
             local spellId = entry.spellIds and entry.spellIds[quality]
             if spellId and EbonBuilds.Scoring.IsLocked(spellId) then
-                cell.scoreLabel:SetText("|cff" .. QUALITY_COLORS[quality] .. "Locked|r")
+                cell.scoreLabel:SetText("|cff" .. QUALITY_COLORS[quality] .. L["Locked"] .. "|r")
             elseif spellId and EbonBuilds.Scoring.IsBanned(spellId, settings) then
-                cell.scoreLabel:SetText("|cff" .. QUALITY_COLORS[quality] .. "Banned|r")
+                cell.scoreLabel:SetText("|cff" .. QUALITY_COLORS[quality] .. L["Banned"] .. "|r")
             else
                 local weight = EbonBuilds.Weights.GetForRef(EbonBuilds.Build.GetActive(), entry.refKey, quality)
                 local score = EbonBuilds.Scoring.ScorePerQuality(entry, weight, settings, quality)
-                cell.scoreLabel:SetText(string.format("|cff%sScore %d|r", QUALITY_COLORS[quality], score))
+                cell.scoreLabel:SetText(string.format(L["|cff%sScore %d|r"], QUALITY_COLORS[quality], score))
             end
         end
     end
@@ -287,7 +289,7 @@ local function WireIconTooltip(iconFrame)
             local ap = EbonBuilds.Calibration.GetAppearanceStats(appearanceName)
             if ap then
                 GameTooltip:AddLine(" ")
-                GameTooltip:AddLine(string.format("Appears in ~%.1f%% of offers (%d evaluations)", ap.pct, ap.totalEvals), 0.6, 0.8, 1)
+                GameTooltip:AddLine(string.format(L["Appears in ~%.1f%% of offers (%d evaluations)"], ap.pct, ap.totalEvals), 0.6, 0.8, 1)
             end
         end
         GameTooltip:Show()
@@ -323,7 +325,7 @@ local function UpdatePolicyVisual(row, entry, selectedNames)
     local policy = api and api.Get(settings, entry.refKey) or "normal"
     local selected = api and api.IsSelected(entry.refKey, selectedNames) or false
     local definition = PolicyDefinition(policy)
-    row.policyDropdown:SetText(definition.shortLabel or definition.label)
+    row.policyDropdown:SetText(L[definition.shortLabel or definition.label])
     if row.policyDropdown._label then row.policyDropdown._label:SetTextColor(unpack(definition.color or EbonBuilds.Theme.TEXT_PRIMARY)) end
     if row.policyDropdown._container then
         local c = definition.color or EbonBuilds.Theme.BORDER_DIM
@@ -334,7 +336,7 @@ local function UpdatePolicyVisual(row, entry, selectedNames)
 end
 
 local function CreatePolicyDropdown(row)
-    local dropdown = EbonBuilds.Theme.CreateDropdown(row, Rows.COL_POLICY - 8, "Normal", { menuWidth = 270, rowHeight = 30 })
+    local dropdown = EbonBuilds.Theme.CreateDropdown(row, Rows.COL_POLICY - 8, L["Normal"], { menuWidth = 270, rowHeight = 30 })
     dropdown:SetPoint("RIGHT", row, "RIGHT", -(RIGHT_MARGIN + Rows.RANK_TOTAL + Rows.COL_PROTECT + 4), 2)
 
     dropdown:SetMenuBuilder(function()
@@ -349,7 +351,7 @@ local function CreatePolicyDropdown(row)
             local policyKey = policy
             local definition = api.Definition(policyKey)
             items[#items + 1] = {
-                text = definition.label,
+                text = L[definition.label],
                 checked = current == policyKey,
                 color = definition.color,
                 tooltipTitle = definition.group .. " - " .. definition.label,
@@ -388,7 +390,7 @@ local function CreatePolicyDropdown(row)
             GameTooltip:AddLine(definition.description, 0.82, 0.82, 0.86, true)
             GameTooltip:AddLine(" ")
             GameTooltip:AddLine(api.EffectText(policy, selected), unpack(definition.color))
-            GameTooltip:AddLine("Changes remain staged until Save.", 0.55, 0.58, 0.64, true)
+            GameTooltip:AddLine(L["Changes remain staged until Save."], 0.55, 0.58, 0.64, true)
             GameTooltip:Show()
         end)
         dropdown._button:HookScript("OnLeave", function()
@@ -415,10 +417,10 @@ local function CreateProtectToggle(row)
     function btn:SetChecked(checked)
         self._checked = checked and true or false
         if self._checked then
-            self:SetText("Protected")
+            self:SetText(L["Protected"])
             EbonBuilds.Theme.SetButtonAccent(self, "good")
         else
-            self:SetText("Protect")
+            self:SetText(L["Protect"])
             EbonBuilds.Theme.ClearButtonAccent(self)
         end
     end
@@ -456,9 +458,9 @@ local function CreateProtectToggle(row)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         GameTooltip:AddLine(self:GetChecked() and "Protected Echo" or "Protect this Echo", 1, 0.82, 0)
         if self:GetChecked() then
-            GameTooltip:AddLine("All ranks of this Echo are excluded from explicit and automatic banishing. Click to remove protection.", 0.8, 1, 0.8, true)
+            GameTooltip:AddLine(L["All ranks of this Echo are excluded from explicit and automatic banishing. Click to remove protection."], 0.8, 1, 0.8, true)
         else
-            GameTooltip:AddLine("Click once to keep every rank of this Echo safe from all banish logic.", 0.82, 0.82, 0.86, true)
+            GameTooltip:AddLine(L["Click once to keep every rank of this Echo safe from all banish logic."], 0.82, 0.82, 0.86, true)
         end
         GameTooltip:Show()
     end)
@@ -491,7 +493,7 @@ end
 local function SetError(box, message)
     box._error = message
     EbonBuilds.Theme.SetInputState(box._container, "error")
-    box._scoreLabel:SetText("|cffff5555Invalid value|r")
+    box._scoreLabel:SetText(L["|cffff5555Invalid value|r"])
 end
 
 local function ApplyWeight(box)
@@ -558,7 +560,7 @@ local function RevertInvalidBeforeRecycle(row, nextEntry)
         box:SetText(tostring((box.echoRefKey and EbonBuilds.Weights.GetForRef(EbonBuilds.Build.GetActive(), box.echoRefKey, oldQuality) or EbonBuilds.Weights.Get(oldName, oldQuality))))
         ClearError(box)
         if EbonBuilds.Toast and EbonBuilds.Toast.Show then
-            EbonBuilds.Toast.Show("Invalid Echo value was not applied")
+            EbonBuilds.Toast.Show(L["Invalid Echo value was not applied"])
         end
     end
     activeEditBox = nil
@@ -620,11 +622,11 @@ local function WireWeightBox(box)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         local rank = EbonBuilds.Quality.LABELS[self.quality] or tostring(self.quality)
         if self._error then
-            GameTooltip:AddLine("Invalid " .. rank .. " value", 1, 0.25, 0.25)
+            GameTooltip:AddLine(L["Invalid "] .. rank .. " value", 1, 0.25, 0.25)
             GameTooltip:AddLine(self._error, 1, 1, 1, true)
         else
             GameTooltip:AddLine(rank .. " Echo value", 1, 0.82, 0)
-            GameTooltip:AddLine(string.format("Signed whole number from %d to %d. Press Enter to apply; Escape restores the saved value.", EbonBuilds.Weights.MIN_VALUE, EbonBuilds.Weights.MAX_VALUE), 0.82, 0.82, 0.86, true)
+            GameTooltip:AddLine(string.format(L["Signed whole number from %d to %d. Press Enter to apply; Escape restores the saved value."], EbonBuilds.Weights.MIN_VALUE, EbonBuilds.Weights.MAX_VALUE), 0.82, 0.82, 0.86, true)
         end
         GameTooltip:Show()
     end)

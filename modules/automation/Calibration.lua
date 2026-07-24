@@ -26,6 +26,8 @@ local addonName, EbonBuilds = ...
 
 EbonBuilds.Calibration = {}
 
+
+local L = EbonBuilds.L
 local MAX_SAMPLES = 2000
 local MAX_STRATEGY_STREAMS = 12
 local MIN_SAMPLES_FOR_SUGGESTION = 30
@@ -364,11 +366,11 @@ function EbonBuilds.Calibration.SerializeAppearanceBatch(class, names)
     for _, name in ipairs(names) do
         local count = store.counts[name]
         if count and count > 0 then
-            parts[#parts + 1] = string.format("%s:%d", name, count)
+            parts[#parts + 1] = string.format(L["%s:%d"], name, count)
         end
     end
     if #parts == 0 then return nil end
-    return string.format("APR|%s|%d|%s", class, store.totalEvals or 0, table.concat(parts, ";"))
+    return string.format(L["APR|%s|%d|%s"], class, store.totalEvals or 0, table.concat(parts, ";"))
 end
 
 function EbonBuilds.Calibration.ParseAppearanceBatch(payload)
@@ -730,7 +732,7 @@ function EbonBuilds.Calibration.MaybeAutoTune()
                         math.min(EbonBuilds.Weights.MAX_VALUE, oldValue + delta))
                     if newValue ~= oldValue then
                         entry[quality] = newValue
-                        weightsChanged[#weightsChanged + 1] = string.format("%s (%s)", name,
+                        weightsChanged[#weightsChanged + 1] = string.format(L["%s (%s)"], name,
                             (EbonBuilds.Quality.LABELS or {})[quality] or tostring(quality))
                     end
                 end
@@ -739,7 +741,7 @@ function EbonBuilds.Calibration.MaybeAutoTune()
         end
 
         if #weightsChanged > 0 then
-            changed[#changed + 1] = string.format("%d rank weight(s)", #weightsChanged)
+            changed[#changed + 1] = string.format(L["%d rank weight(s)"], #weightsChanged)
         end
     end
 
@@ -756,7 +758,7 @@ function EbonBuilds.Calibration.MaybeAutoTune()
         summary = summary,
     }
     if EbonBuilds.Toast then
-        EbonBuilds.Toast.Show("Tuning proposal ready: " .. summary .. ". Review before applying.")
+        EbonBuilds.Toast.Show(EbonBuilds.L["Tuning proposal ready: "] .. summary .. EbonBuilds.L[". Review before applying."])
     end
     if EbonBuilds.DebugLog and EbonBuilds.DebugLog.IsEnabled() then
         EbonBuilds.DebugLog.AddF("-> TUNING PROPOSAL: %s", summary)
@@ -858,25 +860,25 @@ end
 local function RefreshRow(row, result, field, unitLabel)
     local verb = result.direction == "above" and "triggers on" or "rejects"
     if result.insufficientData then
-        row.current:SetText(string.format("|cff888888Collecting data... (%d / %d samples needed)|r",
+        row.current:SetText(string.format(L["|cff888888Collecting data... (%d / %d samples needed)|r"],
             result.sampleCount, MIN_SAMPLES_FOR_SUGGESTION))
         row.suggestion:SetText("")
         row.applyBtn:Hide()
         return
     end
-    row.current:SetText(string.format("Current: %.0f%% -- %s ~%.0f%% of what you're actually offered (%d samples)",
+    row.current:SetText(string.format(L["Current: %.0f%% -- %s ~%.0f%% of what you're actually offered (%d samples)"],
         result.currentFieldPct, verb, result.currentFraction, result.sampleCount))
     if math.abs(result.suggestedFieldPct - result.currentFieldPct) < 1 then
-        row.suggestion:SetText(string.format("|cff1eff00Already close to the %s target (~%.0f%%).|r", unitLabel, result.targetFraction))
+        row.suggestion:SetText(string.format(L["|cff1eff00Already close to the %s target (~%.0f%%).|r"], unitLabel, result.targetFraction))
         row.applyBtn:Hide()
     else
-        row.suggestion:SetText(string.format("Suggested: |cffffd100%.0f%%|r to target ~%.0f%% %s",
+        row.suggestion:SetText(string.format(L["Suggested: |cffffd100%.0f%%|r to target ~%.0f%% %s"],
             result.suggestedFieldPct, result.targetFraction, result.direction == "above" and "caught" or "rejected"))
-        row.applyBtn:SetText(string.format("Apply %.0f%%", result.suggestedFieldPct))
+        row.applyBtn:SetText(string.format(L["Apply %.0f%%"], result.suggestedFieldPct))
         row.applyBtn:Show()
         row.applyBtn:SetScript("OnClick", function()
             if ApplySuggestion(field, result.suggestedFieldPct) then
-                EbonBuilds.Toast.Show(string.format("%s threshold set to %.0f%%", unitLabel, result.suggestedFieldPct))
+                EbonBuilds.Toast.Show(string.format(EbonBuilds.L["%s threshold set to %.0f%%"], unitLabel, result.suggestedFieldPct))
                 EbonBuilds.Calibration.RefreshWindow()
             end
         end)
@@ -895,7 +897,7 @@ local function BuildWindow()
 
     local title = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     title:SetPoint("TOP", f, "TOP", 0, -12)
-    title:SetText("EbonBuilds Tuning Advisor")
+    title:SetText(L["EbonBuilds Tuning Advisor"])
 
     local drag = CreateFrame("Frame", nil, f)
     if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
@@ -915,7 +917,7 @@ local function BuildWindow()
     subtitle:SetPoint("TOPLEFT", f, "TOPLEFT", 16, -38)
     subtitle:SetWidth(528)
     subtitle:SetJustifyH("LEFT")
-    subtitle:SetText("Compares your current thresholds against what your build actually gets offered, and suggests values based on the real distribution instead of the theoretical scoring model. Works with both Classic and Smart (EV) mode.")
+    subtitle:SetText(L["Compares your current thresholds against what your build actually gets offered, and suggests values based on the real distribution instead of the theoretical scoring model. Works with both Classic and Smart (EV) mode."])
     -- No fixed SetHeight: this text needs 3 lines at this width, and a
     -- height sized for 2 (28px) clipped the third line instead of
     -- showing it. Auto-sizing to the wrapped content is safe here --
@@ -933,12 +935,12 @@ local function BuildWindow()
     rerollRow = BuildRow(f, -220, "Reroll")
     freezeRow = BuildRow(f, -280, "Freeze")
 
-    local autoTuneCB = EbonBuilds.Theme.CreateCheckbox(f, "Prepare tuning proposals")
+    local autoTuneCB = EbonBuilds.Theme.CreateCheckbox(f, L["Prepare tuning proposals"])
     autoTuneCB:SetPoint("TOPLEFT", freezeRow.suggestion, "BOTTOMLEFT", -4, -10)
     autoTuneCB:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:AddLine("Prepare tuning proposals", 1, 1, 1)
-        GameTooltip:AddLine("Off by default. Every ~20 new offers, prepares a small evidence-based proposal and tells you it is ready. It never changes the live build automatically; use the Apply controls after reviewing the evidence.", 0.8, 0.8, 0.8, true)
+        GameTooltip:AddLine(L["Prepare tuning proposals"], 1, 1, 1)
+        GameTooltip:AddLine(L["Off by default. Every ~20 new offers, prepares a small evidence-based proposal and tells you it is ready. It never changes the live build automatically; use the Apply controls after reviewing the evidence."], 0.8, 0.8, 0.8, true)
         GameTooltip:Show()
     end)
     autoTuneCB:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -946,16 +948,16 @@ local function BuildWindow()
         EbonBuilds.Calibration.SetAutoTuneEnabled(self:GetChecked() and true or false)
     end)
 
-    local perfCB = EbonBuilds.Theme.CreateCheckbox(f, "Track + share DPS by echo (needs Details!)")
+    local perfCB = EbonBuilds.Theme.CreateCheckbox(f, L["Track + share DPS by echo (needs Details!)"])
     perfCB:SetPoint("TOPLEFT", autoTuneCB, "BOTTOMLEFT", 0, -6)
     perfCB:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:AddLine("Track + share DPS by echo", 1, 1, 1)
-        GameTooltip:AddLine("Off by default. Requires the Details! damage meter addon. Every 10s in combat, samples your current DPS and credits it to every echo you currently have active, building a rough real-performance average per echo over time.", 0.8, 0.8, 0.8, true)
+        GameTooltip:AddLine(L["Track + share DPS by echo"], 1, 1, 1)
+        GameTooltip:AddLine(L["Off by default. Requires the Details! damage meter addon. Every 10s in combat, samples your current DPS and credits it to every echo you currently have active, building a rough real-performance average per echo over time."], 0.8, 0.8, 0.8, true)
         GameTooltip:AddLine(" ", 1, 1, 1)
-        GameTooltip:AddLine("Also shares this with other EbonBuilds users of the SAME class over the sync channel, and merges what they share back into your own data -- aggregate numbers only (per-echo average + sample count), never raw combat logs. Both directions use the same toggle. Received data is sanity-checked and can't be inflated by someone re-sending the same numbers.", 0.8, 0.8, 0.8, true)
+        GameTooltip:AddLine(L["Also shares this with other EbonBuilds users of the SAME class over the sync channel, and merges what they share back into your own data -- aggregate numbers only (per-echo average + sample count), never raw combat logs. Both directions use the same toggle. Received data is sanity-checked and can't be inflated by someone re-sending the same numbers."], 0.8, 0.8, 0.8, true)
         GameTooltip:AddLine(" ", 1, 1, 1)
-        GameTooltip:AddLine("Approximate on purpose either way: echoes stack together and fights vary a lot, so this can't isolate any single echo's true effect. A rough signal to combine with the scoring model, not a precise measurement. Shown in Export (AI) once you've collected some data.", 0.8, 0.8, 0.8, true)
+        GameTooltip:AddLine(L["Approximate on purpose either way: echoes stack together and fights vary a lot, so this can't isolate any single echo's true effect. A rough signal to combine with the scoring model, not a precise measurement. Shown in Export (AI) once you've collected some data."], 0.8, 0.8, 0.8, true)
         GameTooltip:Show()
     end)
     perfCB:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -963,7 +965,7 @@ local function BuildWindow()
         local detailsOk = EbonBuilds.EchoPerformance.IsDetailsAvailable
             and EbonBuilds.EchoPerformance.IsDetailsAvailable()
         if self:GetChecked() and not detailsOk then
-            EbonBuilds.Toast.Show("Details! not found -- install it to use DPS tracking")
+            EbonBuilds.Toast.Show(EbonBuilds.L["Details! not found -- install it to use DPS tracking"])
             self:SetChecked(false)
             return
         end
@@ -974,14 +976,14 @@ local function BuildWindow()
         end
     end)
 
-    local appearCB = EbonBuilds.Theme.CreateCheckbox(f, "Share echo appearance rates")
+    local appearCB = EbonBuilds.Theme.CreateCheckbox(f, L["Share echo appearance rates"])
     appearCB:SetPoint("TOPLEFT", perfCB, "BOTTOMLEFT", 0, -6)
     appearCB:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:AddLine("Share echo appearance rates", 1, 1, 1)
-        GameTooltip:AddLine("Off by default. Doesn't need Details! -- separate from DPS tracking above. Tracks how often each echo actually shows up on a choice screen (not how good it scores, just how often the server offers it), as a % of all evaluations. Always recorded locally; this toggle only controls sharing it with other same-class EbonBuilds users and merging theirs back into yours.", 0.8, 0.8, 0.8, true)
+        GameTooltip:AddLine(L["Share echo appearance rates"], 1, 1, 1)
+        GameTooltip:AddLine(L["Off by default. Doesn't need Details! -- separate from DPS tracking above. Tracks how often each echo actually shows up on a choice screen (not how good it scores, just how often the server offers it), as a % of all evaluations. Always recorded locally; this toggle only controls sharing it with other same-class EbonBuilds users and merging theirs back into yours."], 0.8, 0.8, 0.8, true)
         GameTooltip:AddLine(" ", 1, 1, 1)
-        GameTooltip:AddLine("Same safeguards as DPS sharing: only merges from a class-matched peer, a single peer's claimed evaluation count is capped, and re-broadcasts can't inflate the total. Shown in Export (AI).", 0.8, 0.8, 0.8, true)
+        GameTooltip:AddLine(L["Same safeguards as DPS sharing: only merges from a class-matched peer, a single peer's claimed evaluation count is capped, and re-broadcasts can't inflate the total. Shown in Export (AI)."], 0.8, 0.8, 0.8, true)
         GameTooltip:Show()
     end)
     appearCB:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -989,14 +991,14 @@ local function BuildWindow()
         EbonBuilds.Calibration.SetAppearanceSharingEnabled(self:GetChecked() and true or false)
     end)
 
-    local weightCB = EbonBuilds.Theme.CreateCheckbox(f, "Include weights in proposals")
+    local weightCB = EbonBuilds.Theme.CreateCheckbox(f, L["Include weights in proposals"])
     weightCB:SetPoint("TOPLEFT", appearCB, "BOTTOMLEFT", 0, -6)
     weightCB:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:AddLine("Include weights in proposals", 1, 1, 1)
-        GameTooltip:AddLine("Off by default. Includes DPS-based and Manual Training weight changes in the staged tuning proposal. Nothing is applied automatically.", 0.8, 0.8, 0.8, true)
+        GameTooltip:AddLine(L["Include weights in proposals"], 1, 1, 1)
+        GameTooltip:AddLine(L["Off by default. Includes DPS-based and Manual Training weight changes in the staged tuning proposal. Nothing is applied automatically."], 0.8, 0.8, 0.8, true)
         GameTooltip:AddLine(" ", 1, 1, 1)
-        GameTooltip:AddLine("Weight evidence is noisier than offer-distribution evidence, so it stays a separate opt-in. DPS and Manual Training deltas are combined first; opposite signals cancel. Rank-specific training affects only that rank.", 0.8, 0.8, 0.8, true)
+        GameTooltip:AddLine(L["Weight evidence is noisier than offer-distribution evidence, so it stays a separate opt-in. DPS and Manual Training deltas are combined first; opposite signals cancel. Rank-specific training affects only that rank."], 0.8, 0.8, 0.8, true)
         GameTooltip:Show()
     end)
     weightCB:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -1007,10 +1009,10 @@ local function BuildWindow()
     local clearBtn = EbonBuilds.Theme.CreateButton(f, "danger")
     clearBtn:SetSize(140, 20)
     clearBtn:SetPoint("TOPLEFT", weightCB, "BOTTOMLEFT", 0, -12)
-    clearBtn:SetText("Clear Collected Data")
+    clearBtn:SetText(L["Clear Collected Data"])
     clearBtn:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:AddLine("Wipes score samples for the active strategy revision and all local appearance-rate data. Older strategy streams remain isolated and bounded. Worth doing when you want a clean current baseline.", 0.8, 0.8, 0.8, true)
+        GameTooltip:AddLine(L["Wipes score samples for the active strategy revision and all local appearance-rate data. Older strategy streams remain isolated and bounded. Worth doing when you want a clean current baseline."], 0.8, 0.8, 0.8, true)
         GameTooltip:Show()
     end)
     clearBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -1023,11 +1025,11 @@ local function BuildWindow()
     local syncNowBtn = EbonBuilds.Theme.CreateButton(f)
     syncNowBtn:SetSize(100, 20)
     syncNowBtn:SetPoint("LEFT", clearBtn, "RIGHT", 8, 0)
-    syncNowBtn:SetText("Sync Now")
+    syncNowBtn:SetText(L["Sync Now"])
     syncNowBtn:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:AddLine("Sync Now", 1, 1, 1)
-        GameTooltip:AddLine("Pushes a few batches of your DPS and/or appearance-rate data right away instead of waiting for the periodic broadcast (every 3 min). Only sends whichever of those two you've actually enabled above -- does nothing if both are off.", 0.8, 0.8, 0.8, true)
+        GameTooltip:AddLine(L["Sync Now"], 1, 1, 1)
+        GameTooltip:AddLine(L["Pushes a few batches of your DPS and/or appearance-rate data right away instead of waiting for the periodic broadcast (every 3 min). Only sends whichever of those two you've actually enabled above -- does nothing if both are off."], 0.8, 0.8, 0.8, true)
         GameTooltip:Show()
     end)
     syncNowBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -1035,16 +1037,16 @@ local function BuildWindow()
         local parts = {}
         if EbonBuilds.EchoPerformance and EbonBuilds.EchoPerformance.SyncNow then
             local ok, sentOrReason = EbonBuilds.EchoPerformance.SyncNow()
-            if ok then parts[#parts + 1] = string.format("%d DPS batch(es)", sentOrReason) end
+            if ok then parts[#parts + 1] = string.format(L["%d DPS batch(es)"], sentOrReason) end
         end
         if EbonBuilds.Calibration.SyncAppearanceNow then
             local ok, sentOrReason = EbonBuilds.Calibration.SyncAppearanceNow()
-            if ok then parts[#parts + 1] = string.format("%d appearance batch(es)", sentOrReason) end
+            if ok then parts[#parts + 1] = string.format(L["%d appearance batch(es)"], sentOrReason) end
         end
         if #parts == 0 then
-            EbonBuilds.Toast.Show("Nothing to sync -- enable DPS or appearance sharing above first")
+            EbonBuilds.Toast.Show(EbonBuilds.L["Nothing to sync -- enable DPS or appearance sharing above first"])
         else
-            EbonBuilds.Toast.Show("Synced: " .. table.concat(parts, ", "))
+            EbonBuilds.Toast.Show(EbonBuilds.L["Synced: "] .. table.concat(parts, ", "))
         end
     end)
 
@@ -1061,11 +1063,11 @@ local function BuildWindow()
     proposalApplyBtn = EbonBuilds.Theme.CreateButton(f)
     proposalApplyBtn:SetSize(88, 22)
     proposalApplyBtn:SetPoint("TOPLEFT", proposalLabel, "TOPRIGHT", 8, 2)
-    proposalApplyBtn:SetText("Apply")
+    proposalApplyBtn:SetText(L["Apply"])
     proposalApplyBtn:SetScript("OnClick", function()
         local ok, result = EbonBuilds.Calibration.ApplyPendingReview()
         if ok then
-            EbonBuilds.Toast.Show("Tuning proposal applied as a new strategy revision")
+            EbonBuilds.Toast.Show(EbonBuilds.L["Tuning proposal applied as a new strategy revision"])
         else
             EbonBuilds.Toast.Show(result)
         end
@@ -1075,10 +1077,10 @@ local function BuildWindow()
     proposalDismissBtn = EbonBuilds.Theme.CreateButton(f, "danger")
     proposalDismissBtn:SetSize(88, 22)
     proposalDismissBtn:SetPoint("LEFT", proposalApplyBtn, "RIGHT", 6, 0)
-    proposalDismissBtn:SetText("Discard")
+    proposalDismissBtn:SetText(L["Discard"])
     proposalDismissBtn:SetScript("OnClick", function()
         EbonBuilds.Calibration.DismissPendingReview()
-        EbonBuilds.Toast.Show("Tuning proposal discarded")
+        EbonBuilds.Toast.Show(EbonBuilds.L["Tuning proposal discarded"])
         EbonBuilds.Calibration.RefreshWindow()
     end)
 
@@ -1107,7 +1109,7 @@ function EbonBuilds.Calibration.RefreshWindow()
     end
     local build = EbonBuilds.Build.GetActive()
     if not build then
-        modeWarning:SetText("No active build selected.")
+        modeWarning:SetText(L["No active build selected."])
         ClearRow(banishRow)
         ClearRow(rerollRow)
         ClearRow(freezeRow)
@@ -1119,18 +1121,18 @@ function EbonBuilds.Calibration.RefreshWindow()
     end
     local settings = build.settings or EbonBuilds.Build.DefaultSettings()
     if (settings.rerollMode or "sum") == "ev" then
-        modeWarning:SetText("Smart (EV) mode.")
+        modeWarning:SetText(L["Smart (EV) mode."])
         RefreshRow(banishRow, EbonBuilds.Calibration.SuggestSmartBanish(settings), "banishEVPct", "Smart Banish")
         RefreshRow(rerollRow, EbonBuilds.Calibration.SuggestSmartReroll(settings), "rerollEVPct", "Smart Reroll")
         RefreshRow(freezeRow, EbonBuilds.Calibration.SuggestSmartFreeze(settings), "freezeEVPct", "Smart Freeze")
     else
-        modeWarning:SetText("Classic mode.")
+        modeWarning:SetText(L["Classic mode."])
         RefreshRow(banishRow, EbonBuilds.Calibration.SuggestBanish(settings), "autoBanishPct", "Banish")
         RefreshRow(rerollRow, EbonBuilds.Calibration.SuggestReroll(settings), "autoRerollPct", "Reroll")
         RefreshRow(freezeRow, EbonBuilds.Calibration.SuggestFreeze(settings), "autoFreezePct", "Freeze")
     end
-    local countText = string.format("%d samples (%d best-offer) collected for %s",
-        EbonBuilds.Calibration.SampleCount(), EbonBuilds.Calibration.BestSampleCount(), build.title or "this build")
+    local countText = string.format(L["%d samples (%d best-offer) collected for %s"],
+        EbonBuilds.Calibration.SampleCount(), EbonBuilds.Calibration.BestSampleCount(), build.title or L["this build"])
     if EbonBuilds.EchoPerformance and EbonBuilds.EchoPerformance.IsEnabled() then
         if EbonBuilds.EchoPerformance.GetTrackingStatus then
             local status, statusMessage = EbonBuilds.EchoPerformance.GetTrackingStatus()
@@ -1141,22 +1143,22 @@ function EbonBuilds.Calibration.RefreshWindow()
         local ok, weightSuggestions = pcall(EbonBuilds.EchoPerformance.SuggestWeightAdjustments, build)
         weightSuggestions = ok and weightSuggestions or {}
         if #weightSuggestions > 0 then
-            countText = countText .. string.format(" -- %d weight suggestion(s) available, see Export (AI)", #weightSuggestions)
+            countText = countText .. string.format(L[" -- %d weight suggestion(s) available, see Export (AI)"], #weightSuggestions)
         end
     end
     countLabel:SetText(countText)
 
     local proposal, proposalStatus = EbonBuilds.Calibration.GetPendingReview()
     if proposalStatus == "READY" then
-        proposalLabel:SetText("|cffffd100Proposal ready:|r " .. (proposal.summary or "review suggested changes"))
+        proposalLabel:SetText(L["|cffffd100Proposal ready:|r "] .. (proposal.summary or L["review suggested changes"]))
         proposalApplyBtn:Show()
         proposalDismissBtn:Show()
     elseif proposal then
-        proposalLabel:SetText("|cffff7f50Stale proposal:|r the active build or strategy changed. Discard it and collect fresh evidence.")
+        proposalLabel:SetText(L["|cffff7f50Stale proposal:|r the active build or strategy changed. Discard it and collect fresh evidence."])
         proposalApplyBtn:Hide()
         proposalDismissBtn:Show()
     else
-        proposalLabel:SetText("No staged proposal. Manual threshold recommendations above remain available.")
+        proposalLabel:SetText(L["No staged proposal. Manual threshold recommendations above remain available."])
         proposalApplyBtn:Hide()
         proposalDismissBtn:Hide()
     end

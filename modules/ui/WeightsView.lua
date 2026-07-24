@@ -5,14 +5,15 @@ local addonName, EbonBuilds = ...
 
 EbonBuilds.WeightsView = {}
 
+
+local L = EbonBuilds.L
 local viewFrame
 
 local function BuildViewFrame(parent)
     local f = CreateFrame("Frame", nil, parent)
     local header = EbonBuilds.Theme.CreatePageHeader(
         f,
-        "Echo priorities",
-        "Set rank values, filter the catalog, and inspect the final score automation will use."
+        L["Echo priorities"], L["Set rank values, filter the catalog, and inspect the final score automation will use."]
     )
     f._pageHeader = header
     f._header = header._title
@@ -29,8 +30,8 @@ end
 local function RefreshHeader()
     if not viewFrame then return end
     local build = EbonBuilds.Build.GetActive()
-    local title = build and ("Echo priorities · " .. (build.title or "")) or "Echo priorities"
-    EbonBuilds.Theme.UpdatePageHeader(viewFrame._pageHeader, title, "Set rank values, filter the catalog, and inspect the final score automation will use.")
+    local title = build and (L["Echo priorities"] .. " · " .. (build.title or "")) or L["Echo priorities"]
+    EbonBuilds.Theme.UpdatePageHeader(viewFrame._pageHeader, title, L["Set rank values, filter the catalog, and inspect the final score automation will use."])
 end
 
 function EbonBuilds.WeightsView.Mount(container)

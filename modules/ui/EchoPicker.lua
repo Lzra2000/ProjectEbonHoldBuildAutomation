@@ -5,6 +5,8 @@ local addonName, EbonBuilds = ...
 
 EbonBuilds.EchoPicker = {}
 
+
+local L = EbonBuilds.L
 local Picker = EbonBuilds.EchoPicker
 local Theme = EbonBuilds.Theme
 local VirtualList = EbonBuilds.VirtualList
@@ -201,20 +203,20 @@ local function CreateRow(parent)
         end
         if entry.disambiguator then GameTooltip:AddLine(entry.disambiguator, 0.65, 0.78, 1, true) end
         if entry.availabilityReason == "REVIEWED_ALLOW" then
-            GameTooltip:AddLine("Class metadata corrected by a verified eligibility fact.",
+            GameTooltip:AddLine(L["Class metadata corrected by a verified eligibility fact."],
                 Theme.WARNING[1], Theme.WARNING[2], Theme.WARNING[3], true)
         elseif entry.availabilityReason == "OBSERVED_OFFER"
             or entry.availabilityReason == "OBSERVED_REPLACEMENT"
             or entry.availabilityReason == "CONFIRMED_SELECTION" then
-            GameTooltip:AddLine("Observed usable in live Project Ebonhold gameplay.",
+            GameTooltip:AddLine(L["Observed usable in live Project Ebonhold gameplay."],
                 Theme.SUCCESS[1], Theme.SUCCESS[2], Theme.SUCCESS[3], true)
         end
         if entry.quarantinedAliases and #entry.quarantinedAliases > 0 then
-            GameTooltip:AddLine("Runtime name conflict corrected; canonical Echo identity is shown.",
+            GameTooltip:AddLine(L["Runtime name conflict corrected; canonical Echo identity is shown."],
                 Theme.WARNING[1], Theme.WARNING[2], Theme.WARNING[3], true)
         end
         GameTooltip:AddLine(" ")
-        GameTooltip:AddLine("Available to " .. ClassLabel(activeClass) .. ". Click to select.", 0.75, 0.75, 0.8, true)
+        GameTooltip:AddLine(L["Available to "] .. ClassLabel(activeClass) .. ". Click to select.", 0.75, 0.75, 0.8, true)
         GameTooltip:Show()
     end)
     row:SetScript("OnLeave", function(self) Theme.SetCardHovered(self, false); GameTooltip:Hide() end)
@@ -266,7 +268,7 @@ local function Render()
         end
     end
 
-    resultText:SetText(string.format("%d of %d verified %s Echoes", #filtered, #allEntries, ClassLabel(activeClass)))
+    resultText:SetText(string.format(L["%d of %d verified %s Echoes"], #filtered, #allEntries, ClassLabel(activeClass)))
     if #filtered == 0 then emptyState:Show() else emptyState:Hide() end
 end
 
@@ -295,7 +297,7 @@ local function BuildFrame()
 
     local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     title:SetPoint("TOPLEFT", f, "TOPLEFT", 18, -16)
-    title:SetText("Choose an Echo")
+    title:SetText(L["Choose an Echo"])
     classContextText = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     classContextText:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
     Theme.CreateCloseButton(f)
@@ -366,7 +368,7 @@ local function BuildFrame()
     Theme.BindScrollWheel(scrollFrame, scrollBar, ROW_HEIGHT, scrollChild)
     viewport:HookScript("OnSizeChanged", Render)
 
-    emptyState = Theme.CreateEmptyState(viewport, "No matching Echoes", "Try the player-facing name or a legacy alias.")
+    emptyState = Theme.CreateEmptyState(viewport, L["No matching Echoes"], L["Try the player-facing name or a legacy alias."])
     emptyState:Hide()
 
     searchBox:SetScript("OnTextChanged", function(self)
@@ -401,8 +403,8 @@ function Picker.Show(callback, dataSource, classToken)
         if entry then allEntries[#allEntries + 1] = entry end
     end
     onPick = callback
-    classContextText:SetText("Only verified " .. ClassLabel(activeClass) .. " Echoes are shown.")
-    searchPlaceholder:SetText("Search " .. ClassLabel(activeClass) .. " Echoes or aliases...")
+    classContextText:SetText(L["Only verified "] .. ClassLabel(activeClass) .. " Echoes are shown.")
+    searchPlaceholder:SetText(L["Search "] .. ClassLabel(activeClass) .. " Echoes or aliases...")
     searchBox:SetText("")
     searchText, scrollOffset = "", 0
     ApplySearch(); scrollBar:SetValue(0); Render(); UpdateSearchChrome()

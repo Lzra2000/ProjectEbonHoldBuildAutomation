@@ -1252,9 +1252,9 @@ function EbonBuilds.Sync.Init()
             syncSession.active = false
             if EbonBuilds.Toast and EbonBuilds.Toast.Show then
                 if syncSession.received > 0 then
-                    EbonBuilds.Toast.Show(("Sync complete: %d build(s) received"):format(syncSession.received))
+                    EbonBuilds.Toast.Show((EbonBuilds.L["Sync complete: %d build(s) received"]):format(syncSession.received))
                 else
-                    EbonBuilds.Toast.Show("Sync complete: everything up to date")
+                    EbonBuilds.Toast.Show(EbonBuilds.L["Sync complete: everything up to date"])
                 end
             end
             SyncTrace(("session settled: %d received"):format(syncSession.received))

@@ -8,6 +8,8 @@ UI strings go through `EbonBuilds.L["English string"]` -- a lookup table that re
 
 Seven languages ship today: English, German, Spanish, French, Polish, Brazilian Portuguese, Russian. The addon follows the client's own language, overridable in Settings -> Interface (takes effect after `/reload`).
 
+Coverage includes the full UI surface under `modules/ui/` (main window, settings, build editor, wizard, filters, logbook, stats, public builds, showcase, login panel, toasts, minimap tooltip, and related chrome) plus user-visible Toast messages raised from automation and sync. Dynamic labels (Echo policies, Autopilot intents, family names, showcase command lines) keep English as the table key and look up `L[key]` at display time, so those English strings must also appear in each locale file.
+
 ## Adding a language
 
 ```
@@ -26,4 +28,6 @@ That scans every translation call site in the addon -- including alias lookups l
 
 ## Checking coverage
 
-`sh scripts/i18n-report.sh` prints per-language coverage: missing keys and orphaned entries (registered but no longer looked up anywhere). The test suite additionally FAILS when a locale file misses a key the build editor actually uses, so a forgotten translation can't slip through a release.
+`sh scripts/i18n-report.sh` prints per-language coverage: missing keys and orphaned entries (registered but no longer looked up anywhere). The test suite (`tests/test_i18n.lua`) additionally FAILS when a locale file misses a key that any non-locale Lua file looks up via `EbonBuilds.L[...]` / `L[...]`, so a forgotten translation can't slip through a release.
+
+Dynamic lookups like `L[definition.label]` are invisible to the scanner -- when you add a new English label that is only reached that way, add the same English string as a key to every locale file (or introduce a literal `L["..."]` seed near the definition) so translators and `i18n-report.sh` can see it.
