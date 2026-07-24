@@ -26,7 +26,7 @@ Built for ProjectEbonhold raiders and echo grinders who want consistent automati
 
 **Server requirement:** ProjectEbonhold ships its own server addon. Install **ProjectEbonhold** or **ProjectEbonhold Enhanced** on the client as provided by your server — EbonBuilds depends on it for echo boards, affix data, and several integration features. Without it, EbonBuilds will not function.
 
-**Optional:** **[Details!](https://www.curseforge.com/wow/addons/details)** enables DPS-based weight suggestions and richer stats. Combat DPS logging in the Logbook (v3.84+) works without Details! when enabled under Settings. **[Auctionator](vendor/Auctionator/)** (vendored 2.6.3 for 3.3.5a) adds affix shopping, AH search shortcuts, and buyout price hints when installed alongside EbonBuilds.
+**Optional:** **[Details!](https://www.curseforge.com/wow/addons/details)** enables DPS-based weight suggestions and richer stats. Combat DPS logging in the Logbook (v3.84+) works without Details! when enabled under Settings. **[Auctionator](vendor/Auctionator/)** (vendored 2.6.3 for 3.3.5a) adds affix shopping, AH search shortcuts, and buyout price hints when installed alongside EbonBuilds. **[Details!: Tiny Threat (PE)](docs/details-tinythreat-pe.md)** (`Details_TinyThreat.zip` when released) is an optional Details! threat plugin for WotLK 3.3.5a — install to `Interface/AddOns/Details_TinyThreat` alongside Details!; see the doc for folder rename notes when extracting from `Details_TinyThreat (2).zip`.
 
 Open the addon with **`/ebb`** or **`/ebonbuilds`**.
 

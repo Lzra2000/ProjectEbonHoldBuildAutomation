@@ -17,6 +17,15 @@ Install EbonBuilds, create your first build, and turn on Autopilot in a few minu
 
 Requires **ProjectEbonhold** or **ProjectEbonhold Enhanced**. Some features additionally use **Details!** if installed.
 
+### Optional companion add-ons
+
+| Add-on | Purpose | Install doc |
+| --- | --- | --- |
+| **Auctionator** | Affix shopping / AH buyout hints with EbonBuilds | [`vendor/Auctionator/CREDITS.md`](https://github.com/Lzra2000/ProjectEbonHoldBuildAutomation/blob/main/vendor/Auctionator/CREDITS.md) |
+| **Details!: Tiny Threat (PE)** | Threat meter Details! plugin for 3.3.5a | [Details!: Tiny Threat (PE)](details-tinythreat-pe.md) |
+
+Extract optional zips (`Auctionator.zip`, `Details_TinyThreat.zip` when shipped) into `Interface/AddOns/` with folder names matching each `.toc`. Tiny Threat **requires Details!** in `Interface/AddOns/Details` — not included in EbonBuilds releases.
+
 ## First login
 
 A one-time panel greets you after logging in. It asks the DPS-tracking consent question (tracking and community sharing are off until you say otherwise -- either answer is one checkbox in Settings if you change your mind), and offers What's new and the in-game guide. It shows once per addon version, then stays out of the way.
