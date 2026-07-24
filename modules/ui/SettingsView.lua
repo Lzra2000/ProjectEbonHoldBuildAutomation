@@ -826,7 +826,14 @@ local function BuildAdvancedPanel(parent, y)
         btn:SetScript("OnClick", function()
             local protected = Settings().banishFamilyWhitelist or {}
             Settings().banishFamilyWhitelist = protected
-            protected[family] = protected[family] and nil or true
+            -- `x and nil or true` always yields true in Lua (issue #39:
+            -- protection could be turned on but never off), so branch
+            -- explicitly instead.
+            if protected[family] then
+                protected[family] = nil
+            else
+                protected[family] = true
+            end
             RefreshFamilyButtons()
             PersistSettings()
         end)
