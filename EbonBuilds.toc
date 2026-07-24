@@ -86,6 +86,7 @@ modules/session/DpsLog.lua
 modules/analytics/Aggregates.lua
 modules/analytics/StatsData.lua
 modules/analytics/SessionHistoryData.lua
+modules/analytics/BuildOverviewData.lua
 modules/build/Scoring.lua
 modules/build/ExportImport.lua
 modules/build/EWL.lua
