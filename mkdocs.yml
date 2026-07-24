@@ -66,6 +66,7 @@ nav:
   - FAQ: faq.md
   - Localization: localization.md
   - Development: development.md
+  - Automation server redesign: automation-server-redesign.md
   - Troubleshooting: troubleshooting.md
   - Changelog: changelog.md
 
