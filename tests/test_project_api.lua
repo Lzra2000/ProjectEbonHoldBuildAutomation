@@ -350,3 +350,119 @@ do
 end
 
 print("Standalone ProjectEbonhold request-only integration passed.")
+
+------------------------------------------------------------------------
+-- Tome toggle + LockPerk family + SnapshotCurrentEchoes wrappers (#62)
+------------------------------------------------------------------------
+
+local tomeCalls = { toggle = 0, lock = 0, unlock = 0 }
+local disabledTomes = {}
+local lockedPerks = {}
+local maxPermanent = 2
+ProjectEbonhold.PerkDatabase = {
+    [5001] = { requiredSpell = 105001, quality = 2 },
+    [5002] = { requiredSpell = 105002, quality = 1 },
+}
+ProjectEbonhold.PerkService.IsTomeEchoDisabled = function(spellId)
+    return disabledTomes[spellId] == true
+end
+ProjectEbonhold.PerkService.ToggleTomeEcho = function(spellId)
+    tomeCalls.toggle = tomeCalls.toggle + 1
+    if disabledTomes[spellId] then
+        disabledTomes[spellId] = nil
+    else
+        disabledTomes[spellId] = true
+    end
+    return true
+end
+ProjectEbonhold.PerkService.GetLockedPerks = function()
+    return lockedPerks
+end
+ProjectEbonhold.PerkService.GetMaximumPermanentEchoes = function()
+    return maxPermanent
+end
+ProjectEbonhold.PerkService.LockPerk = function(spellId, count)
+    tomeCalls.lock = tomeCalls.lock + 1
+    lockedPerks[#lockedPerks + 1] = { spellId = spellId, stack = count or 1, quality = 2 }
+    return true
+end
+ProjectEbonhold.PerkService.UnlockPerk = function(spellId)
+    tomeCalls.unlock = tomeCalls.unlock + 1
+    for i = #lockedPerks, 1, -1 do
+        if lockedPerks[i].spellId == spellId then
+            table.remove(lockedPerks, i)
+        end
+    end
+    return true
+end
+ProjectEbonhold.PerkService.SnapshotCurrentEchoes = function()
+    return {
+        { spellId = 5001, quality = 2, stacks = 3 },
+        { spellId = 5002, quality = 1, stacks = 1 },
+    }
+end
+ProjectEbonhold.PerkService.AddDiscoveredEcho = function(spellId)
+    return true
+end
+ProjectEbonhold.PerkService.RemoveDiscoveredEcho = function(spellId)
+    return true
+end
+
+local caps = addon.ProjectAPI.GetCapabilities()
+assertTrue(caps.tomeToggle, "tomeToggle capability missing")
+assertTrue(caps.lockedPerks, "lockedPerks capability missing")
+assertTrue(caps.lockPerk, "lockPerk capability missing")
+assertTrue(caps.unlockPerk, "unlockPerk capability missing")
+assertTrue(caps.maxPermanentEchoes, "maxPermanentEchoes capability missing")
+assertTrue(caps.snapshotEchoes, "snapshotEchoes capability missing")
+assertTrue(caps.discoveryMutators, "discoveryMutators capability missing")
+
+assertEqual(addon.ProjectAPI.FindEchoSpellIdByTomeItem(105001), 5001, "tome item -> echo spellId")
+assertEqual(addon.ProjectAPI.FindEchoSpellIdByTomeItem(105002), 5002, "second tome item -> echo spellId")
+assertTrue(addon.ProjectAPI.FindEchoSpellIdByTomeItem(999999) == nil, "unknown tome item should miss")
+
+assertTrue(not addon.ProjectAPI.IsTomeEchoDisabled(5001), "tome should start enabled")
+assertTrue(addon.ProjectAPI.ToggleTomeEcho(5001), "toggle should accept")
+assertEqual(tomeCalls.toggle, 1, "toggle was not forwarded")
+assertTrue(addon.ProjectAPI.IsTomeEchoDisabled(5001), "tome should be disabled after toggle")
+assertTrue(addon.ProjectAPI.ToggleTomeEcho(5001), "re-enable toggle should accept")
+assertTrue(not addon.ProjectAPI.IsTomeEchoDisabled(5001), "tome should be enabled again")
+
+assertEqual(addon.ProjectAPI.GetMaximumPermanentEchoes(), 2, "max permanent echoes")
+assertEqual(#(addon.ProjectAPI.GetLockedPerks() or {}), 0, "locked perks should start empty")
+assertTrue(addon.ProjectAPI.LockPerk(5001), "lock should accept")
+assertEqual(tomeCalls.lock, 1, "lock was not forwarded")
+assertEqual(#(addon.ProjectAPI.GetLockedPerks() or {}), 1, "locked perks after lock")
+assertTrue(addon.ProjectAPI.UnlockPerk(5001), "unlock should accept")
+assertEqual(tomeCalls.unlock, 1, "unlock was not forwarded")
+assertEqual(#(addon.ProjectAPI.GetLockedPerks() or {}), 0, "locked perks after unlock")
+
+local snap = addon.ProjectAPI.SnapshotCurrentEchoes()
+assertTrue(type(snap) == "table" and #snap == 2, "snapshot should return two echoes")
+assertEqual(snap[1].spellId, 5001, "snapshot first spellId")
+assertTrue(addon.ProjectAPI.AddDiscoveredEcho(5001), "AddDiscoveredEcho should accept")
+assertTrue(addon.ProjectAPI.RemoveDiscoveredEcho(5001), "RemoveDiscoveredEcho should accept")
+
+-- Capability-gate: missing methods must report false / nil gracefully.
+ProjectEbonhold.PerkService.ToggleTomeEcho = nil
+ProjectEbonhold.PerkService.IsTomeEchoDisabled = nil
+ProjectEbonhold.PerkService.GetLockedPerks = nil
+ProjectEbonhold.PerkService.LockPerk = nil
+ProjectEbonhold.PerkService.UnlockPerk = nil
+ProjectEbonhold.PerkService.GetMaximumPermanentEchoes = nil
+ProjectEbonhold.PerkService.SnapshotCurrentEchoes = nil
+ProjectEbonhold.PerkService.AddDiscoveredEcho = nil
+ProjectEbonhold.PerkService.RemoveDiscoveredEcho = nil
+local oldCaps = addon.ProjectAPI.GetCapabilities()
+assertTrue(not oldCaps.tomeToggle, "missing tome APIs must clear tomeToggle")
+assertTrue(not oldCaps.lockedPerks, "missing GetLockedPerks must clear lockedPerks")
+assertTrue(not oldCaps.snapshotEchoes, "missing Snapshot must clear snapshotEchoes")
+assertTrue(not addon.ProjectAPI.ToggleTomeEcho(5001), "toggle without API must no-op")
+assertTrue(not addon.ProjectAPI.IsTomeEchoDisabled(5001), "disabled query without API must be false")
+assertTrue(addon.ProjectAPI.GetLockedPerks() == nil, "locked perks without API must be nil")
+assertEqual(addon.ProjectAPI.GetMaximumPermanentEchoes(), 0, "max without API must be 0")
+assertTrue(not addon.ProjectAPI.LockPerk(5001), "lock without API must no-op")
+assertTrue(not addon.ProjectAPI.UnlockPerk(5001), "unlock without API must no-op")
+assertTrue(addon.ProjectAPI.SnapshotCurrentEchoes() == nil, "snapshot without API must be nil")
+
+print("Tome toggle + LockPerk family wrappers passed.")
