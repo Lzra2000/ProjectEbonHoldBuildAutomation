@@ -17,7 +17,7 @@ end
 
 local function ResolvePerkName(spellId, value)
     if type(value) == "table" then
-        return value.name or value.comment
+        return Core.NameFromPerkData(value) or value.name or value.comment
     end
     if type(value) == "string" then
         return value
@@ -106,11 +106,15 @@ function Echo.RefreshLabels()
     for i = 1, #entries do
         local e = entries[i]
         local spellId = e.spellId
-        if not labeledIds[spellId] then
-            local icon = PE.GetSpellIcon(spellId)
+        local icon = PE.GetSpellIcon(spellId)
+        local prev = labeledIds[spellId]
+        -- First label, or upgrade a prior "?" once a server/PerkDatabase icon arrives.
+        local needLabel = not prev
+            or (type(prev) == "string" and Core.IsMissingIcon(prev) and not Core.IsMissingIcon(icon))
+        if needLabel then
             local label = Core.FormatEchoLabel(e.name)
             if PE.SetSpellLabel(spellId, label, icon) then
-                labeledIds[spellId] = true
+                labeledIds[spellId] = icon or true
                 n = n + 1
             end
         end

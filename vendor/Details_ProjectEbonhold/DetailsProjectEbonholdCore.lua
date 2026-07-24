@@ -15,12 +15,53 @@ Core.PE_SPELL_ID_MAX = 399999
 
 Core.PROC_ATTRIBUTION_WINDOW = 1.5 -- seconds after a cast/aura to credit a proc
 
+Core.QUESTION_ICON = [[Interface\Icons\INV_Misc_QuestionMark]]
+
 function Core.IsPeCustomSpellId(spellId)
     spellId = tonumber(spellId)
     if not spellId then
         return false
     end
     return spellId >= Core.PE_SPELL_ID_MIN and spellId <= Core.PE_SPELL_ID_MAX
+end
+
+function Core.IsMissingIcon(icon)
+    if type(icon) ~= "string" or icon == "" then
+        return true
+    end
+    -- Compare case-insensitively; clients may vary slash/case.
+    local lower = string.lower(icon)
+    return lower == string.lower(Core.QUESTION_ICON)
+        or lower:find("inv_misc_questionmark", 1, true) ~= nil
+end
+
+-- Pull icon / name fields from a ProjectEbonhold PerkDatabase row (server API sync).
+function Core.IconFromPerkData(data)
+    if type(data) ~= "table" then
+        return nil
+    end
+    local icon = data.icon or data.Icon or data.iconPath or data.IconPath
+    if type(icon) == "string" then
+        icon = icon:match("^%s*(.-)%s*$") or icon
+        if icon ~= "" and not Core.IsMissingIcon(icon) then
+            return icon
+        end
+    end
+    return nil
+end
+
+function Core.NameFromPerkData(data)
+    if type(data) ~= "table" then
+        return nil
+    end
+    local name = data.name or data.Name or data.comment or data.Comment
+    if type(name) == "string" then
+        name = name:match("^%s*(.-)%s*$") or name
+        if name ~= "" then
+            return name
+        end
+    end
+    return nil
 end
 
 function Core.FormatEchoLabel(spellName)
@@ -33,16 +74,41 @@ function Core.FormatEchoLabel(spellName)
     return spellName .. " (Echo)"
 end
 
+-- Trim / reject empty source names so we never emit "Proc ()".
+function Core.NormalizeSourceName(sourceName)
+    if type(sourceName) ~= "string" then
+        return nil
+    end
+    sourceName = sourceName:match("^%s*(.-)%s*$") or sourceName
+    if sourceName == "" then
+        return nil
+    end
+    return sourceName
+end
+
+-- Short bar suffix for Details custom rows (ASCII arrow — 3.3.5a fonts).
+-- Returns "" when source is missing (never " ()").
+function Core.FormatProcSourceSuffix(sourceName)
+    sourceName = Core.NormalizeSourceName(sourceName)
+    if not sourceName then
+        return ""
+    end
+    return string.format(" (<- %s)", sourceName)
+end
+
 function Core.FormatProcLabel(procName, sourceName)
     procName = (type(procName) == "string" and procName ~= "" and procName) or "Unknown Proc"
-    if type(sourceName) ~= "string" or sourceName == "" then
-        return procName .. " (Proc)"
-    end
-    -- Avoid nesting if already attributed (plain find; arrows are literal).
-    if procName:find("(← ", 1, true) or procName:find("(Proc)", 1, true) then
+    sourceName = Core.NormalizeSourceName(sourceName)
+    if not sourceName then
+        -- No empty parentheses when the cast source is unknown.
         return procName
     end
-    return string.format("%s (← %s)", procName, sourceName)
+    -- Avoid nesting if already attributed (plain find; arrows are literal).
+    if procName:find("(<- ", 1, true) or procName:find("(← ", 1, true)
+        or procName:find("(Proc)", 1, true) then
+        return procName
+    end
+    return procName .. Core.FormatProcSourceSuffix(sourceName)
 end
 
 -- Decide whether a damaging spell should be treated as a "proc" relative to
@@ -104,8 +170,9 @@ function Core.RecordProcDamage(attribution, procSpellId, sourceSpellId, amount)
 end
 
 -- Flatten attribution into sorted rows for UI / Custom Display:
--- { { key=, procId=, sourceId=, amount= }, ... } descending by amount.
-function Core.BuildProcRows(attribution, nameResolver)
+-- { key=, procName=, sourceName=, sourceSuffix=, procId=, sourceId=, amount=, icon= }
+-- nameResolver(id) -> string; iconResolver(id) -> texture path (optional).
+function Core.BuildProcRows(attribution, nameResolver, iconResolver)
     local rows = {}
     if type(attribution) ~= "table" then
         return rows
@@ -119,12 +186,30 @@ function Core.BuildProcRows(attribution, nameResolver)
                 amount = tonumber(amount) or 0
                 if amount > 0 then
                     local procName = nameResolver(procId)
-                    local sourceName = (tonumber(sourceId) or 0) > 0 and nameResolver(sourceId) or "Unknown"
+                    if type(procName) ~= "string" or procName == "" then
+                        procName = "Spell #" .. tostring(procId)
+                    end
+                    local sourceName
+                    if (tonumber(sourceId) or 0) > 0 then
+                        sourceName = Core.NormalizeSourceName(nameResolver(sourceId))
+                    end
+                    local sourceSuffix = Core.FormatProcSourceSuffix(sourceName)
+                    local icon
+                    if type(iconResolver) == "function" then
+                        icon = iconResolver(procId)
+                    end
+                    if Core.IsMissingIcon(icon) then
+                        icon = Core.QUESTION_ICON
+                    end
                     rows[#rows + 1] = {
                         key = Core.FormatProcLabel(procName, sourceName),
+                        procName = procName,
+                        sourceName = sourceName,
+                        sourceSuffix = sourceSuffix,
                         procId = tonumber(procId),
                         sourceId = tonumber(sourceId) or 0,
                         amount = amount,
+                        icon = icon,
                     }
                 end
             end
