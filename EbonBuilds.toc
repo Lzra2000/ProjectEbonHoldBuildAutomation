@@ -113,5 +113,6 @@ modules/automation/Calibration.lua
 modules/automation/EchoSamples.lua
 modules/automation/EchoDeltaSync.lua
 modules/automation/EchoPerformance.lua
+modules/automation/BoardDecision.lua
 modules/automation/Automation.lua
 modules/automation/ManualTraining.lua

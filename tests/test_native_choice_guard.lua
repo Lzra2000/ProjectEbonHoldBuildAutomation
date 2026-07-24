@@ -12,6 +12,8 @@ local function assertFalse(value, message) if value then fail(message) end end
 
 EbonBuildsDB = { globalSettings = { evalDelay = 2 } }
 EbonBuildsCharDB = {}
+local playerLevel = 1
+function UnitLevel() return playerLevel end
 
 local function NewFrame(parent)
     local frame = { shown = false, mouseEnabled = true, parent = parent, hooks = {} }
@@ -76,6 +78,7 @@ local activeBuild = { id = "build-1", stats = {} }
 local automationEnabled = true
 local trainingEnabled = false
 local scheduled = {}
+local scheduledDelays = {}
 local listeners = {}
 
 local addon = {
@@ -87,7 +90,11 @@ local addon = {
     ProjectAPI = { GetCurrentChoice = function() return choices end },
     Scheduler = {
         CRITICAL = 1, INTERACTIVE = 2,
-        After = function(id, _, callback) scheduled[id] = callback; return true end,
+        After = function(id, delay, callback)
+            scheduled[id] = callback
+            scheduledDelays[id] = delay
+            return true
+        end,
         Cancel = function(id) scheduled[id] = nil; return true end,
     },
     EventHub = {
@@ -95,6 +102,11 @@ local addon = {
     },
     Toast = { Show = function() end },
 }
+
+local decisionChunk, decisionErr = loadfile("modules/automation/BoardDecision.lua")
+if not decisionChunk then fail(decisionErr) end
+local decisionOK, decisionLoadErr = pcall(decisionChunk, "EbonBuilds", addon)
+if not decisionOK then fail(decisionLoadErr) end
 
 local chunk, err = loadfile("modules/automation/Automation.lua")
 if not chunk then fail(err) end
@@ -104,7 +116,31 @@ assertTrue(addon.Automation.Init(), "Automation observer failed to initialize")
 
 -- Active Autopilot hides both possible entry buttons, the root card surface,
 -- and any tooltip owned by a native Echo card.
+addon.Automation.ResetInitialActionDelay()
+playerLevel = 50
 ProjectEbonhold.PerkUI.Show(choices)
+assertTrue(scheduledDelays["automation.evaluate"] == 2.5,
+    "instant level-50 boost bypassed the first-action safety delay")
+assertTrue(addon.Automation._GetNextEvalDelayForTests() == 2.5,
+    "armed first-action latch did not survive the instant level boost")
+addon.Automation._MarkInitialActionDelayCompleteForTests()
+assertTrue(addon.Automation._GetNextEvalDelayForTests() == 2,
+    "later evaluations did not return to the configured delay")
+playerLevel = 61
+addon.Automation.ResetInitialActionDelay()
+assertTrue(addon.Automation._GetNextEvalDelayForTests() == 2,
+    "later-level session reconstruction incorrectly re-armed the startup delay")
+ProjectEbonhold.PerkUI.Show(choices)
+assertTrue(scheduledDelays["automation.evaluate"] == 2,
+    "later-level choice board received the 2.5-second startup delay")
+playerLevel = 1
+addon.Automation.ResetInitialActionDelay()
+assertTrue(addon.Automation._GetNextEvalDelayForTests() == 2.5,
+    "new level-1 run did not arm the first-action safety delay")
+playerLevel = 61
+assertTrue(addon.Automation._GetNextEvalDelayForTests() == 2.5,
+    "armed first-action delay was lost after instant leveling")
+addon.Automation._MarkInitialActionDelayCompleteForTests()
 assertFalse(PerkChooseButton:IsShown(), "compact Echo button remained visible")
 assertFalse(PerkHideButton:IsShown(), "native Show/Hide Echo button remained visible")
 assertFalse(ProjectEbonholdPerkFrame:IsShown(), "native Echo card surface remained visible")
