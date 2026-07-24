@@ -205,4 +205,34 @@ local nextDecision = D.Decide(stableBoard)
 equal(nextDecision.action, "SELECT", "resolved board did not continue to a safe selection")
 equal(nextDecision.target.index, 1, "resolved board selected the failed freeze target")
 
-print("Verified Freeze Logbook reporting, bounded uncertainty, and recovery.")
+-- The server ProjectEbonhold distribution confirms a freeze by setting
+-- justFrozen on the existing choice entry (without resending the board) and
+-- marks the active build slot's injected card with isGuaranteed. Scored slots
+-- must map both flags.
+ProjectEbonhold = {}
+bit = bit or {}
+bit.band = bit.band or function() return 0 end
+bit.bor = bit.bor or function() return 0 end
+build.class = "MAGE"
+addon.EchoProjection = {
+    ResolveOfferedSpell = function(_, spellId)
+        return { refKey = "ref" .. spellId, displayName = "Echo " .. spellId }, { quality = 0 }
+    end,
+}
+addon.Weights = { GetForSpell = function() return 10 end }
+addon.Scoring = {
+    Score = function() return 100 end,
+    ScorePerQuality = function() return 100 end,
+}
+local justFrozenSlot = addon.Automation._ScoreChoice({ spellId = 301, quality = 0, justFrozen = true }, {})
+check(justFrozenSlot, "justFrozen choice could not be scored")
+check(justFrozenSlot.isFrozen, "justFrozen server confirmation was not treated as frozen")
+local guaranteedSlot = addon.Automation._ScoreChoice({ spellId = 302, quality = 0, isGuaranteed = true }, {})
+check(guaranteedSlot, "guaranteed choice could not be scored")
+check(guaranteedSlot.isGuaranteed, "isGuaranteed flag was not propagated to the scored slot")
+check(not guaranteedSlot.isFrozen, "guaranteed choice was wrongly treated as frozen")
+local plainSlot = addon.Automation._ScoreChoice({ spellId = 303, quality = 0 }, {})
+check(plainSlot and not plainSlot.isFrozen and not plainSlot.isGuaranteed,
+    "plain choice picked up server flags it does not carry")
+
+print("Verified Freeze Logbook reporting, bounded uncertainty, recovery, and server flag mapping.")

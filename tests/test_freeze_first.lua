@@ -236,4 +236,26 @@ local secondPending = Board({
 }, { pendingFreezeSlot = 3, pendingFreezeEchoID = 103 })
 Decision(secondPending, "WAIT_FOR_FREEZE", "one confirmed plus one pending freeze is supported")
 
+-- Server ProjectEbonhold flags: the guaranteed card injected from the active
+-- build slot reappears in every draw. It stays selectable, but the server
+-- refuses to freeze or banish it, and it never blocks rerolls.
+equal(Sequence(Board({ Slot(101, 160), Slot(102, 130, { isGuaranteed = true }), Slot(103, 20) })),
+    "SELECT:1", "guaranteed Echo above the freeze threshold is not frozen")
+local guaranteedBest = Decision(Board({
+    Slot(101, 160, { isGuaranteed = true }), Slot(102, 30), Slot(103, 20),
+}), "SELECT", "guaranteed Echo remains selectable")
+equal(guaranteedBest.target.index, 1, "guaranteed Echo is a legal best pick")
+local guaranteedBanish = Board({
+    Slot(101, 10, { isGuaranteed = true, banishEligible = true }),
+    Slot(102, 20, { banishEligible = true }),
+}, { canBanish = true, pickIsAcceptable = false })
+local guaranteedBanishAction = Decision(guaranteedBanish, "BANISH",
+    "banish still fires while a guaranteed Echo is present")
+equal(guaranteedBanishAction.target.index, 2, "guaranteed Echo is never the banish target")
+local guaranteedReroll = Board({
+    Slot(101, 10, { isGuaranteed = true, isAvoided = true }),
+    Slot(102, 5, { isAvoided = true }),
+})
+equal(D.CanReroll(guaranteedReroll), true, "guaranteed Echo does not block rerolls")
+
 print("Verified freeze-first decisions, two-slot state, confirmations, stale guards, and action sequences.")
