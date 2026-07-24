@@ -305,14 +305,32 @@ local function BuildSettingsPopup(ownerFrame)
         return false
     end
 
+    local function ReadAutoSellCategory(key, defaultWhenNil)
+        if EbonBuilds.AutoSell and EbonBuilds.AutoSell.GetCategory then
+            local value = EbonBuilds.AutoSell.GetCategory(key)
+            if value == nil then return defaultWhenNil and true or false end
+            return Bool(value)
+        end
+        return defaultWhenNil and true or false
+    end
+
     local function CopyDraft(source)
         return {
             evalDelay = tonumber(source.evalDelay) or 2,
             toastDuration = tonumber(source.toastDuration) or 3,
             autoSell = Bool(source.autoSell),
             autoSellPoorOnly = Bool(source.autoSellPoorOnly),
+            autoSellSellCommon = Bool(source.autoSellSellCommon),
+            autoSellSellUncommon = Bool(source.autoSellSellUncommon),
+            autoSellExcludeRareEpic = Bool(source.autoSellExcludeRareEpic),
             autoSellExcludeTradeGoods = Bool(source.autoSellExcludeTradeGoods),
             autoSellExcludeRecipes = Bool(source.autoSellExcludeRecipes),
+            autoSellNeverSellSoulbound = Bool(source.autoSellNeverSellSoulbound),
+            autoSellNeverSellBoE = Bool(source.autoSellNeverSellBoE),
+            autoSellNeverSellSoulboundEpic = Bool(source.autoSellNeverSellSoulboundEpic),
+            autoSellDryRun = Bool(source.autoSellDryRun),
+            autoSellMaxItemLevel = tonumber(source.autoSellMaxItemLevel) or 0,
+            autoSellMinStackCount = tonumber(source.autoSellMinStackCount) or 1,
             bagDots = Bool(source.bagDots),
             dpsLogging = Bool(source.dpsLogging),
             debugLog = Bool(source.debugLog),
@@ -333,11 +351,20 @@ local function BuildSettingsPopup(ownerFrame)
             evalDelay = tonumber(gs.evalDelay) or 2,
             toastDuration = tonumber(gs.toastDuration) or 3,
             autoSell = ReadModuleToggle(EbonBuilds.AutoSell),
-            autoSellPoorOnly = Bool(EbonBuilds.AutoSell and EbonBuilds.AutoSell.GetCategory and EbonBuilds.AutoSell.GetCategory("poorOnly")),
-            autoSellExcludeTradeGoods = EbonBuilds.AutoSell and EbonBuilds.AutoSell.GetCategory
-                and EbonBuilds.AutoSell.GetCategory("excludeTradeGoods") ~= false or true,
-            autoSellExcludeRecipes = EbonBuilds.AutoSell and EbonBuilds.AutoSell.GetCategory
-                and EbonBuilds.AutoSell.GetCategory("excludeRecipes") ~= false or true,
+            autoSellPoorOnly = ReadAutoSellCategory("poorOnly", false),
+            autoSellSellCommon = ReadAutoSellCategory("sellCommon", true),
+            autoSellSellUncommon = ReadAutoSellCategory("sellUncommon", true),
+            autoSellExcludeRareEpic = ReadAutoSellCategory("excludeRareEpic", true),
+            autoSellExcludeTradeGoods = ReadAutoSellCategory("excludeTradeGoods", true),
+            autoSellExcludeRecipes = ReadAutoSellCategory("excludeRecipes", true),
+            autoSellNeverSellSoulbound = ReadAutoSellCategory("neverSellSoulbound", true),
+            autoSellNeverSellBoE = ReadAutoSellCategory("neverSellBoE", true),
+            autoSellNeverSellSoulboundEpic = ReadAutoSellCategory("neverSellSoulboundEpic", true),
+            autoSellDryRun = ReadAutoSellCategory("dryRun", false),
+            autoSellMaxItemLevel = EbonBuilds.AutoSell and EbonBuilds.AutoSell.GetOption
+                and tonumber(EbonBuilds.AutoSell.GetOption("maxItemLevel")) or 0,
+            autoSellMinStackCount = EbonBuilds.AutoSell and EbonBuilds.AutoSell.GetOption
+                and tonumber(EbonBuilds.AutoSell.GetOption("minStackCount")) or 1,
             bagDots = ReadModuleToggle(EbonBuilds.BagAffixDots),
             dpsLogging = ReadModuleToggle(EbonBuilds.DpsLog),
             debugLog = ReadModuleToggle(EbonBuilds.DebugLog),
@@ -367,8 +394,17 @@ local function BuildSettingsPopup(ownerFrame)
         if not SameNumber(draft.toastDuration, baseline.toastDuration) then count = count + 1 end
         if Bool(draft.autoSell) ~= Bool(baseline.autoSell) then count = count + 1 end
         if Bool(draft.autoSellPoorOnly) ~= Bool(baseline.autoSellPoorOnly) then count = count + 1 end
+        if Bool(draft.autoSellSellCommon) ~= Bool(baseline.autoSellSellCommon) then count = count + 1 end
+        if Bool(draft.autoSellSellUncommon) ~= Bool(baseline.autoSellSellUncommon) then count = count + 1 end
+        if Bool(draft.autoSellExcludeRareEpic) ~= Bool(baseline.autoSellExcludeRareEpic) then count = count + 1 end
         if Bool(draft.autoSellExcludeTradeGoods) ~= Bool(baseline.autoSellExcludeTradeGoods) then count = count + 1 end
         if Bool(draft.autoSellExcludeRecipes) ~= Bool(baseline.autoSellExcludeRecipes) then count = count + 1 end
+        if Bool(draft.autoSellNeverSellSoulbound) ~= Bool(baseline.autoSellNeverSellSoulbound) then count = count + 1 end
+        if Bool(draft.autoSellNeverSellBoE) ~= Bool(baseline.autoSellNeverSellBoE) then count = count + 1 end
+        if Bool(draft.autoSellNeverSellSoulboundEpic) ~= Bool(baseline.autoSellNeverSellSoulboundEpic) then count = count + 1 end
+        if Bool(draft.autoSellDryRun) ~= Bool(baseline.autoSellDryRun) then count = count + 1 end
+        if not SameNumber(draft.autoSellMaxItemLevel, baseline.autoSellMaxItemLevel) then count = count + 1 end
+        if not SameNumber(draft.autoSellMinStackCount, baseline.autoSellMinStackCount) then count = count + 1 end
         if Bool(draft.bagDots) ~= Bool(baseline.bagDots) then count = count + 1 end
         if Bool(draft.dpsLogging) ~= Bool(baseline.dpsLogging) then count = count + 1 end
         if Bool(draft.debugLog) ~= Bool(baseline.debugLog) then count = count + 1 end
@@ -531,8 +567,17 @@ local function BuildSettingsPopup(ownerFrame)
         if controls.toastSlider then controls.toastSlider:SetValue(draft.toastDuration) end
         if controls.autoSellCB then controls.autoSellCB:SetChecked(draft.autoSell) end
         if controls.autoSellPoorOnlyCB then controls.autoSellPoorOnlyCB:SetChecked(draft.autoSellPoorOnly) end
+        if controls.autoSellSellCommonCB then controls.autoSellSellCommonCB:SetChecked(draft.autoSellSellCommon) end
+        if controls.autoSellSellUncommonCB then controls.autoSellSellUncommonCB:SetChecked(draft.autoSellSellUncommon) end
+        if controls.autoSellExcludeRareEpicCB then controls.autoSellExcludeRareEpicCB:SetChecked(draft.autoSellExcludeRareEpic) end
         if controls.autoSellExcludeTradeGoodsCB then controls.autoSellExcludeTradeGoodsCB:SetChecked(draft.autoSellExcludeTradeGoods) end
         if controls.autoSellExcludeRecipesCB then controls.autoSellExcludeRecipesCB:SetChecked(draft.autoSellExcludeRecipes) end
+        if controls.autoSellNeverSellSoulboundCB then controls.autoSellNeverSellSoulboundCB:SetChecked(draft.autoSellNeverSellSoulbound) end
+        if controls.autoSellNeverSellBoECB then controls.autoSellNeverSellBoECB:SetChecked(draft.autoSellNeverSellBoE) end
+        if controls.autoSellNeverSellSoulboundEpicCB then controls.autoSellNeverSellSoulboundEpicCB:SetChecked(draft.autoSellNeverSellSoulboundEpic) end
+        if controls.autoSellDryRunCB then controls.autoSellDryRunCB:SetChecked(draft.autoSellDryRun) end
+        if controls.autoSellMaxItemLevelSlider then controls.autoSellMaxItemLevelSlider:SetValue(draft.autoSellMaxItemLevel) end
+        if controls.autoSellMinStackCountSlider then controls.autoSellMinStackCountSlider:SetValue(draft.autoSellMinStackCount) end
         if controls.bagDotsCB then controls.bagDotsCB:SetChecked(draft.bagDots) end
         if controls.dpsLoggingCB then controls.dpsLoggingCB:SetChecked(draft.dpsLogging) end
         if controls.debugCB then controls.debugCB:SetChecked(draft.debugLog) end
@@ -661,6 +706,50 @@ local function BuildSettingsPopup(ownerFrame)
         return slider
     end
 
+    local function AddIntSlider(parent, labelText, flavorText, y, minValue, maxValue, field, zeroLabel)
+        local card = CreateFrame("Frame", nil, parent)
+        card:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, y)
+        card:SetSize(SETTINGS_CONTENT_WIDTH - 4, 78)
+        EbonBuilds.Theme.ApplyCard(card)
+
+        local label = card:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        label:SetPoint("TOPLEFT", card, "TOPLEFT", 10, -9)
+        label:SetText(labelText)
+
+        local valueText = card:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        valueText:SetPoint("TOPRIGHT", card, "TOPRIGHT", -10, -10)
+        valueText:SetTextColor(unpack(EbonBuilds.Theme.ACCENT_GOLD))
+
+        local flavor = card:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+        flavor:SetPoint("TOPLEFT", label, "BOTTOMLEFT", 0, -2)
+        flavor:SetPoint("RIGHT", card, "RIGHT", -10, 0)
+        flavor:SetJustifyH("LEFT")
+        flavor:SetText(flavorText)
+
+        local slider = CreateFrame("Slider", nil, card)
+        if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+            EbonBuilds.Debug.ProtectScript(slider, "MainWindow.IntSlider")
+        end
+        slider:SetOrientation("HORIZONTAL")
+        slider:SetPoint("BOTTOMLEFT", card, "BOTTOMLEFT", 10, 9)
+        slider:SetPoint("BOTTOMRIGHT", card, "BOTTOMRIGHT", -10, 9)
+        slider:SetHeight(18)
+        slider:SetMinMaxValues(minValue, maxValue)
+        slider:SetValueStep(1)
+        EbonBuilds.Theme.SkinSlider(slider)
+        slider:SetScript("OnValueChanged", function(_, value)
+            local n = math.floor(tonumber(value) or minValue)
+            if zeroLabel and n <= minValue then
+                valueText:SetText(zeroLabel)
+            else
+                valueText:SetText(tostring(n))
+            end
+            if draft then draft[field] = n end
+            RefreshDirtyState()
+        end)
+        return slider
+    end
+
     local function AddCheckbox(parent, labelText, flavorText, y, field)
         local card = CreateFrame("Frame", nil, parent)
         card:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, y)
@@ -735,48 +824,91 @@ local function BuildSettingsPopup(ownerFrame)
             -110, 0.5, 8.0, "toastDuration")
     end)
 
-    BuildCategory("automation", 640, function(panel)
-        AddSectionTitle(panel, "CONVENIENCE & DIAGNOSTICS", -2)
+    BuildCategory("automation", 1380, function(panel)
+        local L = EbonBuilds.L
+        AddSectionTitle(panel, L["AUTO-SELL (VENDOR ONLY)"], -2)
         controls.autoSellCB = AddCheckbox(panel,
-            "Auto-sell junk at vendors",
-            "Sells eligible zero-copper items while a vendor is open; unlearned affixes remain protected.",
+            L["Auto-sell junk at vendors"],
+            L["Sells eligible zero-copper items while a vendor is open. Does not list on the Auction House; use Auctionator for AH selling."],
             -24, "autoSell")
+        local vendorNote = panel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+        vendorNote:SetPoint("TOPLEFT", panel, "TOPLEFT", 2, -86)
+        vendorNote:SetWidth(400)
+        vendorNote:SetJustifyH("LEFT")
+        vendorNote:SetText(L["Vendor-only: items are sold to the merchant NPC, never posted to the AH."])
         controls.autoSellPoorOnlyCB = AddCheckbox(panel,
-            "Only sell Poor (gray) quality",
-            "Restricts the zero-copper sweep to Poor-quality items only, instead of any quality.",
-            -92, "autoSellPoorOnly")
+            L["Only sell Poor (gray) quality"],
+            L["Restricts the zero-copper sweep to Poor-quality items only, instead of any quality."],
+            -110, "autoSellPoorOnly")
+        controls.autoSellSellCommonCB = AddCheckbox(panel,
+            L["Sell Common (white) zero-copper items"],
+            L["When gray-only is off, allows white-quality vendor trash. Ignored while gray-only is on."],
+            -178, "autoSellSellCommon")
+        controls.autoSellSellUncommonCB = AddCheckbox(panel,
+            L["Sell Uncommon (green) zero-copper items"],
+            L["Allows green vendor trash with no sell value. Ignored while gray-only is on."],
+            -246, "autoSellSellUncommon")
+        controls.autoSellExcludeRareEpicCB = AddCheckbox(panel,
+            L["Never sell Rare or Epic quality"],
+            L["Blocks Rare and Epic items even when they show zero copper at a vendor."],
+            -314, "autoSellExcludeRareEpic")
         controls.autoSellExcludeTradeGoodsCB = AddCheckbox(panel,
-            "Never auto-sell Trade Goods",
-            "Materials sometimes show as zero-copper but are still worth keeping (e.g. for professions).",
-            -160, "autoSellExcludeTradeGoods")
+            L["Never auto-sell Trade Goods"],
+            L["Materials sometimes show as zero-copper but are still worth keeping (e.g. for professions)."],
+            -382, "autoSellExcludeTradeGoods")
         controls.autoSellExcludeRecipesCB = AddCheckbox(panel,
-            "Never auto-sell Recipes",
-            "Recipes/patterns can be zero-copper at a vendor but still worth learning or trading.",
-            -228, "autoSellExcludeRecipes")
+            L["Never auto-sell Recipes"],
+            L["Recipes/patterns can be zero-copper at a vendor but still worth learning or trading."],
+            -450, "autoSellExcludeRecipes")
+        controls.autoSellNeverSellSoulboundCB = AddCheckbox(panel,
+            L["Never sell soulbound items"],
+            L["Uses tooltip bind text (ITEM_SOULBOUND) to skip bound gear and materials."],
+            -518, "autoSellNeverSellSoulbound")
+        controls.autoSellNeverSellBoECB = AddCheckbox(panel,
+            L["Never sell unbound BoE items"],
+            L["Uses tooltip bind text (ITEM_BIND_ON_EQUIP) to keep tradeable gear."],
+            -586, "autoSellNeverSellBoE")
+        controls.autoSellNeverSellSoulboundEpicCB = AddCheckbox(panel,
+            L["Never sell soulbound Epic items"],
+            L["Extra safety for purple soulbound gear even if other quality filters change."],
+            -654, "autoSellNeverSellSoulboundEpic")
+        controls.autoSellDryRunCB = AddCheckbox(panel,
+            L["Dry-run preview (count only)"],
+            L["On vendor open, shows how many items would sell without actually selling them."],
+            -722, "autoSellDryRun")
+        controls.autoSellMaxItemLevelSlider = AddIntSlider(panel,
+            L["Max item level to sell"],
+            L["0 = no limit. Only sells zero-copper items at or below this item level."],
+            -800, 0, 300, "autoSellMaxItemLevel", L["Off"])
+        controls.autoSellMinStackCountSlider = AddIntSlider(panel,
+            L["Minimum stack size to sell"],
+            L["Only sells stacks with at least this many items (useful for partial herb/ore stacks)."],
+            -886, 1, 20, "autoSellMinStackCount")
         controls.autoSellKeepListButton = AddToolButton(panel,
-            "Manage Auto-Sell Keep List...",
-            -296,
+            L["Manage Auto-Sell Keep List..."],
+            -972,
             function() EbonBuilds.AutoSell.ShowKeepListWindow() end)
+        AddSectionTitle(panel, L["CONVENIENCE & DIAGNOSTICS"], -1010)
         controls.bagDotsCB = AddCheckbox(panel,
-            "Bag affix dots",
-            "Marks bag items with an unlearned affix/rank (red/purple), an unbound BoE item (blue), or a likely disenchant candidate (teal).",
-            -332, "bagDots")
+            L["Bag affix dots"],
+            L["Marks bag items with an unlearned affix/rank (red/purple), an unbound BoE item (blue), or a likely disenchant candidate (teal)."],
+            -1032, "bagDots")
         controls.debugCB = AddCheckbox(panel,
-            "Detailed automation logging",
-            "Records every automation decision and its reasoning in the Debug Log.",
-            -400, "debugLog")
+            L["Detailed automation logging"],
+            L["Records every automation decision and its reasoning in the Debug Log."],
+            -1100, "debugLog")
         controls.clickTraceCB = AddCheckbox(panel,
-            "Log every button click",
-            "Records interface clicks for troubleshooting actions that appear to do nothing.",
-            -468, "clickTrace")
+            L["Log every button click"],
+            L["Records interface clicks for troubleshooting actions that appear to do nothing."],
+            -1168, "clickTrace")
         controls.gearTooltipCB = AddCheckbox(panel,
-            "Gear upgrade hints on tooltips",
-            "Adds a line to item tooltips saying whether the item scores as an upgrade for the active build's spec.",
-            -536, "gearTooltip")
+            L["Gear upgrade hints on tooltips"],
+            L["Adds a line to item tooltips saying whether the item scores as an upgrade for the active build's spec."],
+            -1236, "gearTooltip")
         controls.syncVerboseLogCB = AddCheckbox(panel,
-            "Verbose sync logging",
-            "Prints a chat line every time a build is received from or requested by another player. Off by default; mostly useful for troubleshooting sync.",
-            -604, "syncVerboseLog")
+            L["Verbose sync logging"],
+            L["Prints a chat line every time a build is received from or requested by another player. Off by default; mostly useful for troubleshooting sync."],
+            -1304, "syncVerboseLog")
     end)
 
     BuildCategory("features", 234, function(panel)
@@ -1014,8 +1146,19 @@ local function BuildSettingsPopup(ownerFrame)
         if EbonBuilds.AutoSell and EbonBuilds.AutoSell.SetEnabled then EbonBuilds.AutoSell.SetEnabled(draft.autoSell) end
         if EbonBuilds.AutoSell and EbonBuilds.AutoSell.SetCategory then
             EbonBuilds.AutoSell.SetCategory("poorOnly", draft.autoSellPoorOnly)
+            EbonBuilds.AutoSell.SetCategory("sellCommon", draft.autoSellSellCommon)
+            EbonBuilds.AutoSell.SetCategory("sellUncommon", draft.autoSellSellUncommon)
+            EbonBuilds.AutoSell.SetCategory("excludeRareEpic", draft.autoSellExcludeRareEpic)
             EbonBuilds.AutoSell.SetCategory("excludeTradeGoods", draft.autoSellExcludeTradeGoods)
             EbonBuilds.AutoSell.SetCategory("excludeRecipes", draft.autoSellExcludeRecipes)
+            EbonBuilds.AutoSell.SetCategory("neverSellSoulbound", draft.autoSellNeverSellSoulbound)
+            EbonBuilds.AutoSell.SetCategory("neverSellBoE", draft.autoSellNeverSellBoE)
+            EbonBuilds.AutoSell.SetCategory("neverSellSoulboundEpic", draft.autoSellNeverSellSoulboundEpic)
+            EbonBuilds.AutoSell.SetCategory("dryRun", draft.autoSellDryRun)
+        end
+        if EbonBuilds.AutoSell and EbonBuilds.AutoSell.SetOption then
+            EbonBuilds.AutoSell.SetOption("maxItemLevel", draft.autoSellMaxItemLevel)
+            EbonBuilds.AutoSell.SetOption("minStackCount", draft.autoSellMinStackCount)
         end
         if EbonBuilds.BagAffixDots and EbonBuilds.BagAffixDots.SetEnabled then EbonBuilds.BagAffixDots.SetEnabled(draft.bagDots) end
         if EbonBuilds.DpsLog and EbonBuilds.DpsLog.SetEnabled then EbonBuilds.DpsLog.SetEnabled(draft.dpsLogging) end

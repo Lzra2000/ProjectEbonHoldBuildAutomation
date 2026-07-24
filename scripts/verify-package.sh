@@ -1,28 +1,32 @@
 #!/usr/bin/env sh
-# Post-build smoke check for dist/EbonBuilds.zip (and optional Auctionator.zip).
+# Post-build smoke check for dist/EbonBuilds.zip (and optional vendor bundles).
 # Validates every TOC-listed path exists inside the zip, rejects UTF-8 BOM on
 # shipped locale files, and ensures dev-only paths did not leak into the package.
 #
 #   sh scripts/build-dist.sh && sh scripts/verify-package.sh
 #   sh scripts/verify-package.sh --build   # build first when dist/ is missing
 #
-# Optional companion: vendor/Auctionator/ is documented in vendor/Auctionator/CREDITS.md
-# and ships as dist/Auctionator.zip when the vendored tree is present.
+# Optional companions:
+#   vendor/Auctionator/       -> dist/Auctionator.zip       (see vendor/Auctionator/CREDITS.md)
+#   vendor/Details_TinyThreat/ -> dist/Details_TinyThreat.zip (see vendor/Details_TinyThreat/CREDITS.md)
 set -eu
 cd "$(dirname "$0")/.."
 
 BUILD_FIRST=0
 SKIP_AUCTIONATOR=0
+SKIP_DETAILS_TINYTHREAT=0
 while [ $# -gt 0 ]; do
     case "$1" in
         --build) BUILD_FIRST=1; shift ;;
         --skip-auctionator) SKIP_AUCTIONATOR=1; shift ;;
+        --skip-details-tinythreat) SKIP_DETAILS_TINYTHREAT=1; shift ;;
         --help|-h)
             cat <<'EOF'
-Usage: sh scripts/verify-package.sh [--build] [--skip-auctionator]
+Usage: sh scripts/verify-package.sh [--build] [--skip-auctionator] [--skip-details-tinythreat]
 
-  --build             Run scripts/build-dist.sh first if dist/EbonBuilds.zip is missing
-  --skip-auctionator  Do not validate dist/Auctionator.zip even when present
+  --build                    Run scripts/build-dist.sh first if dist/EbonBuilds.zip is missing
+  --skip-auctionator         Do not validate dist/Auctionator.zip even when present
+  --skip-details-tinythreat  Do not validate dist/Details_TinyThreat.zip even when present
 EOF
             exit 0 ;;
         *)
@@ -138,6 +142,20 @@ elif [ -d vendor/Auctionator ] && [ -f vendor/Auctionator/Auctionator.toc ] && [
     fail=1
 fi
 
+if [ "$SKIP_DETAILS_TINYTHREAT" -eq 0 ] && [ -f dist/Details_TinyThreat.zip ]; then
+    echo ""
+    echo "== Verifying optional dist/Details_TinyThreat.zip =="
+    unzip -q dist/Details_TinyThreat.zip -d "$STAGE"
+    TT_ROOT="$STAGE/Details_TinyThreat"
+    verify_toc_package "$TT_ROOT/Details_TinyThreat.toc" "$TT_ROOT" "Details_TinyThreat"
+    echo "Optional Details_TinyThreat bundle verified — see vendor/Details_TinyThreat/CREDITS.md"
+elif [ -d vendor/Details_TinyThreat ] && [ -f vendor/Details_TinyThreat/Details_TinyThreat.toc ] && [ ! -f dist/Details_TinyThreat.zip ]; then
+    echo ""
+    echo "WARN: vendor/Details_TinyThreat present but dist/Details_TinyThreat.zip was not built" >&2
+    annotate "vendor/Details_TinyThreat present but dist/Details_TinyThreat.zip missing"
+    fail=1
+fi
+
 if [ "$fail" -ne 0 ]; then
     echo ""
     echo "Package smoke check FAILED." >&2
@@ -148,4 +166,7 @@ echo ""
 echo "Package smoke check OK (EbonBuilds TOC paths, locale BOMs, media, no dev leaks)."
 if [ -f dist/Auctionator.zip ]; then
     echo "Optional Auctionator.zip included — install separately; see vendor/Auctionator/CREDITS.md"
+fi
+if [ -f dist/Details_TinyThreat.zip ]; then
+    echo "Optional Details_TinyThreat.zip included — requires Details! core; see vendor/Details_TinyThreat/CREDITS.md"
 fi
