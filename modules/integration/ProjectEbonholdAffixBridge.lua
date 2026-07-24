@@ -1,5 +1,8 @@
 local addonName, EbonBuilds = ...
 
+-- EbonBuilds: modules/integration/ProjectEbonholdAffixBridge.lua
+-- Capability-gated bridge to ProjectEbonhold Enchanted Anvil extraction and affix vendor UI.
+
 EbonBuilds.ProjectEbonholdAffixBridge = {}
 local Bridge = EbonBuilds.ProjectEbonholdAffixBridge
 local EXTRACTION_FRAME = "EbonholdExtractionFrame"
