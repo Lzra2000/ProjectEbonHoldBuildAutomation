@@ -58,12 +58,12 @@ jobs:
               echo "::error::No '### $VERSION' section found in CHANGELOG.md -- add a changelog entry before tagging." >&2
               exit 1
           fi
-          head -1 /tmp/notes_raw.md | sed 's/^### //' > /tmp/title.txt
+          echo "EbonBuilds $VERSION" > /tmp/title.txt
           {
               echo "**Install:** [Download EbonBuilds.zip](https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/EbonBuilds.zip)"
               echo "Extract it and drop the \`EbonBuilds\` folder into \`Interface/AddOns/\`."
               echo
-              tail -n +2 /tmp/notes_raw.md
+              cat /tmp/notes_raw.md
           } > /tmp/body.md
 
       - name: Create GitHub Release with asset

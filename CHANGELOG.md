@@ -10,7 +10,9 @@ group changes under `#### Added`, `#### Changed`, `#### Fixed`, or `#### Securit
 
 `scripts/release.sh` refuses to tag unless this file changed. The Release workflow
 and the in-game **What's new** page both read the topmost `###` entry from here.
-Install instructions and download links live on
+GitHub Releases use a short title (`EbonBuilds <version>`); the release body is the
+full matching `###` section from this file (plus install instructions). Install
+instructions and download links also live on
 [GitHub Releases](https://github.com/Lzra2000/ProjectEbonHoldBuildAutomation/releases)
 and in [docs/releases.md](docs/releases.md).
 
