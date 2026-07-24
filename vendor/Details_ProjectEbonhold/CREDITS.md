@@ -106,6 +106,13 @@ release zip).
 - Custom Display scripts run inside Details' sandbox; if Details updates break
   `InstallCustomObject`, labels still work via spellcache.
 
+## 1.0.9-pe1
+
+PE Proc Sources Breakdown layout polish: denser right-side detail blocks
+(native field order, source-share bar, sibling source/proc slots), include the
+focused proc in the Targets panel, dock Breakdown beside the meter with
+left-flip when it would clip the screen. Custom Display script_version 9.
+
 ## 1.0.8-pe1
 
 PE Proc Sources first-click opens native **Player Details! Breakdown** without

@@ -47,11 +47,12 @@ das alte Auto-Löschen will: Details-Optionen → Overall →
 
 1. Details!-Core muss bereits unter `Interface/AddOns/Details` liegen
    (oder die komplette Suite **`Details.zip`** entpacken).
-2. Companion `Details_ProjectEbonhold` (1.0.8-pe1) unter
+2. Companion `Details_ProjectEbonhold` (1.0.9-pe1) unter
    `Interface/AddOns/Details_ProjectEbonhold` — liegt auch in **Details.zip**.
 3. `/reload` — Labels erscheinen in der Spell-Aufschlüsselung automatisch.
 4. Details-Fenster → Attribut **Custom** → **PE Proc Sources**.
 5. Segment **Overall Data** wählen — Balken zeigen die Summe über alle Overall-Fights
-   (wie DPS Overall). Zeile anklicken öffnet natives Player Details! Breakdown.
+   (wie DPS Overall). Zeile anklicken öffnet natives Player Details! Breakdown
+   (dicht gefüllt; Fenster dockt neben dem Meter).
 
 Siehe auch: [Details!: Tiny Threat (PE)](details-tinythreat-pe.md).
