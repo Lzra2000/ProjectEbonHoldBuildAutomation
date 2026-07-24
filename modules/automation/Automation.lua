@@ -467,6 +467,7 @@ local function ScoreChoice(choice, settings, freezeThreshold)
     return {
         index = 0, spellId = spellId, name = name, quality = quality,
         score = score, entry = entry, data = raw or variant,
+        rank = tonumber(choice.rank),
         isFrozen = isFrozen, isCarried = choice.isCarried,
         isGuaranteed = choice.isGuaranteed and true or false,
     }
@@ -590,11 +591,11 @@ end
 
 local function TrySelect(scored, settings, build)
     local best, bestBanned
+    local tieOpts = { preferFrozen = true }
     for _, s in ipairs(scored) do
         if IsActionable(s) then
             local current = EbonBuilds.Scoring.IsBanned(s.spellId, settings) and bestBanned or best
-            if not current or (s.score or 0) > (current.score or 0)
-                or ((s.score or 0) == (current.score or 0) and s.index < current.index) then
+            if not current or EbonBuilds.Scoring.IsBetterCandidate(s, current, tieOpts) then
                 if EbonBuilds.Scoring.IsBanned(s.spellId, settings) then bestBanned = s else best = s end
             end
         end
@@ -793,6 +794,7 @@ local function NewRawBoard(choices)
         board.slots[#board.slots + 1] = {
             index = i,
             spellId = spellId,
+            rank = choice and tonumber(choice.rank) or nil,
             isFrozen = choice and (choice.isFrozen or choice.justFrozen) and true or false,
             isCarried = choice and choice.isCarried and true or false,
             isGuaranteed = choice and choice.isGuaranteed and true or false,

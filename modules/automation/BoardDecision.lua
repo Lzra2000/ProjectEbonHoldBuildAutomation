@@ -22,7 +22,14 @@ D.STATE = {
     RECOVERY = "RECOVERY",
 }
 
+local Scoring = EbonBuilds.Scoring
+local SELECT_TIE_OPTS = { preferFrozen = true }
+local FREEZE_TIE_OPTS = { preferFrozen = false }
+
 local function IsBetter(a, b)
+    if Scoring and Scoring.IsBetterCandidate then
+        return Scoring.IsBetterCandidate(a, b, SELECT_TIE_OPTS)
+    end
     if not a then return false end
     if not b then return true end
     local aScore = tonumber(a.score) or 0
@@ -32,12 +39,22 @@ local function IsBetter(a, b)
 end
 
 local function IsWorse(a, b)
+    if Scoring and Scoring.IsWorseCandidate then
+        return Scoring.IsWorseCandidate(a, b)
+    end
     if not a then return false end
     if not b then return true end
     local aScore = tonumber(a.score) or 0
     local bScore = tonumber(b.score) or 0
     if aScore ~= bScore then return aScore < bScore end
     return (tonumber(a.index) or 0) < (tonumber(b.index) or 0)
+end
+
+local function IsBetterFreezeCandidate(a, b)
+    if Scoring and Scoring.IsBetterCandidate then
+        return Scoring.IsBetterCandidate(a, b, FREEZE_TIE_OPTS)
+    end
+    return IsBetter(a, b)
 end
 
 local function EchoKey(slot)
@@ -193,7 +210,7 @@ function D.FindBestFreezeCandidate(board, selectionTarget)
             or (selectedKey ~= nil and key == selectedKey))
         local failed = board.failedFreezeBySlot and board.failedFreezeBySlot[slot.index]
         if not isSelection and not duplicate and not failed and not WasFrozenThisBoard(board, slot)
-            and RequiresPreservation(slot, board.freezeThreshold) and IsBetter(slot, best) then
+            and RequiresPreservation(slot, board.freezeThreshold) and IsBetterFreezeCandidate(slot, best) then
             best = slot
         end
     end
@@ -317,8 +334,25 @@ function D.Decide(board)
     return { action = "RECOVERY", reason = rerollReason or "no safe automatic action exists" }
 end
 
+function D.DebugServerRankMismatch(board)
+    if type(board) ~= "table" then return nil end
+    local pick = D.FindBestLegalPick(board)
+    if not pick or pick.rank == nil then return nil end
+    for _, slot in ipairs(board.slots or {}) do
+        if slot ~= pick and slot.rank ~= nil
+            and (tonumber(slot.score) or 0) == (tonumber(pick.score) or 0)
+            and IsLegalSelection(slot, board)
+            and tonumber(slot.rank) < tonumber(pick.rank) then
+            return true, slot, pick
+        end
+    end
+    return false
+end
+
 D._IsLegalSelection = IsLegalSelection
 D._IsValuable = IsValuable
 D._RequiresPreservation = RequiresPreservation
 D._WasFrozenThisBoard = WasFrozenThisBoard
 D._IsRunFrozenEcho = IsRunFrozenEcho
+D._IsBetter = IsBetter
+D._IsBetterFreezeCandidate = IsBetterFreezeCandidate

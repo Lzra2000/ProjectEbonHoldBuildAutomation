@@ -117,10 +117,11 @@ Every verdict includes a **stable reason code** (machine) + short reason string 
 
 When scores/weights produce ties, the server orders candidates with a published rule (never client-only sort):
 
-1. Prefer higher **server rank** if provided (`rank` ascending or descending — pick one and freeze it in the API).
-2. Else lower **slot index** (1-based left-to-right, matching current client `IsBetter`).
-3. Else lower **echo / spell ID**.
-4. Else prefer a slot **already frozen** when choosing among equals for select-after-freeze scenarios (stability).
+1. Prefer higher **score** (primary weight).
+2. When both cards publish an integer **`rank`**, prefer the **lower** rank value (1 beats 2). Missing rank on either card skips this step.
+3. Else lower **slot index** (1-based left-to-right, matching current client `IsBetter`).
+4. Else lower **echo / spell ID**.
+5. Else prefer a slot **already frozen** when choosing among equals for select-after-freeze scenarios (stability).
 
 Optional: attach `rank` (and maybe `scoreHint`) on each choice so EbonBuilds display and offline tests never invent ordering.
 
