@@ -16,6 +16,14 @@ and in [docs/releases.md](docs/releases.md).
 
 [Unreleased]: https://github.com/Lzra2000/ProjectEbonHoldBuildAutomation/compare/v3.84...HEAD
 
+### 3.86 (unreleased) -- Auctionator integration for affix shopping
+
+Optional companion integration with vendored Auctionator 2.6.3 (WotLK / Interface 30300).
+
+- **Packaging:** `vendor/Auctionator/` ships as a separate AddOn (`dist/Auctionator.zip`); EbonBuilds declares `## OptionalDeps: Auctionator`.
+- **AuctionatorBridge:** soft-fail price helpers (`Atr_GetAuctionBuyout` / `Atr_GetAuctionPrice`), Affixes tab AH search + shopping-list sync, tooltip buyout lines, gold bag dot for cheap missing-affix gear.
+- **Tests:** `tests/test_auctionator_bridge.lua` for query building, soft-deps, and shopping-list sync stubs.
+
 ### 3.85 (2026-07-24) -- Tome draw-pool toggle + permanent LockPerk APIs (#62)
 
 *Not yet released — on `main` ahead of [v3.84](https://github.com/Lzra2000/ProjectEbonHoldBuildAutomation/releases/tag/v3.84).*

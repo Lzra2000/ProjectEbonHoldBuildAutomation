@@ -222,6 +222,17 @@ Project Ebonhold has two separate progression systems. **Echoes** are the run-ba
 ### How do I use the Affixes tab? (new in 2.7)
 Open via the **Affixes** button in the left panel or the Affixes reference (Settings, Windows & Tools). Every known affix is listed with a green dot (learned) or red dot (missing). Search by name, toggle *"Show: Missing only"*, and hover any entry for its full tooltip, weapon/armor restriction, apply cost, and use count. Press **Refresh** to request an updated list from the server (throttled to avoid spamming it).
 
+### How does Auctionator integration work? (optional)
+EbonBuilds optionally integrates with **Auctionator 2.6.3** (WotLK / Interface 30300) when you install it alongside EbonBuilds. The repo ships a vendored copy under `vendor/Auctionator/` (also packaged as `dist/Auctionator.zip` on release builds). EbonBuilds declares `## OptionalDeps: Auctionator` so the client loads Auctionator first when present; without it, every price/search feature soft-fails and the rest of EbonBuilds is unchanged.
+
+When Auctionator is installed and you have scan data:
+
+- **Affixes tab:** missing rows show an **AH** button that opens Auctionator's Buy tab and searches for gear `of <Affix Name>`. **Sync AH list** rebuilds an Auctionator shopping list named **EbonBuilds Affixes** with one search term per missing affix. Tooltips show Auctionator's affix-line price when available.
+- **Item tooltips:** gear hovers include an Auctionator buyout line (exact item name, falling back to the affix line).
+- **Bag affix dots:** a gold dot marks bag gear carrying a missing affix when Auctionator has a buyout price at or below that affix's apply cost (cheap learn/extract fodder).
+
+Affixes themselves are learned by extracting corrupted gear (ProjectEbonhold's Extraction UI) or buying pre-affixed gear on the AH -- EbonBuilds does not replace either workflow; it only surfaces prices and pre-fills Auctionator searches. Open the Auction House before using **AH** / **Sync AH list** if you are not already there.
+
 ### How does the visual Character tab work?
 The build editor's **Character** tab has three focused views:
 

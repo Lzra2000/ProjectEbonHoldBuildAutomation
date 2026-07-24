@@ -1,7 +1,7 @@
 ## Interface: 30300
 ## Title: EbonBuilds
 ## Version: 3.84
-## OptionalDeps: ProjectEbonhold, ProjectEbonholdEnhanced, EchoWishlist
+## OptionalDeps: ProjectEbonhold, ProjectEbonholdEnhanced, EchoWishlist, Auctionator
 ## SavedVariables: EbonBuildsDB
 ## SavedVariablesPerCharacter: EbonBuildsCharDB
 
@@ -40,6 +40,7 @@ modules/gear/GearScore.lua
 modules/gear/GearTooltip.lua
 modules/data/SpecData.lua
 modules/integration/ProjectEbonholdAPI.lua
+modules/integration/AuctionatorBridge.lua
 modules/data/EchoIdentityData.lua
 modules/data/EchoSemanticsData.lua
 modules/data/EchoCorrectionFacts.lua

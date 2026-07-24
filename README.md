@@ -26,7 +26,7 @@ Built for ProjectEbonhold raiders and echo grinders who want consistent automati
 
 **Server requirement:** ProjectEbonhold ships its own server addon. Install **ProjectEbonhold** or **ProjectEbonhold Enhanced** on the client as provided by your server — EbonBuilds depends on it for echo boards, affix data, and several integration features. Without it, EbonBuilds will not function.
 
-**Optional:** **[Details!](https://www.curseforge.com/wow/addons/details)** enables DPS-based weight suggestions and richer stats. Combat DPS logging in the Logbook (v3.84+) works without Details! when enabled under Settings.
+**Optional:** **[Details!](https://www.curseforge.com/wow/addons/details)** enables DPS-based weight suggestions and richer stats. Combat DPS logging in the Logbook (v3.84+) works without Details! when enabled under Settings. **[Auctionator](vendor/Auctionator/)** (vendored 2.6.3 for 3.3.5a) adds affix shopping, AH search shortcuts, and buyout price hints when installed alongside EbonBuilds.
 
 Open the addon with **`/ebb`** or **`/ebonbuilds`**.
 
@@ -37,7 +37,7 @@ Open the addon with **`/ebb`** or **`/ebonbuilds`**.
 | **Autopilot** | Intent presets (Save charges / Balanced / Chase upgrades), per-echo scoring, run-persistent freeze tracking, and a decision-first **Logbook** with reasoning and charge usage. |
 | **Builds** | Per-echo weights (including per-quality ranks), locked/banned slots, character snapshots (talents, glyphs, gear), Tuning Advisor, Manual Training Mode, EchoWishlist (`EWL1`) export, and plain-text **Export (AI)** dumps. |
 | **Public Builds** | Browse community builds, inspect priorities and snapshots, vote, import, and (when the server supports it) save or apply **server loadouts**. |
-| **Affixes** | Affix reference panel, bag affix dots (default bags, Bagnon, Combuctor), and gear modeling in the Character tab. |
+| **Affixes** | Affix reference panel, bag affix dots (default bags, Bagnon, Combuctor), gear modeling in the Character tab, and optional Auctionator AH search / price hints. |
 | **DPS & stats** | Optional combat DPS samples attached to runs and shown in the Logbook; Details!-backed DPS tracking and appearance-rate sync when installed and consented. Stats workspace with Summary, Actions, Echoes, and evidence-backed Recommendations. |
 | **Locales** | Build editor UI in German, Spanish, French, Polish, Brazilian Portuguese, and Russian — auto-detected from the client or overridden via Settings. |
 
