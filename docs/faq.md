@@ -46,6 +46,14 @@ How Autopilot decides, and how to tune it.
 ### What is Manual Training Mode?
 Enable **Training** from the active build overview. While it is on, Autopilot yields to the native Echo picker and EbonBuilds observes what you choose. When your manual choice repeatedly disagrees with the current scoring, the addon produces a rank-specific raise or lower suggestion. Clear the active build's training history in Settings under Build.
 
+### Does running a build on Autopilot train its values, or do I need Training Mode?
+Autopilot never changes your weights by itself. Running the same build on Autopilot only *executes* the values you configured and *collects evidence* along the way (offer samples for the Tuning Advisor, action statistics, optional DPS data). Turning that evidence into changed values always goes through an explicit, reviewable step:
+
+- **Manual Training Mode** learns from your *manual* picks: while Training is on, Autopilot yields and the addon compares what you chose against what it would have scored, then proposes rank-specific raises or lowers.
+- **Tuning proposals and the Tuning Advisor** turn collected evidence into suggestions with a visible Apply button — nothing is written to the build until you apply it.
+
+So no: autopiloting a build does not silently train it. Use Training Mode when you want the addon to learn from your own choices, or review the advisor's proposals when you want evidence-based adjustments.
+
 ### What do automatic tuning proposals do?
 **Prepare tuning proposals** is off by default. It periodically stages a small evidence-based proposal, but never changes the live build by itself. Review the current evidence and use the visible Apply controls deliberately. Rank-specific Manual Training evidence remains separate from family-level DPS evidence, and conflicting signals are combined rather than silently overwriting one another.
 
@@ -288,6 +296,16 @@ Next to the regular Export button (build edit screen, any tab) is a new **Export
 
 ## Settings, Diagnostics & Troubleshooting
 Toggles, logs, and fixed issues.
+
+### How do I remove a build, and where are builds stored on disk?
+Delete it in-game: open the build's **Overview** tab and click the red **Delete** button in the bottom-left corner; a confirmation popup follows. This is the recommended route because it also keeps public/sync bookkeeping consistent.
+
+On disk, builds are not inside the addon folder — like all WoW addon data they live in your SavedVariables:
+
+- Account-wide (all builds, settings, caches): `WTF\Account\<ACCOUNT NAME>\SavedVariables\EbonBuilds.lua` (variable `EbonBuildsDB`)
+- Per character (character-scoped data): `WTF\Account\<ACCOUNT NAME>\<Realm>\<Character>\SavedVariables\EbonBuilds.lua` (variable `EbonBuildsCharDB`)
+
+If you ever hand-edit these files, log out of the game first (the client rewrites them on logout, overwriting your edits) and keep a backup. Also note that a build imported from Public Builds can reappear via the community cache after a raw file edit — the in-game Delete button handles that case correctly.
 
 ### What do the Auto-sell toggle (Settings, Automation), Settings, the Error log (Settings, Windows & Tools) and the Click Trace log (Settings, Windows & Tools) do? (new in 2.12)
 Four small standalone tools:
