@@ -1249,8 +1249,9 @@ end
 -- idiom collapsed "a sorts after b" into nil and then fell through to
 -- title/id, which could make both directions return true ("invalid order
 -- function for sorting"). Nil holes are also guarded so a sparse list
--- never indexes a nil entry. timeFn is optional and forwarded to
--- ParseLastModified / TrendingScore (defaults to real time()).
+-- never indexes a nil entry. Numeric keys are coerced with tonumber so a
+-- non-number never errors mid-compare. timeFn is optional and forwarded
+-- to ParseLastModified / TrendingScore (defaults to real time()).
 local function CompareBuilds(a, b, mode, now, timeFn)
     if a == nil or b == nil then
         if a == nil and b == nil then return false end
@@ -1261,13 +1262,14 @@ local function CompareBuilds(a, b, mode, now, timeFn)
     now = now or ((time and time()) or 0)
 
     if mode == "newest" then
-        local ma = ParseLastModified(a.lastModified, timeFn) or 0
-        local mb = ParseLastModified(b.lastModified, timeFn) or 0
+        local ma = tonumber(ParseLastModified(a.lastModified, timeFn)) or 0
+        local mb = tonumber(ParseLastModified(b.lastModified, timeFn)) or 0
         if ma ~= mb then return ma > mb end
     elseif mode == "itemlevel" then
         local sa = CharacterSummary(a.characterSnapshot)
         local sb = CharacterSummary(b.characterSnapshot)
-        local ia, ib = sa and sa.avgItemLevel, sb and sb.avgItemLevel
+        local ia = sa and tonumber(sa.avgItemLevel) or nil
+        local ib = sb and tonumber(sb.avgItemLevel) or nil
         if ia == nil and ib == nil then
             -- fall through to title/id
         elseif ia == nil or ib == nil then
@@ -1278,11 +1280,12 @@ local function CompareBuilds(a, b, mode, now, timeFn)
             return ia > ib
         end
     elseif mode == "trending" then
-        local ta, tb = TrendingScore(a, now, timeFn), TrendingScore(b, now, timeFn)
+        local ta = tonumber(TrendingScore(a, now, timeFn)) or 0
+        local tb = tonumber(TrendingScore(b, now, timeFn)) or 0
         if ta ~= tb then return ta > tb end
     else -- "votes"
-        local va = (EbonBuilds.BuildVotes and EbonBuilds.BuildVotes.Count(a.id)) or 0
-        local vb = (EbonBuilds.BuildVotes and EbonBuilds.BuildVotes.Count(b.id)) or 0
+        local va = tonumber((EbonBuilds.BuildVotes and EbonBuilds.BuildVotes.Count(a.id)) or 0) or 0
+        local vb = tonumber((EbonBuilds.BuildVotes and EbonBuilds.BuildVotes.Count(b.id)) or 0) or 0
         if va ~= vb then return va > vb end
     end
 
@@ -1292,7 +1295,27 @@ local function CompareBuilds(a, b, mode, now, timeFn)
 end
 EbonBuilds.PublicBuildsView._CompareBuildsForTest = CompareBuilds
 
+-- Compact accidental holes, then sort. Lua 5.1 table.sort uses #list; a
+-- hole mid-sequence can yield nil arguments and "invalid order function"
+-- / index-nil crashes even with a careful comparator. Scan integer keys
+-- (not just #list) so a sparse array is densified before sorting.
 local function SortBuilds(list, mode, now, timeFn)
+    if type(list) ~= "table" then return list end
+    local maxIndex = 0
+    for k in pairs(list) do
+        if type(k) == "number" and k >= 1 and k == math.floor(k) and k > maxIndex then
+            maxIndex = k
+        end
+    end
+    local write = 1
+    for read = 1, maxIndex do
+        local v = list[read]
+        if v ~= nil then
+            if write ~= read then list[write] = v end
+            write = write + 1
+        end
+    end
+    for i = write, maxIndex do list[i] = nil end
     table.sort(list, function(a, b)
         return CompareBuilds(a, b, mode, now, timeFn)
     end)
@@ -1759,6 +1782,23 @@ if EbonBuilds.Debug and EbonBuilds.Debug.RegisterTest then
             end
         end
 
+        local function assertPairwiseTotalOrder(builds, mode, label)
+            for i = 1, #builds do
+                for j = 1, #builds do
+                    local a, b = builds[i], builds[j]
+                    local ab = cmp(a, b, mode, 2000000000, fakeEpoch)
+                    local ba = cmp(b, a, mode, 2000000000, fakeEpoch)
+                    if ab and ba then
+                        error(string.format("invalid order (%s) %s vs %s", label,
+                            tostring(a and a.id), tostring(b and b.id)))
+                    end
+                    if i == j and (ab or ba) then
+                        error(string.format("reflexivity broken (%s) id=%s", label, tostring(a and a.id)))
+                    end
+                end
+            end
+        end
+
         -- Titles deliberately conflict with date order: older title "Alpha"
         -- sorts before newer title "Zebra". The broken `x ~= y and x > y or nil`
         -- idiom fell through to title and returned true for BOTH directions.
@@ -1811,6 +1851,48 @@ if EbonBuilds.Debug and EbonBuilds.Debug.RegisterTest then
         if not ok then error("CompareBuilds crashed on nil entry: " .. tostring(err)) end
 
         assertOrder(newer, newer, "newest", nil, "same build equal")
+
+        -- v3.86 BugSack reproduction: many Alpha(old)/Zebra(new) pairs make
+        -- Lua 5.1 raise "invalid order function for sorting" under the old
+        -- `x ~= y and x > y or nil` idiom. Fixed comparator must sort cleanly.
+        local conflicted = {}
+        for i = 1, 40 do
+            conflicted[#conflicted + 1] = {
+                id = "old-" .. i, title = "Alpha",
+                lastModified = "2026-01-01 00:00:00",
+            }
+            conflicted[#conflicted + 1] = {
+                id = "new-" .. i, title = "Zebra",
+                lastModified = string.format("2026-07-%02d 00:00:00", 1 + (i % 28)),
+            }
+        end
+        ok, err = pcall(sort, conflicted, "newest", 0, fakeEpoch)
+        if not ok then
+            error("conflicted Alpha/Zebra newest sort failed (v3.86 repro): " .. tostring(err))
+        end
+        for i = 1, #conflicted - 1 do
+            if cmp(conflicted[i + 1], conflicted[i], "newest", 0, fakeEpoch) then
+                error("conflicted list not sorted by newest after SortBuilds")
+            end
+        end
+
+        -- Sparse list: densify + nil-safe compare must not raise.
+        local sparse = { older, nil, newer, nil, sameDateDifferentTitle, noGear }
+        ok, err = pcall(sort, sparse, "votes", 2000000000, fakeEpoch)
+        if not ok then error("sparse SortBuilds crashed: " .. tostring(err)) end
+        if #sparse ~= 4 then
+            error("sparse SortBuilds should compact to 4 builds, got " .. tostring(#sparse))
+        end
+
+        local sample = { older, newer, sameDateDifferentTitle, noGear }
+        for _, modeName in ipairs({ "votes", "newest", "itemlevel", "trending" }) do
+            assertPairwiseTotalOrder(sample, modeName, modeName)
+            local copy = { older, newer, sameDateDifferentTitle, noGear }
+            ok, err = pcall(sort, copy, modeName, 2000000000, fakeEpoch)
+            if not ok then
+                error("SortBuilds crashed in mode " .. modeName .. ": " .. tostring(err))
+            end
+        end
 
         EbonBuildsDB.buildVotes = {}
     end)

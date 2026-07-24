@@ -18,6 +18,11 @@ and on the [Releases page](https://lzra2000.github.io/ProjectEbonHoldBuildAutoma
 
 [Unreleased]: https://github.com/Lzra2000/ProjectEbonHoldBuildAutomation/compare/v3.86.1...HEAD
 
+### Unreleased
+
+#### Fixed
+- Public Builds sort hardening on top of #126: coerce numeric sort keys with `tonumber`, densify sparse list holes before `table.sort`, and expand the CompareBuilds self-test with the v3.86 Alpha/Zebra conflict reproduction, pairwise total-order checks across all modes, and sparse-list compaction.
+
 ### 3.86.1 (2026-07-24) -- Post-3.86 reliability: Sync UX, Public Builds sort, Auctionator shop
 
 [Release v3.86.1](https://github.com/Lzra2000/ProjectEbonHoldBuildAutomation/releases/tag/v3.86.1)
