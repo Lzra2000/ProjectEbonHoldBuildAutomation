@@ -18,6 +18,21 @@ and in [docs/releases.md](docs/releases.md).
 
 [Unreleased]: https://github.com/Lzra2000/ProjectEbonHoldBuildAutomation/compare/v3.85...HEAD
 
+### 3.86 (Unreleased) -- Automation server redesign stepping stones and docs artwork
+
+Follow-up to 3.85: client-side work packages WP2 (shared tie-break policy) and WP3 (intent queue) from the server-authoritative Autopilot redesign, plus original WotLK-inspired GitHub Pages branding. Auctionator ProjectEbonhold adaptation and full UI localization were not merged before this cut.
+
+#### Added
+
+- **Intent queue WP3 (#89 / #52):** new `IntentQueue` module — one in-flight autopilot intent (select/freeze/banish/reroll) with duplicate blocking; ack via board identity fingerprint, `GetPendingAction()` pending-flag drop, or 8s TTL. Wired into `Automation.ExecuteDecision` / `RequestFreeze` ahead of server intent-ack support. `ProjectAPI.GetCapabilities` exposes `intentQueueClient` and `serverIntentAck`. Docs in `docs/intent-queue-wp3.md`; tests in `tests/test_intent_queue.lua`.
+- **Shared tie-break policy WP2 (#90 / #51):** centralized score → optional PE `rank` → slot index → spell ID → frozen-preference ordering in `Scoring` (`CompareCandidates` / `IsBetterCandidate`), wired through `BoardDecision` and `Automation.TrySelect` so equal-weight boards pick deterministically and align with the server redesign. Optional per-card `rank` from ProjectEbonhold offers; missing ranks fall back to slot-index ordering. `DebugServerRankMismatch` flags rank disagreements. Tests in `tests/test_tie_break.lua`.
+- **WotLK-inspired docs artwork (#88):** locally generated hero background, runic dividers, slate texture, favicon, and feature-card icon silhouettes via `scripts/generate-docs-art.py` — no Blizzard client assets. Homepage hero, framed sections, and gold/frost chrome in `extra.css`; favicon updated in `mkdocs.yml`.
+
+#### Changed
+
+- **Automation server redesign docs:** WP2 tie-break chain and WP3 intent-queue stepping stone documented in `docs/automation-server-redesign.md` and `docs/intent-queue-wp3.md` to match landed client behavior.
+
+
 ### 3.85 (2026-07-24) -- Autopilot reliability, Auctionator affix shopping, and UI/data refactors
 
 [Release v3.85](https://github.com/Lzra2000/ProjectEbonHoldBuildAutomation/releases/tag/v3.85)
