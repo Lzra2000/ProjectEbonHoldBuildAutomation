@@ -5,8 +5,9 @@
 ```
 git clone https://github.com/Lzra2000/ProjectEbonHoldBuildAutomation.git
 cd ProjectEbonHoldBuildAutomation
-sh scripts/dev-setup.sh      # installs lua5.1, texlive-binaries (texlua), zip
+sh scripts/dev-setup.sh      # installs lua5.1, zip (Debian/Ubuntu apt)
 sh scripts/install-hooks.sh  # optional: runs scripts/check.sh before every commit
+# Windows: powershell -File scripts/check.ps1   (or bash scripts/check.sh)
 ```
 
 `dev-setup.sh` uses `apt-get`, so it targets Debian/Ubuntu. On Windows, run everything through WSL; on other distros, install `lua5.1`, `texlive-binaries`, and `zip` with your package manager.
@@ -16,10 +17,12 @@ That's it. No build step for day-to-day development -- the repo root is already 
 ## Before opening a PR
 
 ```
-sh scripts/check.sh
+sh scripts/check.sh          # fast local loop (skips 70k board sim)
+sh scripts/check.sh --full   # matches CI
+sh scripts/check.sh --only architecture
 ```
 
-Runs the same checks CI runs: Lua 5.1 syntax check, the full test suite (`tests/run.sh`), a check that every file listed in `EbonBuilds.toc` actually exists, the 3.3.5a API blocklist, and the file-header convention check. If `scripts/install-hooks.sh` is set up this runs automatically on commit (skip once with `git commit --no-verify`).
+`scripts/check.sh --full` is what CI runs: Lua 5.1 syntax check, the full test suite (`tests/run.sh`), a check that every file listed in `EbonBuilds.toc` actually exists, the 3.3.5a API blocklist, and the file-header convention check. Day-to-day, omit `--full` for a faster loop. Filter a single group or test with `--only` / `FILTER=`; details and failure-class notes are in [`docs/dev-testing.md`](docs/dev-testing.md). If `scripts/install-hooks.sh` is set up this runs automatically on commit (skip once with `git commit --no-verify`).
 
 The PR template has a short checklist -- CHANGELOG.md entry for user-facing changes, translation keys for new UI strings, that kind of thing.
 

@@ -46,6 +46,11 @@ done
 
 if [ -f /tmp/.check-335a-api-found ]; then
     rm -f /tmp/.check-335a-api-found
+    echo "" >&2
+    echo "FAILED: post-3.3.5a API call(s) found." >&2
+    echo "Re-run: sh scripts/check.sh --only api" >&2
+    echo "Or:     sh scripts/check-335a-api.sh" >&2
+    echo "Docs:   docs/dev-testing.md" >&2
     exit 1
 fi
 echo "OK: no known post-3.3.5a API calls found."

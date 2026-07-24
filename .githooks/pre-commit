@@ -1,12 +1,17 @@
 #!/usr/bin/env sh
 # Runs scripts/check.sh before every commit. Installed via
 # scripts/install-hooks.sh. Skip once with: git commit --no-verify
+#
+# Uses the fast suite (skips the 70k board sim). CI still runs
+# `scripts/check.sh --full` — run that before pushing when you touched
+# BoardDecision / freeze logic. See docs/dev-testing.md.
 set -eu
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
 
-if ! command -v luac5.1 >/dev/null 2>&1 || ! command -v texlua >/dev/null 2>&1; then
-    echo "pre-commit: toolchain missing -- run 'sh scripts/dev-setup.sh' once, or commit with --no-verify to skip." >&2
+if ! command -v luac5.1 >/dev/null 2>&1 || ! command -v lua5.1 >/dev/null 2>&1; then
+    echo "pre-commit: lua5.1/luac5.1 missing -- run 'sh scripts/dev-setup.sh' once (or use WSL), or commit with --no-verify to skip." >&2
+    echo "Windows: powershell -File scripts/check.ps1 --help" >&2
     exit 1
 fi
 
