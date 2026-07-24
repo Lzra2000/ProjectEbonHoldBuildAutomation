@@ -80,6 +80,7 @@ nav:
     - Settings: settings.md
     - FAQ: faq.md
     - Troubleshooting: troubleshooting.md
+    - "Details!: Tiny Threat (PE)": details-tinythreat-pe.md
   - Project:
     - Releases: releases.md
     - Changelog: changelog.md

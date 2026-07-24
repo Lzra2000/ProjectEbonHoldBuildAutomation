@@ -1,0 +1,19 @@
+## Interface: 30300
+## Title: Details!: Tiny Threat (Project Ebonhold)
+## Version: v1.07-pe1
+## Author: Details! Team; PE fork by EbonBuilds
+## Notes: Threat meter Details! plugin for Project Ebonhold / WotLK 3.3.5a (defensive threat API guards, group compat shims). Requires Details! core — see vendor/Details_TinyThreat/CREDITS.md.
+## DefaultState: Disabled
+## RequiredDeps: Details
+## OptionalDeps: Ace3
+
+#@no-lib-strip@
+embeds.xml
+#@end-no-lib-strip@
+
+DetailsTinyThreatProjectEbonhold.lua
+
+enUS.lua
+ptBR.lua
+
+Details_TinyThreat.lua

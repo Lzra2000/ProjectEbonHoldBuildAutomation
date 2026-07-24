@@ -32,7 +32,7 @@ git clone https://github.com/Lzra2000/ProjectEbonHoldBuildAutomation.git EbonBui
 
 **Server-Anforderung:** ProjectEbonhold bringt ein eigenes Server-Addon mit. Installiere **ProjectEbonhold** oder **ProjectEbonhold Enhanced** auf dem Client, wie dein Server es vorsieht — EbonBuilds hängt davon ab für Echo-Boards, Affix-Daten und mehrere Integrationsfunktionen. Ohne dieses Addon funktioniert EbonBuilds nicht.
 
-**Optional:** **[Details!](https://www.curseforge.com/wow/addons/details)** ermöglicht DPS-basierte Gewichts-Vorschläge und reichere Statistiken. Combat-DPS-Logging im Logbook (v3.84+) funktioniert ohne Details!, wenn es unter Einstellungen aktiviert ist.
+**Optional:** **[Details!](https://www.curseforge.com/wow/addons/details)** ermöglicht DPS-basierte Gewichts-Vorschläge und reichere Statistiken. Combat-DPS-Logging im Logbook (v3.84+) funktioniert ohne Details!, wenn es unter Einstellungen aktiviert ist. **[Details!: Tiny Threat (PE)](../details-tinythreat-pe.md)** — optionales Details!-Bedrohungs-Plugin für 3.3.5a; Ordner `Details_TinyThreat` neben Details! unter `Interface/AddOns/` (bei Bundles ggf. von `Details_TinyThreat (2)` umbenennen).
 
 Öffne das Addon mit **`/ebb`** oder **`/ebonbuilds`**.
 
