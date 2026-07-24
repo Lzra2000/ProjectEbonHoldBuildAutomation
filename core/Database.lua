@@ -22,6 +22,7 @@ local CHARACTER_PREFERENCE_DEFAULTS = {
     bagAffixDotsEnabled = true,
     debugLogEnabled = false,
     clickTraceEnabled = false,
+    dpsLoggingEnabled = true,
     gearTooltipEnabled = true,
     mapZonePanelEnabled = true,
     syncVerboseLogEnabled = false,

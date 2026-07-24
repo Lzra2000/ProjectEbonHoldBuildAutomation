@@ -997,6 +997,9 @@ local function RunBrowserSearchBlob(session)
     }
     if RunIsShort(session) then fields[#fields + 1] = "short" end
     if RunIsRecent(session) then fields[#fields + 1] = "recent" end
+    local dpsText = EbonBuilds.DpsLog and EbonBuilds.DpsLog.FormatBestSample
+        and EbonBuilds.DpsLog.FormatBestSample(session, true) or ""
+    if dpsText ~= "" then fields[#fields + 1] = dpsText end
     return SearchSafeLower(table.concat(fields, " "))
 end
 
@@ -1062,6 +1065,8 @@ local function RefreshRunBrowserRows()
             row._rarity:SetText(QualityCountText(quality, true))
             row._events:SetText(string.format("%d events", events))
             row._events:SetTextColor(events == 0 and 0.52 or Theme.TEXT_MUTED[1], events == 0 and 0.52 or Theme.TEXT_MUTED[2], events == 0 and 0.56 or Theme.TEXT_MUTED[3], 1)
+            row._dps:SetText(EbonBuilds.DpsLog and EbonBuilds.DpsLog.FormatBestSample
+                and EbonBuilds.DpsLog.FormatBestSample(session, true) or "")
             ApplyRunBrowserRowVisual(row, false)
             row:Show()
         else
@@ -1182,6 +1187,13 @@ local function CreateRunBrowserRow(parent)
     events:SetJustifyH("RIGHT")
     row._events = events
 
+    local dps = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    dps:SetPoint("TOPRIGHT", events, "BOTTOMRIGHT", 0, -3)
+    dps:SetWidth(78)
+    dps:SetJustifyH("RIGHT")
+    dps:SetTextColor(unpack(Theme.TEXT_MUTED))
+    row._dps = dps
+
     row:SetScript("OnEnter", function(self)
         ApplyRunBrowserRowVisual(self, true)
         local session = self._session
@@ -1197,6 +1209,11 @@ local function CreateRunBrowserRow(parent)
             GameTooltip:AddLine(string.format("%d of %d selections could be classified by quality.", quality.classifiedSelectionCount, quality.totalSelectionCount), 1, 0.66, 0.16, true)
         else
             GameTooltip:AddLine(string.format("%d selected Echo%s classified.", quality.classifiedSelectionCount, quality.classifiedSelectionCount == 1 and "" or "es"), 0.68, 0.68, 0.74)
+        end
+        local dpsLine = EbonBuilds.DpsLog and EbonBuilds.DpsLog.FormatBestSample
+            and EbonBuilds.DpsLog.FormatBestSample(session, false) or ""
+        if dpsLine ~= "" then
+            GameTooltip:AddLine(dpsLine, 0.86, 0.86, 0.90)
         end
         GameTooltip:Show()
     end)
@@ -1411,6 +1428,13 @@ local function UpdateSummary(session)
     if summaryRarityFrame then
         summaryRarityFrame._qualitySummary = data.quality
         summaryRarityFrame._session = session
+    end
+    if H._summaryDpsText then
+        H._summaryDpsText:SetText(EbonBuilds.DpsLog and EbonBuilds.DpsLog.FormatBestSample
+            and EbonBuilds.DpsLog.FormatBestSample(session, false) or "")
+    end
+    if H._summaryDpsFrame then
+        H._summaryDpsFrame._session = session
     end
 end
 
@@ -2234,18 +2258,63 @@ local function BuildSummaryStrip(container)
         summaryMetrics[def[1]] = card
     end
 
+    H._summaryDpsFrame = CreateFrame("Frame", nil, summaryStrip)
+    if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
+        EbonBuilds.Debug.ProtectScript(H._summaryDpsFrame, "SessionHistory.SummaryDpsFrame")
+    end
+    H._summaryDpsFrame:SetPoint("BOTTOMRIGHT", summaryStrip, "BOTTOMRIGHT", -8, 4)
+    H._summaryDpsFrame:SetSize(236, 18)
+    H._summaryDpsFrame:EnableMouse(true)
+
     summaryRarityFrame = CreateFrame("Frame", nil, summaryStrip)
     if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
         EbonBuilds.Debug.ProtectScript(summaryRarityFrame, "SessionHistory.SummaryRarityFrame")
     end
     summaryRarityFrame:SetPoint("BOTTOMLEFT", summaryStrip, "BOTTOMLEFT", 8, 4)
-    summaryRarityFrame:SetPoint("BOTTOMRIGHT", summaryStrip, "BOTTOMRIGHT", -8, 4)
+    summaryRarityFrame:SetPoint("RIGHT", H._summaryDpsFrame, "LEFT", -8, 0)
     summaryRarityFrame:SetHeight(18)
     summaryRarityFrame:EnableMouse(true)
 
+    H._summaryDpsText = H._summaryDpsFrame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    H._summaryDpsText:SetPoint("LEFT", H._summaryDpsFrame, "LEFT", 0, 0)
+    H._summaryDpsText:SetPoint("RIGHT", H._summaryDpsFrame, "RIGHT", 0, 0)
+    H._summaryDpsText:SetJustifyH("RIGHT")
+    H._summaryDpsText:SetTextColor(unpack(Theme.TEXT_MUTED))
+
+    H._summaryDpsFrame:SetScript("OnEnter", function(self)
+        local api = EbonBuilds.DpsLog
+        local samples = api and api.GetSamples and api.GetSamples(self._session) or {}
+        if #samples == 0 then return end
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:ClearLines()
+        GameTooltip:AddLine("Measured combat DPS", 1, 0.82, 0)
+        GameTooltip:AddLine("One sample per combat segment: total damage by you and your pets divided by active fight time. Informational only; never affects automation.", 0.78, 0.78, 0.82, true)
+        GameTooltip:AddLine(" ")
+        local shown = 0
+        for index = #samples, 1, -1 do
+            local sample = samples[index]
+            if type(sample) == "table" and tonumber(sample.dps) then
+                GameTooltip:AddDoubleLine(
+                    string.format("%s · %s%s",
+                        api.FormatSampleDuration(sample.duration),
+                        tostring(sample.target or "Unknown"),
+                        sample.dummy and " (dummy)" or ""),
+                    api.FormatDps(sample.dps) .. " DPS",
+                    0.86, 0.86, 0.90, 1, 0.82, 0)
+                shown = shown + 1
+                if shown >= 8 then break end
+            end
+        end
+        if #samples > shown then
+            GameTooltip:AddLine(string.format("%d older sample%s not shown.", #samples - shown, (#samples - shown) == 1 and "" or "s"), 0.68, 0.68, 0.74)
+        end
+        GameTooltip:Show()
+    end)
+    H._summaryDpsFrame:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
     summaryRarityText = summaryRarityFrame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     summaryRarityText:SetPoint("LEFT", summaryRarityFrame, "LEFT", 0, 0)
-    summaryRarityText:SetPoint("RIGHT", summaryRarityFrame, "RIGHT", 0, 0)
+    summaryRarityText:SetPoint("RIGHT", H._summaryDpsFrame, "LEFT", -8, 0)
     summaryRarityText:SetJustifyH("LEFT")
     summaryRarityText:SetTextColor(unpack(Theme.TEXT_MUTED))
     summaryRarityText:SetText("Selected Echo quality: no selections recorded")
