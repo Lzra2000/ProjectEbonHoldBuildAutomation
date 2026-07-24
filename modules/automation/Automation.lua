@@ -1544,6 +1544,7 @@ EbonBuilds.Automation._MarkInitialActionDelayCompleteForTests = function()
 end
 EbonBuilds.Automation._RequestFreezeForTests = RequestFreeze
 EbonBuilds.Automation._ResolvePendingFreezeForTests = ResolvePendingFreeze
+EbonBuilds.Automation._ResolvePendingActionForTests = ResolvePendingAction
 EbonBuilds.Automation._ResolveFreezeUncertaintyForTests = ResolveFreezeUncertainty
 EbonBuilds.Automation._RefreshNativeChoiceGuardForTests = RefreshNativeChoiceGuard
 EbonBuilds.Automation._IsNativeChoiceSuppressedForTests = function()
