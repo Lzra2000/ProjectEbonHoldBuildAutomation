@@ -4,6 +4,14 @@ One `### <version>` entry per release, newest first. scripts/release.sh
 refuses to tag unless this file changed, and the Release workflow and the
 in-game "What's new" page both read the newest entry from here.
 
+### 3.86 (unreleased) -- Auctionator integration for affix shopping
+
+Optional companion integration with vendored Auctionator 2.6.3 (WotLK / Interface 30300).
+
+- **Packaging:** `vendor/Auctionator/` ships as a separate AddOn (`dist/Auctionator.zip`); EbonBuilds declares `## OptionalDeps: Auctionator`.
+- **AuctionatorBridge:** soft-fail price helpers (`Atr_GetAuctionBuyout` / `Atr_GetAuctionPrice`), Affixes tab AH search + shopping-list sync, tooltip buyout lines, gold bag dot for cheap missing-affix gear.
+- **Tests:** `tests/test_auctionator_bridge.lua` for query building, soft-deps, and shopping-list sync stubs.
+
 ### 3.85 (2026-07-24) -- Tome draw-pool toggle + permanent LockPerk APIs (#62)
 
 Wires ProjectEbonhold tome toggle and permanent echo lock APIs into EbonBuilds, capability-gated for older PE builds.
