@@ -14,14 +14,14 @@ Compared to upstream **2.6.3**, the vendored tree matches all Lua/XML/media file
 
 | File | Change |
 |------|--------|
-| `Auctionator.toc` | PE title, version `2.6.3-pe1`, fork notes |
+| `Auctionator.toc` | PE title, version `2.6.3-pe2`, fork notes |
 | `AuctionatorProjectEbonhold.lua` | **New** — PE helpers (`AtrPE_*`) loaded before scan/query |
 | `AuctionatorProjectEbonholdHooks.lua` | **New** — shopping list preset, affix search hooks |
 | `Locales/deDE.lua`, `Locales/esES.lua` | UTF-8 BOM removed (luac5.1 / syntax-check clean) |
 | `AuctionatorQuery.lua`, `AuctionatorScan.lua`, `AuctionatorBuy.lua` | Defensive `pcall` wrappers for flaky AH APIs |
 | `CREDITS.md` | This document |
 
-## Project Ebonhold fork delta (`2.6.3-pe1`)
+## Project Ebonhold fork delta (`2.6.3-pe2`)
 
 **`AuctionatorProjectEbonhold.lua`**
 
@@ -33,6 +33,7 @@ Compared to upstream **2.6.3**, the vendored tree matches all Lua/XML/media file
 - **Default shopping list `EbonBuilds Affixes`** — seeded with sample affix-line searches; EbonBuilds Bridge can replace entries at runtime.
 - **Affix search normalization hook** on `AtrSearch:Init`.
 - **Soft EbonBuilds coexistence** — Auctionator keeps addon-message prefix `ATR`; EbonBuilds uses `AAM0x9` (no prefix conflict).
+- **`2.6.3-pe2`:** wrap `Atr_Init` / `Atr_Check_For_Conflicts` with file-local guards — Lua 5.1 cannot index function values (`Atr_Init._peHooked` crashed load).
 
 **Left unchanged from upstream**
 
