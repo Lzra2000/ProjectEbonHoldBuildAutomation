@@ -2,7 +2,7 @@
 
 <p class="ebb-lead">
 Detailed, searchable explanations of every EbonBuilds feature.
-Updated with each release (currently <strong>3.84</strong>) — also available in-game via
+Updated with each release (currently <strong>3.85</strong>) — also available in-game via
 <strong>Settings → Windows &amp; Tools</strong>.
 See <a href="changelog.md">Changelog</a> or
 <a href="https://github.com/Lzra2000/ProjectEbonHoldBuildAutomation/releases">GitHub releases</a>
