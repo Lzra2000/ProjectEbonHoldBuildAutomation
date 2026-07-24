@@ -6,6 +6,8 @@ local addonName, EbonBuilds = ...
 
 EbonBuilds.StatsView = {}
 
+
+local L = EbonBuilds.L
 local View = EbonBuilds.StatsView
 local Theme = EbonBuilds.Theme
 
@@ -108,7 +110,7 @@ local function DeltaText(value, previous, suffix)
     if not previous or previous == 0 then return "No comparable previous run" end
     local delta = value - previous
     if math.abs(delta) < 0.05 then return "No change vs previous run" end
-    return string.format("%s%.1f%s vs previous", delta > 0 and "+" or "", delta, suffix or "")
+    return string.format(L["%s%.1f%s vs previous"], delta > 0 and "+" or "", delta, suffix or "")
 end
 
 local function MetricColor(kind)
@@ -131,7 +133,7 @@ local function TopEntry(counts)
         if not bestCount or (tonumber(count) or 0) > bestCount then bestName, bestCount = name, tonumber(count) or 0 end
     end
     local visible = bestName and VisibleEchoName(bestName) or nil
-    return visible and visible ~= "" and string.format("%s (%d)", visible, bestCount) or "—"
+    return visible and visible ~= "" and string.format(L["%s (%d)"], visible, bestCount) or "—"
 end
 
 local function RefreshEarlyEpicCards()
@@ -144,16 +146,16 @@ local function RefreshEarlyEpicCards()
             card.sample:SetTextColor(unpack(MetricColor(sampleKind)))
             if (data.tracked or 0) > 0 then
                 card.value:SetText(tostring(data.seen or 0))
-                card.detail:SetText(string.format("of %d tracked run%s", data.tracked, data.tracked == 1 and "" or "s"))
-                card.rate:SetText(string.format("%.1f%% saw an Epic", data.pct or 0))
+                card.detail:SetText(string.format(L["of %d tracked run%s"], data.tracked, data.tracked == 1 and "" or "s"))
+                card.rate:SetText(string.format(L["%.1f%% saw an Epic"], data.pct or 0))
             else
                 card.value:SetText("—")
-                card.detail:SetText("No tracked runs")
-                card.rate:SetText("New runs will be counted")
+                card.detail:SetText(L["No tracked runs"])
+                card.rate:SetText(L["New runs will be counted"])
             end
             local inferred = tonumber(data.inferred) or 0
             card._tooltipBody = string.format(
-                "Counts a run once when at least one Epic Echo appears in Level %d's original offer. Rerolls, banish replacements, and repeated evaluations are excluded. %d of %d tracked observations were reconstructed from compatible legacy decision logs.",
+                L["Counts a run once when at least one Epic Echo appears in Level %d's original offer. Rerolls, banish replacements, and repeated evaluations are excluded. %d of %d tracked observations were reconstructed from compatible legacy decision logs."],
                 level, inferred, data.tracked or 0)
         end
     end
@@ -169,27 +171,27 @@ local function RefreshSummary()
         summaryCards.score,
         string.format("%.1f", aggregate.averageSelected or 0),
         "Mean selected Echo score",
-        string.format("%d selection%s across %d run%s", aggregate.selectedCount or 0, (aggregate.selectedCount or 0) == 1 and "" or "s", runCount, runCount == 1 and "" or "s"))
+        string.format(L["%d selection%s across %d run%s"], aggregate.selectedCount or 0, (aggregate.selectedCount or 0) == 1 and "" or "s", runCount, runCount == 1 and "" or "s"))
     SetSummaryMetric(
         summaryCards.resources,
         string.format("%.2f", aggregate.resourcePerLevel or 0),
         "Banish, reroll and freeze use",
-        string.format("%d charges across %d tracked levels", aggregate.resourceTotal or 0, aggregate.levels or 0))
+        string.format(L["%d charges across %d tracked levels"], aggregate.resourceTotal or 0, aggregate.levels or 0))
     SetSummaryMetric(
         summaryCards.coverage,
-        string.format("%d / %d", statsCache.weightedLearned or 0, statsCache.weightedTotal or 0),
+        string.format(L["%d / %d"], statsCache.weightedLearned or 0, statsCache.weightedTotal or 0),
         "Weighted Echoes already learned",
-        string.format("%.0f%% of configured priorities", statsCache.coveragePct or 0),
+        string.format(L["%.0f%% of configured priorities"], statsCache.coveragePct or 0),
         (statsCache.coveragePct or 0) >= 80 and "success" or (statsCache.coveragePct or 0) >= 50 and "warning" or nil)
     SetSummaryMetric(
         summaryCards.confidence,
         statsCache.confidence or "Low",
         "Evidence for recommendations",
-        string.format("%d useful personal sample%s", statsCache.usefulSamples or 0, (statsCache.usefulSamples or 0) == 1 and "" or "s"),
+        string.format(L["%d useful personal sample%s"], statsCache.usefulSamples or 0, (statsCache.usefulSamples or 0) == 1 and "" or "s"),
         statsCache.confidenceKind)
 
     if summaryText.scope then
-        summaryText.scope:SetText(string.format("Based on %d matching run%s  ·  %d recorded decision%s",
+        summaryText.scope:SetText(string.format(L["Based on %d matching run%s  ·  %d recorded decision%s"],
             runCount, runCount == 1 and "" or "s",
             statsCache.decisionCount or 0, (statsCache.decisionCount or 0) == 1 and "" or "s"))
     end
@@ -197,21 +199,21 @@ local function RefreshSummary()
     RefreshEarlyEpicCards()
 
     if statsCache.sessions and statsCache.sessions[1] then
-        summaryText.run:SetText(string.format("Latest matching run: Level %d  ·  %d decisions", latest.maxLevel or 1, latest.events or 0))
+        summaryText.run:SetText(string.format(L["Latest matching run: Level %d  ·  %d decisions"], latest.maxLevel or 1, latest.events or 0))
         if (latest.selectedCount or 0) > 0 and (aggregate.selectedCount or 0) > 0 then
             local difference = (latest.averageSelected or 0) - (aggregate.averageSelected or 0)
-            summaryText.comparison:SetText(string.format("Decision value %.1f   Build average %.1f   Difference %s%.1f",
+            summaryText.comparison:SetText(string.format(L["Decision value %.1f   Build average %.1f   Difference %s%.1f"],
                 latest.averageSelected or 0, aggregate.averageSelected or 0, difference > 0 and "+" or "", difference))
         else
-            summaryText.comparison:SetText("No selected-Echo score is available for this run yet.")
+            summaryText.comparison:SetText(L["No selected-Echo score is available for this run yet."])
         end
     else
-        summaryText.run:SetText("No matching run data yet")
-        summaryText.comparison:SetText("Complete decisions with this build to populate comparisons.")
+        summaryText.run:SetText(L["No matching run data yet"])
+        summaryText.comparison:SetText(L["Complete decisions with this build to populate comparisons."])
     end
-    summaryText.selected:SetText(string.format("Select %d   Banish %d   Reroll %d   Freeze %d",
+    summaryText.selected:SetText(string.format(L["Select %d   Banish %d   Reroll %d   Freeze %d"],
         latest.actions.Select or 0, latest.actions.Banish or 0, latest.actions.Reroll or 0, latest.actions.Freeze or 0))
-    summaryText.top:SetText(string.format("Most picked: %s    Most banished: %s",
+    summaryText.top:SetText(string.format(L["Most picked: %s    Most banished: %s"],
         TopEntry(activeBuild.stats and activeBuild.stats.mostPicked), TopEntry(activeBuild.stats and activeBuild.stats.mostBanned)))
 end
 
@@ -341,7 +343,7 @@ local function EnsureEchoRow(index)
         if self._data then
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
             GameTooltip:AddLine(self._data.name, 1, 0.82, 0)
-            GameTooltip:AddLine("Click to inspect matching Logbook decisions.", 0.82, 0.82, 0.86, true)
+            GameTooltip:AddLine(L["Click to inspect matching Logbook decisions."], 0.82, 0.82, 0.86, true)
             GameTooltip:Show()
         end
     end)
@@ -389,7 +391,7 @@ local function RefreshEchoes()
         row._labels.dps:SetText(data.avgDPS and string.format("%.0f", data.avgDPS) or "—")
         local confidence = ConfidenceLabel(math.max(data.personalCount or 0, data.recommendation and data.recommendation.count or 0))
         local signal = data.recommendation and (data.recommendation.direction == "raise" and "UP " or "DOWN ") or ""
-        row._labels.confidence:SetText(string.format("%s%s P%d C%d", signal, confidence, data.personalCount or 0, data.communityCount or 0))
+        row._labels.confidence:SetText(string.format(L["%s%s P%d C%d"], signal, confidence, data.personalCount or 0, data.communityCount or 0))
         row:Show()
         y = y + 36
     end
@@ -403,7 +405,7 @@ local function RefreshEchoes()
 
     lastEchoRenderCount = #rows
     if echoCountText then
-        echoCountText:SetText(string.format("%d weighted Echo%s", #rows, #rows == 1 and "" or "es"))
+        echoCountText:SetText(string.format(L["%d weighted Echo%s"], #rows, #rows == 1 and "" or "es"))
     end
     if #rows == 0 then echoEmpty:Show() else echoEmpty:Hide() end
 end
@@ -428,15 +430,15 @@ local function ActionInsightText(analytics)
     local banishBucket = analytics.actions.Banish or NewActionBucket()
 
     if (selectBucket.rankTracked or 0) >= 5 then
-        lines[#lines + 1] = string.format("- %.0f%% of tracked selections chose a highest-value option (%d decisions).",
+        lines[#lines + 1] = string.format(L["- %.0f%% of tracked selections chose a highest-value option (%d decisions)."],
             selectBucket.rankHitPct or 0, selectBucket.rankTracked or 0)
     end
     if (banishBucket.rankTracked or 0) >= 5 then
-        lines[#lines + 1] = string.format("- %.0f%% of tracked banishes targeted a lowest-value option (%d decisions).",
+        lines[#lines + 1] = string.format(L["- %.0f%% of tracked banishes targeted a lowest-value option (%d decisions)."],
             banishBucket.rankHitPct or 0, banishBucket.rankTracked or 0)
     end
     if (analytics.rerollPairs or 0) >= 5 and analytics.rerollAverageImprovement ~= nil then
-        lines[#lines + 1] = string.format("- Rerolls changed the best available value by %s%.1f on average (%d paired boards).",
+        lines[#lines + 1] = string.format(L["- Rerolls changed the best available value by %s%.1f on average (%d paired boards)."],
             analytics.rerollAverageImprovement > 0 and "+" or "",
             analytics.rerollAverageImprovement, analytics.rerollPairs)
     end
@@ -452,7 +454,7 @@ local function RefreshActionDistributionRow(action, bucket)
     local tracked = tonumber(bucket.qualityTracked) or 0
     local total = tonumber(bucket.count) or 0
     row.count:SetText(tostring(total))
-    row.coverage:SetText(string.format("%d / %d", tracked, total))
+    row.coverage:SetText(string.format(L["%d / %d"], tracked, total))
 
     local barWidth = row._barWidth or 350
     local cursor, visibleSegments = 0, 0
@@ -476,7 +478,7 @@ local function RefreshActionDistributionRow(action, bucket)
             local qualityLabel = EbonBuilds.Quality.LABELS[quality] or tostring(quality)
             segment._tooltipTitle = qualityLabel .. " · " .. action
             segment._tooltipBody = string.format(
-                "%d action%s · %.1f%% of quality-tracked %s actions. Quality describes %s.",
+                L["%d action%s · %.1f%% of quality-tracked %s actions. Quality describes %s."],
                 count, count == 1 and "" or "s", count / tracked * 100,
                 string.lower(action), ACTION_SUBJECT_DESCRIPTIONS[action] or "the action subject")
         else
@@ -485,7 +487,7 @@ local function RefreshActionDistributionRow(action, bucket)
     end
     if tracked == 0 then row.noData:Show() else row.noData:Hide() end
     row._tooltipBody = string.format(
-        "%d of %d %s action%s include usable official quality data. Missing quality is excluded from the distribution rather than counted as Common.",
+        L["%d of %d %s action%s include usable official quality data. Missing quality is excluded from the distribution rather than counted as Common."],
         tracked, total, string.lower(action), total == 1 and "" or "s")
 end
 
@@ -497,22 +499,22 @@ local function RefreshActions()
 
     if actionScopeText then
         if (analytics.total or 0) == 0 and (analytics.manualSelections or 0) == 0 then
-            actionScopeText:SetText("No action statistics have been recorded for this build yet.")
+            actionScopeText:SetText(L["No action statistics have been recorded for this build yet."])
         else
             actionScopeText:SetText(string.format(
-                "How Select, Banish, Reroll and Freeze were used across %d matching run%s.",
+                L["How Select, Banish, Reroll and Freeze were used across %d matching run%s."],
                 runCount, runCount == 1 and "" or "s"))
         end
     end
     if actionCoverageText then
         if (analytics.total or 0) == 0 and (analytics.manualSelections or 0) == 0 then
-            actionCoverageText:SetText("Complete decisions with this build to populate action and quality analytics.")
+            actionCoverageText:SetText(L["Complete decisions with this build to populate action and quality analytics."])
         else
             local manualText = (analytics.manualSelections or 0) > 0
-                and string.format("  ·  %d Manual Training selection%s recorded separately",
+                and string.format(L["  ·  %d Manual Training selection%s recorded separately"],
                     analytics.manualSelections, analytics.manualSelections == 1 and "" or "s") or ""
             actionCoverageText:SetText(string.format(
-                "%d automated action%s  ·  %d include quality data (%.0f%%)%s",
+                L["%d automated action%s  ·  %d include quality data (%.0f%%)%s"],
                 analytics.total or 0, (analytics.total or 0) == 1 and "" or "s",
                 analytics.qualityTracked or 0, analytics.qualityCoveragePct or 0, manualText))
         end
@@ -523,16 +525,16 @@ local function RefreshActions()
         local bucket = analytics.actions[action] or NewActionBucket()
         if card then
             card.value:SetText(tostring(bucket.count or 0))
-            card.share:SetText(string.format("%.0f%% of automated actions", bucket.sharePct or 0))
+            card.share:SetText(string.format(L["%.0f%% of automated actions"], bucket.sharePct or 0))
             if bucket.averageScore ~= nil then
-                card.metric:SetText(string.format("%s: %.1f", ACTION_SCORE_LABELS[action], bucket.averageScore))
+                card.metric:SetText(string.format(L["%s: %.1f"], ACTION_SCORE_LABELS[action], bucket.averageScore))
             else
                 card.metric:SetText((ACTION_SCORE_LABELS[action] or "Average value") .. ": —")
             end
-            card.coverage:SetText(string.format("Quality tracked: %d / %d", bucket.qualityTracked or 0, bucket.count or 0))
+            card.coverage:SetText(string.format(L["Quality tracked: %d / %d"], bucket.qualityTracked or 0, bucket.count or 0))
             card._tooltipTitle = action .. " action statistics"
             card._tooltipBody = string.format(
-                "%d recorded %s action%s (%.1f%% of automated actions). The quality distribution uses %s. %d records include usable quality and %d include a comparable score. Click to inspect matching Logbook events.",
+                L["%d recorded %s action%s (%.1f%% of automated actions). The quality distribution uses %s. %d records include usable quality and %d include a comparable score. Click to inspect matching Logbook events."],
                 bucket.count or 0, string.lower(action), (bucket.count or 0) == 1 and "" or "s",
                 bucket.sharePct or 0, ACTION_SUBJECT_DESCRIPTIONS[action] or "the action subject",
                 bucket.qualityTracked or 0, bucket.scoreTracked or 0)
@@ -544,7 +546,7 @@ local function RefreshActions()
     if actionSignalText then
         local sig = aggregate.signals or {}
         actionSignalText:SetText(string.format(
-            "Decision flags: close %d   ·   final-charge %d   ·   modifier override %d   ·   fallback %d",
+            L["Decision flags: close %d   ·   final-charge %d   ·   modifier override %d   ·   fallback %d"],
             sig.closeDecision or 0, sig.lastCharge or 0, sig.modifierOverride or 0, sig.fallback or 0))
     end
 end
@@ -575,7 +577,7 @@ end
 local function RecommendationEvidenceText(recommendation)
     local confidence = ConfidenceLabel(recommendation.samples or 0)
     local unit = recommendation.section == "logic" and "compatible offers" or "comparable decisions"
-    return string.format("%s · %s confidence · %d %s", recommendation.source or "Analytics", confidence, recommendation.samples or 0, unit)
+    return string.format(L["%s · %s confidence · %d %s"], recommendation.source or "Analytics", confidence, recommendation.samples or 0, unit)
 end
 
 local function RecommendationApplyText(recommendation)
@@ -810,11 +812,11 @@ local function UpdateRecommendationNavigation(counts)
     local echoButton = recommendationSectionButtons.echo
     local logicButton = recommendationSectionButtons.logic
     if echoButton then
-        echoButton:SetText(string.format("Echo priorities (%d)", counts.echo or 0))
+        echoButton:SetText(string.format(L["Echo priorities (%d)"], counts.echo or 0))
         Theme.SetTabSelected(echoButton, recommendationSection == "echo")
     end
     if logicButton then
-        logicButton:SetText(string.format("Automation logic (%d)", counts.logic or 0))
+        logicButton:SetText(string.format(L["Automation logic (%d)"], counts.logic or 0))
         Theme.SetTabSelected(logicButton, recommendationSection == "logic")
     end
 
@@ -831,9 +833,9 @@ local function UpdateRecommendationNavigation(counts)
 
     if recHeader and recHeader._subtitle then
         if recommendationSection == "logic" then
-            recHeader._subtitle:SetText("Threshold and rule changes that affect how complete offers are handled.")
+            recHeader._subtitle:SetText(L["Threshold and rule changes that affect how complete offers are handled."])
         else
-            recHeader._subtitle:SetText("Evidence-backed changes to individual Echo and quality weights.")
+            recHeader._subtitle:SetText(L["Evidence-backed changes to individual Echo and quality weights."])
         end
     end
 end
@@ -896,14 +898,14 @@ local function EnsureRecommendationRow(index)
     local inspect = Theme.CreateButton(card)
     inspect:SetSize(104, 22)
     inspect:SetPoint("BOTTOMRIGHT", card, "BOTTOMRIGHT", -78, 8)
-    inspect:SetText("Inspect evidence")
+    inspect:SetText(L["Inspect evidence"])
     inspect:SetScript("OnClick", function() InspectRecommendation(card._data) end)
     card._inspect = inspect
 
     local dismiss = Theme.CreateButton(card)
     dismiss:SetSize(62, 22)
     dismiss:SetPoint("BOTTOMRIGHT", card, "BOTTOMRIGHT", -10, 8)
-    dismiss:SetText("Dismiss")
+    dismiss:SetText(L["Dismiss"])
     dismiss:SetScript("OnClick", function()
         local ok, message = DismissRecommendation(card._data)
         if ok then ShowRecommendationNotice("Recommendation dismissed until its evidence changes.")
@@ -921,12 +923,12 @@ local function EnsureRecommendationRow(index)
         GameTooltip:AddLine(data.target or "Build recommendation", 1, 0.82, 0)
         GameTooltip:AddLine(data.reason or "Evidence-backed build adjustment.", 0.82, 0.82, 0.86, true)
         GameTooltip:AddLine(" ")
-        GameTooltip:AddLine(string.format("Current: %s", RecommendationValueText(data, data.currentValue)), 0.72, 0.72, 0.76)
-        GameTooltip:AddLine(string.format("Recommended: %s", RecommendationValueText(data, data.suggestedValue)), 0.72, 0.72, 0.76)
+        GameTooltip:AddLine(string.format(L["Current: %s"], RecommendationValueText(data, data.currentValue)), 0.72, 0.72, 0.76)
+        GameTooltip:AddLine(string.format(L["Recommended: %s"], RecommendationValueText(data, data.suggestedValue)), 0.72, 0.72, 0.76)
         GameTooltip:AddLine(RecommendationEvidenceText(data), 0.72, 0.72, 0.76, true)
         GameTooltip:AddLine(data.section == "logic" and "Scope: automation behavior across complete offers" or "Scope: individual Echo scoring", 0.62, 0.62, 0.68, true)
         if data.apply and data.apply.type == "weight" and data.apply.applyAllRanks then
-            GameTooltip:AddLine("The same change is applied to every available quality rank, preserving rank differences.", 0.62, 0.62, 0.68, true)
+            GameTooltip:AddLine(L["The same change is applied to every available quality rank, preserving rank differences."], 0.62, 0.62, 0.68, true)
         end
         GameTooltip:Show()
     end)
@@ -965,7 +967,7 @@ local function RefreshRecommendations()
         card._data = recommendation
         card._title:SetText(recommendation.target or "Review")
         if card._subtitle then card._subtitle:SetText("") end
-        card._transition:SetText(string.format("%s  ->  %s", RecommendationValueText(recommendation, recommendation.currentValue), RecommendationValueText(recommendation, recommendation.suggestedValue)))
+        card._transition:SetText(string.format(L["%s  ->  %s"], RecommendationValueText(recommendation, recommendation.currentValue), RecommendationValueText(recommendation, recommendation.suggestedValue)))
         card._change:SetText(RecommendationChangeText(recommendation))
         card._reason:SetText(recommendation.reason or "Review this build setting.")
 
@@ -978,13 +980,13 @@ local function RefreshRecommendations()
 
         card._evidence:SetText(RecommendationEvidenceText(recommendation))
         if recommendation.state == "applied" then
-            card._apply:SetText("Undo")
+            card._apply:SetText(L["Undo"])
             card._apply:Enable()
         elseif recommendation.apply then
             card._apply:SetText(RecommendationApplyText(recommendation))
             card._apply:Enable()
         else
-            card._apply:SetText("Review")
+            card._apply:SetText(L["Review"])
             card._apply:Disable()
         end
 
@@ -993,11 +995,11 @@ local function RefreshRecommendations()
         if recommendation.section == "logic" then
             card._apply:SetWidth(132)
             card._inspect:SetWidth(112)
-            card._inspect:SetText("Review calibration")
+            card._inspect:SetText(L["Review calibration"])
         else
             card._apply:SetWidth(92)
             card._inspect:SetWidth(104)
-            card._inspect:SetText("Inspect decisions")
+            card._inspect:SetText(L["Inspect decisions"])
         end
         if recommendation.state == "applied" then
             card._dismiss:Hide()
@@ -1032,15 +1034,15 @@ local function RefreshRecommendations()
     if recBar:GetValue() > maxScroll then recBar:SetValue(maxScroll) end
     if recScopeText then
         local recent = activeBuild and recentRecommendationByBuild[activeBuild.id]
-        recScopeText:SetText(string.format("%d Echo · %d logic%s", counts.echo or 0, counts.logic or 0, recent and recent.state == "applied" and " · 1 applied this session" or ""))
+        recScopeText:SetText(string.format(L["%d Echo · %d logic%s"], counts.echo or 0, counts.logic or 0, recent and recent.state == "applied" and " · 1 applied this session" or ""))
     end
     if recEmpty then
         if recommendationSection == "logic" then
-            recEmpty._title:SetText("No automation-logic changes recommended")
-            recEmpty._body:SetText("Current thresholds and rules are supported by the available offer evidence, or the active filter hides them.")
+            recEmpty._title:SetText(L["No automation-logic changes recommended"])
+            recEmpty._body:SetText(L["Current thresholds and rules are supported by the available offer evidence, or the active filter hides them."])
         else
-            recEmpty._title:SetText("No Echo-priority changes recommended")
-            recEmpty._body:SetText("Current Echo weights are consistent with the available evidence, or the active filter hides them.")
+            recEmpty._title:SetText(L["No Echo-priority changes recommended"])
+            recEmpty._body:SetText(L["Current Echo weights are consistent with the available evidence, or the active filter hides them."])
         end
     end
     if #recommendations == 0 then recEmpty:Show() else recEmpty:Hide() end
@@ -1177,7 +1179,7 @@ local function CreateEarlyEpicCard(parent, level)
 
     local title = card:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     title:SetPoint("TOPLEFT", card, "TOPLEFT", 9, -7)
-    title:SetText("LEVEL " .. tostring(level))
+    title:SetText(L["LEVEL "] .. tostring(level))
     title:SetTextColor(unpack(Theme.TEXT_MUTED))
 
     local sample = card:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
@@ -1326,7 +1328,7 @@ local function BuildSummary(parent)
     hint:SetPoint("TOPLEFT", top, "BOTTOMLEFT", 0, -8)
     hint:SetPoint("RIGHT", highlights, "RIGHT", -12, 0)
     hint:SetJustifyH("LEFT")
-    hint:SetText("Echo rows and recommendation cards link directly to matching Logbook evidence.")
+    hint:SetText(L["Echo rows and recommendation cards link directly to matching Logbook evidence."])
     hint:SetTextColor(unpack(Theme.TEXT_MUTED))
 end
 
@@ -1378,9 +1380,9 @@ local function BuildEchoes(parent)
     echoCountText = parent:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     echoCountText:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", 8, 7)
     echoCountText:SetTextColor(unpack(Theme.TEXT_MUTED))
-    echoCountText:SetText("0 weighted Echoes")
+    echoCountText:SetText(L["0 weighted Echoes"])
 
-    echoEmpty = Theme.CreateEmptyState(echoScroll, "No weighted Echoes", "Add a non-zero priority to an Echo to include it in this analytics table.")
+    echoEmpty = Theme.CreateEmptyState(echoScroll, L["No weighted Echoes"], L["Add a non-zero priority to an Echo to include it in this analytics table."])
 
     -- A panel can become effectively visible because its parent was shown.
     -- Rendering here avoids relying on a header click to populate the rows.
@@ -1507,7 +1509,7 @@ local function CreateQualityDistributionRow(parent, action, rowIndex)
 
     local noData = bar:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     noData:SetPoint("CENTER", bar, "CENTER", 0, 0)
-    noData:SetText("No quality data")
+    noData:SetText(L["No quality data"])
     noData:SetTextColor(unpack(Theme.TEXT_MUTED))
 
     local coverage = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
@@ -1583,7 +1585,7 @@ end
 local function BuildActions(parent)
     local title = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     title:SetPoint("TOPLEFT", parent, "TOPLEFT", 8, -6)
-    title:SetText("Action statistics")
+    title:SetText(L["Action statistics"])
     title:SetTextColor(unpack(Theme.TEXT_PRIMARY))
 
     actionScopeText = parent:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
@@ -1637,7 +1639,7 @@ local function BuildActions(parent)
 
     local coverageHeader = distribution:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     coverageHeader:SetPoint("TOPRIGHT", distribution, "TOPRIGHT", -20, -48)
-    coverageHeader:SetText("QUALITY DATA")
+    coverageHeader:SetText(L["QUALITY DATA"])
     coverageHeader:SetTextColor(unpack(Theme.TEXT_MUTED))
 
     for i, action in ipairs(ACTION_KEYS) do
@@ -1673,8 +1675,8 @@ local function BuildActions(parent)
         Theme.SetCardHovered(self, true)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         GameTooltip:ClearLines()
-        GameTooltip:AddLine("Action patterns", 1, 0.82, 0)
-        GameTooltip:AddLine("Patterns are shown only when at least five compatible decisions support the comparison.", 0.82, 0.82, 0.86, true)
+        GameTooltip:AddLine(L["Action patterns"], 1, 0.82, 0)
+        GameTooltip:AddLine(L["Patterns are shown only when at least five compatible decisions support the comparison."], 0.82, 0.82, 0.86, true)
         local signalText = actionSignalText and actionSignalText:GetText()
         if signalText and signalText ~= "" then
             GameTooltip:AddLine(" ")
@@ -1777,7 +1779,7 @@ local function BuildRecommendationsPanel(parent)
     recBar:SetScript("OnValueChanged", function(_, value) recScroll:SetVerticalScroll(value) end)
     Theme.BindScrollWheel(recScroll, recBar, 48, recChild)
     recScroll:SetScript("OnSizeChanged", function(self) recChild:SetWidth(math.max(560, self:GetWidth() or 0)) end)
-    recEmpty = Theme.CreateEmptyState(recScroll, "No Echo-priority changes recommended", "Current Echo weights are consistent with the available evidence.")
+    recEmpty = Theme.CreateEmptyState(recScroll, L["No Echo-priority changes recommended"], L["Current Echo weights are consistent with the available evidence."])
 end
 
 function View.Mount(parent)

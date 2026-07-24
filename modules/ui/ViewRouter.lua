@@ -39,8 +39,10 @@ function EbonBuilds.ViewRouter.Show(name, context)
     end
     currentName = name
     if EbonBuilds.MainWindow and EbonBuilds.MainWindow.SetPageContext then
-        local title = PAGE_TITLES[name] or name
-        if name == "buildTabs" and context and context.mode == "create" then title = "New Build" end
+        -- Lazy lookup: PAGE_TITLES keeps English keys; translate here so the
+        -- active locale (picked in Locale.Init) is respected.
+        local title = EbonBuilds.L[PAGE_TITLES[name] or name]
+        if name == "buildTabs" and context and context.mode == "create" then title = EbonBuilds.L["New Build"] end
         EbonBuilds.MainWindow.SetPageContext(title)
     end
     if EbonBuilds.BuildList and EbonBuilds.BuildList.SetSelectedNavigation then

@@ -9,6 +9,7 @@ EbonBuilds.SessionHistory = {}
 
 local H = EbonBuilds.SessionHistory
 local Theme = EbonBuilds.Theme
+local L = EbonBuilds.L
 
 
 -- Pure data layer, split out to modules/analytics/SessionHistoryData.lua (issue #19).
@@ -280,9 +281,9 @@ local function SelectedSessionIndex()
 end
 
 local function RunMenuLabel(session)
-    if not session then return "Choose a run" end
+    if not session then return EbonBuilds.L["Choose a run"] end
     local status = RunStatusLabel(session)
-    return string.format("%s · Level %s · %s · %d events", status, tostring(RunDisplayLevel(session)), FormatDuration(session.startTime, RunDisplayEndTime(session)), #(session.logs or {}))
+    return string.format(EbonBuilds.L["%s · Level %s · %s · %d events"], status, tostring(RunDisplayLevel(session)), FormatDuration(session.startTime, RunDisplayEndTime(session)), #(session.logs or {}))
 end
 
 local function RefreshRunNavigatorText()
@@ -292,12 +293,16 @@ local function RefreshRunNavigatorText()
     if session then
         runDropdown:SetText(RunMenuLabel(session))
         if runPositionLabel then
-            runPositionLabel:SetText(string.format("Run %d of %d · Started %s%s", index or 1, #relevantSessionCache, FormatRunDate(session.startTime), session.endTime and "" or " · recording now"))
+            runPositionLabel:SetText(string.format(EbonBuilds.L["Run %d of %d · Started %s%s"], index or 1, #relevantSessionCache, FormatRunDate(session.startTime), session.endTime and "" or EbonBuilds.L[" · recording now"]))
         end
     else
-        runDropdown:SetText("Choose a run")
+        runDropdown:SetText(EbonBuilds.L["Choose a run"])
         if runPositionLabel then
-            runPositionLabel:SetText(#relevantSessionCache > 0 and (#relevantSessionCache .. " runs available") or "No runs recorded for this build")
+            if #relevantSessionCache > 0 then
+                runPositionLabel:SetText(string.format(EbonBuilds.L["%d runs available"], #relevantSessionCache))
+            else
+                runPositionLabel:SetText(EbonBuilds.L["No runs recorded for this build"])
+            end
         end
     end
     if previousRunButton then
@@ -401,10 +406,10 @@ local function RefreshRunBrowserRows()
             row:ClearAllPoints()
             row:SetPoint("TOPLEFT", runBrowserChild, "TOPLEFT", 0, -((dataIndex - 1) * RUN_BROWSER_ROW_H))
             row:SetPoint("RIGHT", runBrowserChild, "RIGHT", 0, 0)
-            row._primary:SetText(string.format("Level %d · %s", level, FormatDuration(session.startTime, RunDisplayEndTime(session))))
-            row._secondary:SetText(string.format("%s · %s", RunStatusLabel(session), RunRelativeDate(session)))
+            row._primary:SetText(string.format(EbonBuilds.L["Level %d · %s"], level, FormatDuration(session.startTime, RunDisplayEndTime(session))))
+            row._secondary:SetText(string.format(EbonBuilds.L["%s · %s"], RunStatusLabel(session), RunRelativeDate(session)))
             row._rarity:SetText(QualityCountText(quality, true))
-            row._events:SetText(string.format("%d events", events))
+            row._events:SetText(string.format(EbonBuilds.L["%d events"], events))
             row._events:SetTextColor(events == 0 and 0.52 or Theme.TEXT_MUTED[1], events == 0 and 0.52 or Theme.TEXT_MUTED[2], events == 0 and 0.56 or Theme.TEXT_MUTED[3], 1)
             row._dps:SetText(EbonBuilds.DpsLog and EbonBuilds.DpsLog.FormatBestSample
                 and EbonBuilds.DpsLog.FormatBestSample(session, true) or "")
@@ -472,10 +477,10 @@ function H.RefreshRunBrowser(scrollToSelected)
                 elseif state == "short" then shortCount = shortCount + 1
                 elseif state == "active" then activeCount = activeCount + 1 end
             end
-            local suffix = activeCount > 0 and string.format(" · %d active", activeCount) or ""
-            runBrowserCountLabel:SetText(string.format("%d runs · %d complete · %d short%s", #relevantSessionCache, completeCount, shortCount, suffix))
+            local suffix = activeCount > 0 and string.format(EbonBuilds.L[" · %d active"], activeCount) or ""
+            runBrowserCountLabel:SetText(string.format(EbonBuilds.L["%d runs · %d complete · %d short%s"], #relevantSessionCache, completeCount, shortCount, suffix))
         else
-            runBrowserCountLabel:SetText(string.format("%d of %d runs", #runBrowserResults, #relevantSessionCache))
+            runBrowserCountLabel:SetText(string.format(EbonBuilds.L["%d of %d runs"], #runBrowserResults, #relevantSessionCache))
         end
     end
     if runBrowserEmpty then
@@ -563,13 +568,13 @@ local function CreateRunBrowserRow(parent)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         GameTooltip:ClearLines()
         GameTooltip:AddLine(RunMenuLabel(session), 1, 0.82, 0)
-        GameTooltip:AddLine("Rarity counts include selected Echoes only; offered, banished, frozen-only, and rerolled Echoes are excluded.", 0.78, 0.78, 0.82, true)
+        GameTooltip:AddLine(EbonBuilds.L["Rarity counts include selected Echoes only; offered, banished, frozen-only, and rerolled Echoes are excluded."], 0.78, 0.78, 0.82, true)
         GameTooltip:AddLine(" ")
-        GameTooltip:AddLine(string.format("Epic %d · Rare %d · Uncommon %d · Common %d", quality.counts[3] or 0, quality.counts[2] or 0, quality.counts[1] or 0, quality.counts[0] or 0), 0.86, 0.86, 0.90)
+        GameTooltip:AddLine(string.format(EbonBuilds.L["Epic %d · Rare %d · Uncommon %d · Common %d"], quality.counts[3] or 0, quality.counts[2] or 0, quality.counts[1] or 0, quality.counts[0] or 0), 0.86, 0.86, 0.90)
         if quality.classifiedSelectionCount < quality.totalSelectionCount then
-            GameTooltip:AddLine(string.format("%d of %d selections could be classified by quality.", quality.classifiedSelectionCount, quality.totalSelectionCount), 1, 0.66, 0.16, true)
+            GameTooltip:AddLine(string.format(EbonBuilds.L["%d of %d selections could be classified by quality."], quality.classifiedSelectionCount, quality.totalSelectionCount), 1, 0.66, 0.16, true)
         else
-            GameTooltip:AddLine(string.format("%d selected Echo%s classified.", quality.classifiedSelectionCount, quality.classifiedSelectionCount == 1 and "" or "es"), 0.68, 0.68, 0.74)
+            GameTooltip:AddLine(string.format(EbonBuilds.L["%d selected Echo%s classified."], quality.classifiedSelectionCount, quality.classifiedSelectionCount == 1 and "" or "es"), 0.68, 0.68, 0.74)
         end
         local dpsLine = EbonBuilds.DpsLog and EbonBuilds.DpsLog.FormatBestSample
             and EbonBuilds.DpsLog.FormatBestSample(session, false) or ""
@@ -615,7 +620,7 @@ local function EnsureRunBrowser()
 
     local title = popup:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     title:SetPoint("TOPLEFT", popup, "TOPLEFT", 12, -11)
-    title:SetText("Select run")
+    title:SetText(EbonBuilds.L["Select run"])
     title:SetTextColor(unpack(Theme.TEXT_PRIMARY))
 
     local close = Theme.CreateButton(popup)
@@ -649,7 +654,7 @@ local function EnsureRunBrowser()
 
     local placeholder = searchWrap:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     placeholder:SetPoint("LEFT", search, "LEFT", 0, 0)
-    placeholder:SetText("Search level, date, duration, or events...")
+    placeholder:SetText(EbonBuilds.L["Search level, date, duration, or events..."])
     placeholder:SetTextColor(unpack(Theme.TEXT_MUTED))
     runBrowserPlaceholder = placeholder
 
@@ -732,16 +737,16 @@ local function EnsureRunBrowser()
     runBrowserEmpty:EnableMouse(false)
     runBrowserEmpty._title = runBrowserEmpty:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     runBrowserEmpty._title:SetPoint("CENTER", runBrowserEmpty, "CENTER", 0, 10)
-    runBrowserEmpty._title:SetText("No matching runs")
+    runBrowserEmpty._title:SetText(EbonBuilds.L["No matching runs"])
     runBrowserEmpty._body = runBrowserEmpty:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     runBrowserEmpty._body:SetPoint("TOP", runBrowserEmpty._title, "BOTTOM", 0, -6)
-    runBrowserEmpty._body:SetText("Clear the search or choose All.")
+    runBrowserEmpty._body:SetText(EbonBuilds.L["Clear the search or select All."])
     runBrowserEmpty._body:SetTextColor(unpack(Theme.TEXT_MUTED))
 
     runBrowserClear = Theme.CreateButton(popup)
     runBrowserClear:SetSize(104, 22)
     runBrowserClear:SetPoint("BOTTOMRIGHT", popup, "BOTTOMRIGHT", -10, 9)
-    runBrowserClear:SetText("Clear filters")
+    runBrowserClear:SetText(EbonBuilds.L["Clear filters"])
     runBrowserClear:SetScript("OnClick", function()
         runBrowserFilter = "all"
         runBrowserSearchText = ""
@@ -752,7 +757,7 @@ local function EnsureRunBrowser()
 
     local footer = popup:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     footer:SetPoint("BOTTOMLEFT", popup, "BOTTOMLEFT", 11, 14)
-    footer:SetText("Click a run to load it. The popup closes after selection.")
+    footer:SetText(EbonBuilds.L["Click a run to load it. The popup closes after selection."])
     footer:SetTextColor(unpack(Theme.TEXT_MUTED))
 
     popup:SetScript("OnHide", function()
@@ -780,7 +785,7 @@ local function UpdateSummary(session)
         duration = session and FormatDuration(session.startTime, RunDisplayEndTime(session)) or "-",
         events = tostring(data.events or 0),
         score = data.selectedCount > 0 and string.format("%.1f", data.averageSelected or 0) or "-",
-        actions = string.format("B %d  R %d  F %d", data.actions.Banish or 0, data.actions.Reroll or 0, data.actions.Freeze or 0),
+        actions = string.format(EbonBuilds.L["B %d  R %d  F %d"], data.actions.Banish or 0, data.actions.Reroll or 0, data.actions.Freeze or 0),
     }
     for key, value in pairs(values) do if summaryMetrics[key] then summaryMetrics[key].value:SetText(value) end end
     if summaryRarityText then
@@ -809,7 +814,7 @@ local function ShowDeleteSelectedConfirmation()
     pendingDeleteSessionId = session.id
     local dialog = StaticPopupDialogs["EBONBUILDS_DELETE_SELECTED_SESSION"]
     if dialog then
-        dialog.text = string.format("Delete this completed run?\n\nLevel %s · %s · %d events\n\nThis cannot be undone.", tostring(RunDisplayLevel(session)), FormatDuration(session.startTime, RunDisplayEndTime(session)), SessionEventCount(session))
+        dialog.text = string.format(EbonBuilds.L["Delete this completed run?\n\nLevel %s · %s · %d events\n\nThis cannot be undone."], tostring(RunDisplayLevel(session)), FormatDuration(session.startTime, RunDisplayEndTime(session)), SessionEventCount(session))
     end
     StaticPopup_Show("EBONBUILDS_DELETE_SELECTED_SESSION")
 end
@@ -834,7 +839,7 @@ local function ShowClearBuildHistoryConfirmation()
     local build = EbonBuilds.Build and EbonBuilds.Build.GetActive and EbonBuilds.Build.GetActive()
     local dialog = StaticPopupDialogs["EBONBUILDS_CLEAR_BUILD_HISTORY"]
     if dialog then
-        dialog.text = string.format("Delete %d completed run%s and %d event%s for %s?\n\nThe active recording session will be preserved. This cannot be undone.", #sessions, #sessions == 1 and "" or "s", events, events == 1 and "" or "s", build and build.title or "this build")
+        dialog.text = string.format(EbonBuilds.L["Delete %d completed run%s and %d event%s for %s?\n\nThe active recording session will be preserved. This cannot be undone."], #sessions, #sessions == 1 and "" or "s", events, events == 1 and "" or "s", build and build.title or "this build")
     end
     StaticPopup_Show("EBONBUILDS_CLEAR_BUILD_HISTORY")
 end
@@ -1026,11 +1031,11 @@ local function BindRow(row, item, width, y)
     row._labels.action:SetText(action)
     row._labels.action:SetTextColor(color[1], color[2], color[3], 1)
     local name, score, quality = DecisionLabel(entry)
-    row._labels.subject:SetText(EbonBuilds.Quality.Colorize(name, quality) .. string.format("  |cffb6b6bd%.0f|r", score or 0))
+    row._labels.subject:SetText(EbonBuilds.Quality.Colorize(name, quality) .. string.format(EbonBuilds.L["  |cffb6b6bd%.0f|r"], score or 0))
     row._labels.reason:SetText(ReasonSentence(entry))
     row._labels.reason:SetTextColor(unpack(Theme.TEXT_MUTED))
     local charges = entry.charges or {}
-    row._labels.charges:SetText(string.format("B:%d R:%d F:%d", charges.ban or 0, charges.reroll or 0, charges.freeze or 0))
+    row._labels.charges:SetText(string.format(EbonBuilds.L["B:%d R:%d F:%d"], charges.ban or 0, charges.reroll or 0, charges.freeze or 0))
     row._labels.charges:SetTextColor(unpack(Theme.TEXT_MUTED))
     if IsImportant(entry) then row._notable:Show() else row._notable:Hide() end
     SetRowVisual(row)
@@ -1124,9 +1129,9 @@ local function BuildDecisionExport(entry)
     if not entry then return "No decision selected." end
     local lines = {}
     local name, score = DecisionLabel(entry)
-    lines[#lines + 1] = string.format("%s · %s · %s", FormatTimestamp(entry.timestamp), NormalizeAction(entry.action), name)
-    lines[#lines + 1] = string.format("Level: %s", tostring(entry.level or "Unknown"))
-    lines[#lines + 1] = string.format("Final value: %.0f", score or 0)
+    lines[#lines + 1] = string.format(EbonBuilds.L["%s · %s · %s"], FormatTimestamp(entry.timestamp), NormalizeAction(entry.action), name)
+    lines[#lines + 1] = string.format(EbonBuilds.L["Level: %s"], tostring(entry.level or "Unknown"))
+    lines[#lines + 1] = string.format(EbonBuilds.L["Final value: %.0f"], score or 0)
     lines[#lines + 1] = "Reason: " .. ReasonSentence(entry)
     lines[#lines + 1] = "Source: " .. DecisionSource(entry)
     lines[#lines + 1] = ""
@@ -1137,7 +1142,7 @@ local function BuildDecisionExport(entry)
         if modifierDelta == nil and choice.baseWeight ~= nil and choice.score ~= nil then
             modifierDelta = (tonumber(choice.score) or 0) - (tonumber(choice.baseWeight) or 0)
         end
-        lines[#lines + 1] = string.format("%d. %s%s · quality %s · weight %s · modifiers %s · final %s", index, choice.name or "Unknown Echo", choice == target and " [TARGET]" or "", tostring(choice.quality or "?"), tostring(choice.baseWeight or "?"), modifierDelta ~= nil and string.format("%+.0f", modifierDelta) or "?", tostring(choice.score or "?"))
+        lines[#lines + 1] = string.format(EbonBuilds.L["%d. %s%s · quality %s · weight %s · modifiers %s · final %s"], index, choice.name or "Unknown Echo", choice == target and " [TARGET]" or "", tostring(choice.quality or "?"), tostring(choice.baseWeight or "?"), modifierDelta ~= nil and string.format(EbonBuilds.L["%+.0f"], modifierDelta) or "?", tostring(choice.score or "?"))
     end
     local charges = entry.charges or {}
     local change, remaining = ResourceChangeSummary(PreviousEntryCharges(entry), charges, false)
@@ -1154,11 +1159,11 @@ function H.ShowDecisionDetail(entry)
     local decision = entry.decision or {}
     local action = NormalizeAction(entry.action)
     local name = DecisionLabel(entry)
-    detailTitle:SetText(string.format("%s · %s", string.upper(action), tostring(name or "Decision")))
+    detailTitle:SetText(string.format(EbonBuilds.L["%s · %s"], string.upper(action), tostring(name or "Decision")))
     detailReason:SetText(ReasonSentence(entry))
 
     local meta = { "Level " .. tostring(entry.level or "?"), FormatTimestamp(entry.timestamp), DecisionSource(entry) }
-    if decision.threshold ~= nil then meta[#meta + 1] = string.format("Threshold %.0f", decision.threshold) end
+    if decision.threshold ~= nil then meta[#meta + 1] = string.format(EbonBuilds.L["Threshold %.0f"], decision.threshold) end
     if decision.model then meta[#meta + 1] = tostring(decision.model) end
     detailMeta:SetText(table.concat(meta, " · "))
 
@@ -1188,9 +1193,9 @@ function H.ShowDecisionDetail(entry)
             if choice.baseWeight ~= nil then
                 local modifierDelta = choice.modifierDelta
                 if modifierDelta == nil then modifierDelta = (tonumber(choice.score) or 0) - (tonumber(choice.baseWeight) or 0) end
-                card._breakdown:SetText(string.format("Weight %.0f · Mod %+.0f · Final %.0f", choice.baseWeight or 0, modifierDelta, choice.score or 0))
+                card._breakdown:SetText(string.format(EbonBuilds.L["Weight %.0f · Mod %+.0f · Final %.0f"], choice.baseWeight or 0, modifierDelta, choice.score or 0))
             else
-                card._breakdown:SetText(string.format("Final %.0f · legacy details unavailable", choice.score or 0))
+                card._breakdown:SetText(string.format(EbonBuilds.L["Final %.0f · legacy details unavailable"], choice.score or 0))
             end
             card:Show()
         else
@@ -1219,13 +1224,13 @@ function H.RefreshLogView()
         timelineItems, timelineOffsets, timelineTotalHeight = {}, {}, 1
         logChild:SetHeight(1)
         if logBar then logBar:SetMinMaxValues(0, 0) end
-        if resultLabel then resultLabel:SetText("No run selected") end
+        if resultLabel then resultLabel:SetText(EbonBuilds.L["No run selected"]) end
         if emptyState and emptyState._title and emptyState._body then
-            emptyState._title:SetText("Choose a run")
+            emptyState._title:SetText(EbonBuilds.L["Choose a run"])
             if #relevantSessionCache == 0 then
-                emptyState._body:SetText("No runs are recorded for this build yet.")
+                emptyState._body:SetText(EbonBuilds.L["No runs are recorded for this build yet."])
             else
-                emptyState._body:SetText("Select a run above to inspect its recorded decisions.")
+                emptyState._body:SetText(EbonBuilds.L["Select a run above to inspect its recorded decisions."])
             end
             emptyState:Show()
         end
@@ -1251,7 +1256,7 @@ function H.RefreshLogView()
     if eventCount == total and filterCount == 0 then
         if resultLabel then resultLabel:SetText(eventCount .. " events") end
     else
-        if resultLabel then resultLabel:SetText(string.format("%d of %d · %d filter%s", eventCount, total, filterCount, filterCount == 1 and "" or "s")) end
+        if resultLabel then resultLabel:SetText(string.format(EbonBuilds.L["%d of %d · %d filter%s"], eventCount, total, filterCount, filterCount == 1 and "" or "s")) end
     end
 
     local width = math.max(430, logScroll:GetWidth() or 0)
@@ -1274,15 +1279,15 @@ function H.RefreshLogView()
 
     if emptyState and emptyState._title and emptyState._body then
         if #items == 0 then
-            emptyState._title:SetText(total == 0 and "No decisions recorded" or "No matching decisions")
+            emptyState._title:SetText(total == 0 and EbonBuilds.L["No decisions recorded"] or EbonBuilds.L["No matching decisions"])
             if total == 0 then
-                emptyState._body:SetText("This run has no recorded decisions yet.")
+                emptyState._body:SetText(EbonBuilds.L["This run has no recorded decisions yet."])
                 if emptyClearButton then emptyClearButton:Hide() end
             elseif filterCount > 0 then
-                emptyState._body:SetText(string.format("0 of %d events match %d active filter%s.", total, filterCount, filterCount == 1 and "" or "s"))
+                emptyState._body:SetText(string.format(EbonBuilds.L["0 of %d events match %d active filter%s."], total, filterCount, filterCount == 1 and "" or "s"))
                 if emptyClearButton then emptyClearButton:Show() end
             else
-                emptyState._body:SetText("No events are available in the current view.")
+                emptyState._body:SetText(EbonBuilds.L["No events are available in the current view."])
                 if emptyClearButton then emptyClearButton:Hide() end
             end
             emptyState:Show()
@@ -1315,7 +1320,7 @@ local function EnsureExportDialog()
     frame:SetScript("OnMouseUp", function(self) self:StopMovingOrSizing() end)
     local title = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     title:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, -12)
-    title:SetText("Logbook Export")
+    title:SetText(EbonBuilds.L["Logbook Export"])
     local close = Theme.CreateButton(frame)
     close:SetSize(24, 22)
     close:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -8, -8)
@@ -1362,12 +1367,12 @@ end
 local function SessionExportLines(session)
     local lines = {}
     if not session then return { "No session selected." } end
-    lines[#lines + 1] = string.format("Run: Level %d | Duration: %s | Soul Ashes: %s | Events: %d", RunDisplayLevel(session), FormatDuration(session.startTime, RunDisplayEndTime(session)), session.soulAshes or 0, #(session.logs or {}))
-    lines[#lines + 1] = string.format("Started: %s | Status: %s", FormatRunDate(session.startTime), RunStatusLabel(session))
+    lines[#lines + 1] = string.format(EbonBuilds.L["Run: Level %d | Duration: %s | Soul Ashes: %s | Events: %d"], RunDisplayLevel(session), FormatDuration(session.startTime, RunDisplayEndTime(session)), session.soulAshes or 0, #(session.logs or {}))
+    lines[#lines + 1] = string.format(EbonBuilds.L["Started: %s | Status: %s"], FormatRunDate(session.startTime), RunStatusLabel(session))
     lines[#lines + 1] = ""
     for _, entry in ipairs(session.logs or {}) do
         local name, score = DecisionLabel(entry)
-        lines[#lines + 1] = string.format("%s  %-8s  %-30s (%4.0f)  %s", FormatTimestamp(entry.timestamp), NormalizeAction(entry.action), name, score, ReasonSentence(entry))
+        lines[#lines + 1] = string.format(EbonBuilds.L["%s  %-8s  %-30s (%4.0f)  %s"], FormatTimestamp(entry.timestamp), NormalizeAction(entry.action), name, score, ReasonSentence(entry))
     end
     return lines
 end
@@ -1418,7 +1423,7 @@ local function CreateSearch(parent)
     placeholder:SetPoint("LEFT", edit, "LEFT", 0, 0)
     placeholder:SetPoint("RIGHT", edit, "RIGHT", -2, 0)
     placeholder:SetJustifyH("LEFT")
-    placeholder:SetText("Search Echoes, actions, reasons")
+    placeholder:SetText(EbonBuilds.L["Search Echoes, actions, reasons"])
     placeholder:SetTextColor(unpack(Theme.TEXT_MUTED))
     local clear = CreateFrame("Button", nil, wrap)
     if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
@@ -1504,7 +1509,7 @@ local function BuildRunNavigator(container)
 
     local hint = topPanel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     hint:SetPoint("TOPLEFT", topPanel, "TOPLEFT", 4, -2)
-    hint:SetText("Select a run, narrow the evidence, then inspect any recorded decision.")
+    hint:SetText(EbonBuilds.L["Select a run, narrow the evidence, then inspect any recorded decision."])
     hint:SetTextColor(unpack(Theme.TEXT_MUTED))
 
     historyDropdown = Theme.CreateDropdown(topPanel, 145, "Logbook options", { menuWidth = 214 })
@@ -1538,7 +1543,7 @@ local function BuildRunNavigator(container)
     runDropdown:SetPoint("TOPLEFT", previousRunButton, "TOPRIGHT", 6, 0)
     runDropdown:SetPoint("TOPRIGHT", nextRunButton, "TOPLEFT", -6, 0)
     runDropdown:SetHeight(38)
-    runDropdown:SetText("Choose a run")
+    runDropdown:SetText(EbonBuilds.L["Choose a run"])
     local runLabel = runDropdown:GetFontString()
     if runLabel then
         runLabel:ClearAllPoints()
@@ -1610,15 +1615,15 @@ local function BuildSummaryStrip(container)
         if #samples == 0 then return end
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         GameTooltip:ClearLines()
-        GameTooltip:AddLine("Measured combat DPS", 1, 0.82, 0)
-        GameTooltip:AddLine("One sample per combat segment: total damage by you and your pets divided by active fight time. Informational only; never affects automation.", 0.78, 0.78, 0.82, true)
+        GameTooltip:AddLine(EbonBuilds.L["Measured combat DPS"], 1, 0.82, 0)
+        GameTooltip:AddLine(EbonBuilds.L["One sample per combat segment: total damage by you and your pets divided by active fight time. Informational only; never affects automation."], 0.78, 0.78, 0.82, true)
         GameTooltip:AddLine(" ")
         local shown = 0
         for index = #samples, 1, -1 do
             local sample = samples[index]
             if type(sample) == "table" and tonumber(sample.dps) then
                 GameTooltip:AddDoubleLine(
-                    string.format("%s · %s%s",
+                    string.format(EbonBuilds.L["%s · %s%s"],
                         api.FormatSampleDuration(sample.duration),
                         tostring(sample.target or "Unknown"),
                         sample.dummy and " (dummy)" or ""),
@@ -1629,7 +1634,7 @@ local function BuildSummaryStrip(container)
             end
         end
         if #samples > shown then
-            GameTooltip:AddLine(string.format("%d older sample%s not shown.", #samples - shown, (#samples - shown) == 1 and "" or "s"), 0.68, 0.68, 0.74)
+            GameTooltip:AddLine(string.format(EbonBuilds.L["%d older sample%s not shown."], #samples - shown, (#samples - shown) == 1 and "" or "s"), 0.68, 0.68, 0.74)
         end
         GameTooltip:Show()
     end)
@@ -1640,20 +1645,20 @@ local function BuildSummaryStrip(container)
     summaryRarityText:SetPoint("RIGHT", H._summaryDpsFrame, "LEFT", -8, 0)
     summaryRarityText:SetJustifyH("LEFT")
     summaryRarityText:SetTextColor(unpack(Theme.TEXT_MUTED))
-    summaryRarityText:SetText("Selected Echo quality: no selections recorded")
+    summaryRarityText:SetText(EbonBuilds.L["Selected Echo quality: no selections recorded"])
 
     summaryRarityFrame:SetScript("OnEnter", function(self)
         local quality = self._qualitySummary
         if not quality then return end
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         GameTooltip:ClearLines()
-        GameTooltip:AddLine("Selected Echo quality", 1, 0.82, 0)
-        GameTooltip:AddLine("Counts include successfully selected Echoes only. Offered, banished, frozen-only, and rerolled Echoes are excluded.", 0.78, 0.78, 0.82, true)
+        GameTooltip:AddLine(EbonBuilds.L["Selected Echo quality"], 1, 0.82, 0)
+        GameTooltip:AddLine(EbonBuilds.L["Counts include successfully selected Echoes only. Offered, banished, frozen-only, and rerolled Echoes are excluded."], 0.78, 0.78, 0.82, true)
         if quality.totalSelectionCount > 0 then
             GameTooltip:AddLine(" ")
-            GameTooltip:AddLine(string.format("Epic %d · Rare %d · Uncommon %d · Common %d", quality.counts[3] or 0, quality.counts[2] or 0, quality.counts[1] or 0, quality.counts[0] or 0), 0.86, 0.86, 0.90)
+            GameTooltip:AddLine(string.format(EbonBuilds.L["Epic %d · Rare %d · Uncommon %d · Common %d"], quality.counts[3] or 0, quality.counts[2] or 0, quality.counts[1] or 0, quality.counts[0] or 0), 0.86, 0.86, 0.90)
             if quality.classifiedSelectionCount < quality.totalSelectionCount then
-                GameTooltip:AddLine(string.format("%d of %d selections could be classified by quality.", quality.classifiedSelectionCount, quality.totalSelectionCount), 1, 0.66, 0.16, true)
+                GameTooltip:AddLine(string.format(EbonBuilds.L["%d of %d selections could be classified by quality."], quality.classifiedSelectionCount, quality.totalSelectionCount), 1, 0.66, 0.16, true)
             end
         end
         GameTooltip:Show()
@@ -1744,7 +1749,7 @@ local function BuildFilterToolbar(container)
 
     chipEmpty = chipFrame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     chipEmpty:SetPoint("LEFT", chipFrame, "LEFT", 2, 0)
-    chipEmpty:SetText("No active filters")
+    chipEmpty:SetText(EbonBuilds.L["No active filters"])
     chipEmpty:SetTextColor(0.48, 0.50, 0.55, 1)
 
     resultLabel = chipFrame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
@@ -1752,12 +1757,12 @@ local function BuildFilterToolbar(container)
     resultLabel:SetWidth(126)
     resultLabel:SetJustifyH("RIGHT")
     resultLabel:SetTextColor(unpack(Theme.TEXT_MUTED))
-    resultLabel:SetText("0 events")
+    resultLabel:SetText(EbonBuilds.L["0 events"])
 
     clearFiltersButton = Theme.CreateButton(chipFrame)
     clearFiltersButton:SetSize(78, 20)
     clearFiltersButton:SetPoint("RIGHT", resultLabel, "LEFT", -7, 0)
-    clearFiltersButton:SetText("Clear filters")
+    clearFiltersButton:SetText(EbonBuilds.L["Clear filters"])
     clearFiltersButton:SetScript("OnClick", ClearFilters)
     clearFiltersButton:Hide()
 end
@@ -1800,7 +1805,7 @@ local function BuildEventTimeline()
     emptyClearButton = Theme.CreateButton(emptyState, "gold")
     emptyClearButton:SetSize(112, 22)
     emptyClearButton:SetPoint("TOP", emptyState._body, "BOTTOM", 0, -10)
-    emptyClearButton:SetText("Clear all filters")
+    emptyClearButton:SetText(EbonBuilds.L["Clear all filters"])
     emptyClearButton:SetScript("OnClick", ClearFilters)
     emptyClearButton:Hide()
 end
@@ -1826,7 +1831,7 @@ local function BuildDecisionInspector()
     detailCopyButton = Theme.CreateButton(detailPanel)
     detailCopyButton:SetSize(86, 20)
     detailCopyButton:SetPoint("TOPRIGHT", close, "TOPLEFT", -6, 0)
-    detailCopyButton:SetText("Copy details")
+    detailCopyButton:SetText(EbonBuilds.L["Copy details"])
     detailCopyButton:SetScript("OnClick", H.ExportDecision)
     Theme.AttachTooltip(detailCopyButton, "Copy decision details", "Opens selectable text. WoW 3.3.5a addons cannot write directly to the system clipboard.")
 

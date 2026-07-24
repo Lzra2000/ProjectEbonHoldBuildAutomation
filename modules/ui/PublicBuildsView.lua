@@ -6,6 +6,8 @@ local addonName, EbonBuilds = ...
 
 EbonBuilds.PublicBuildsView = {}
 
+
+local L = EbonBuilds.L
 local PAGE_SIZE  = 8
 local CARD_MARGIN = 4
 local CARD_HEIGHT = 74
@@ -87,7 +89,7 @@ local function InitSpecDropdown()
                 checked = (filterSpec == nil),
                 func = function()
                     filterSpec = nil
-                    specDropdown:SetText("All Specs")
+                    specDropdown:SetText(L["All Specs"])
                     RefreshView()
                 end,
             },
@@ -117,11 +119,11 @@ local function InitSpecDropdown()
         if entry then
             specDropdown:SetText(entry.name)
         else
-            specDropdown:SetText("All Specs")
+            specDropdown:SetText(L["All Specs"])
             filterSpec = nil
         end
     else
-        specDropdown:SetText("All Specs")
+        specDropdown:SetText(L["All Specs"])
     end
     specDropdown:RefreshMenu()
 end
@@ -136,7 +138,7 @@ local function InitClassDropdown()
                 func = function()
                     filterClass = nil
                     filterSpec = nil
-                    classDropdown:SetText("All Classes")
+                    classDropdown:SetText(L["All Classes"])
                     InitSpecDropdown()
                     RefreshView()
                 end,
@@ -161,7 +163,7 @@ local function InitClassDropdown()
     if filterClass then
         classDropdown:SetText(CLASS_DISPLAY[filterClass])
     else
-        classDropdown:SetText("All Classes")
+        classDropdown:SetText(L["All Classes"])
     end
     classDropdown:RefreshMenu()
 end
@@ -285,7 +287,7 @@ local function CreateCard(parent)
     importBtn:SetWidth(70)
     importBtn:SetHeight(22)
     importBtn:SetPoint("RIGHT", card, "RIGHT", -10, 0)
-    importBtn:SetText("Import")
+    importBtn:SetText(L["Import"])
     card._importBtn = importBtn
 
     -- Vote button (top-right). Shows the distinct-voter tally this
@@ -305,8 +307,7 @@ local function CreateCard(parent)
     voteCount:SetPoint("LEFT", voteIcon, "RIGHT", 4, 0)
     voteBtn._count = voteCount
     card._voteBtn = voteBtn
-    EbonBuilds.Theme.AttachTooltip(voteBtn, "Upvote",
-        "Acknowledge a well-made build. One vote per character, click again to remove it. The number is how many distinct voters this client has heard from.")
+    EbonBuilds.Theme.AttachTooltip(voteBtn, L["Upvote"], L["Acknowledge a well-made build. One vote per character, click again to remove it. The number is how many distinct voters this client has heard from."])
 
     -- The whole card opens the read-only inspect view.
     card:SetScript("OnClick", function(self)
@@ -515,8 +516,8 @@ local function CharacterSummary(snapshot)
     return {
         talentsText = table.concat(talentParts, " / "),
         gearText = ilvlCount > 0
-            and string.format("%d/%d equipped, avg item level %.0f", equipped, total, ilvlSum / ilvlCount)
-            or string.format("%d/%d equipped", equipped, total),
+            and string.format(L["%d/%d equipped, avg item level %.0f"], equipped, total, ilvlSum / ilvlCount)
+            or string.format(L["%d/%d equipped"], equipped, total),
         capturedAt = snapshot.capturedAt,
         -- Raw average, for sorting -- nil (not 0) when no piece has a
         -- resolved item level yet, so callers can push unknown-ilvl
@@ -657,7 +658,7 @@ local function BuildInspectFrame(parent)
     local viewCharBtn = EbonBuilds.Theme.CreateButton(contentChild)
     viewCharBtn:SetWidth(150)
     viewCharBtn:SetHeight(20)
-    viewCharBtn:SetText("View full character")
+    viewCharBtn:SetText(L["View full character"])
     f._viewCharBtn = viewCharBtn
     viewCharBtn:SetScript("OnClick", function()
         if f._build and ShowCharacterDetail then ShowCharacterDetail(f._build) end
@@ -693,7 +694,7 @@ local function BuildInspectFrame(parent)
     -- above (no longer a separate nested scroll region of their own).
     f._priRowPool = {}
     f._priEmpty = contentChild:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    f._priEmpty:SetText("No weighted priorities configured.")
+    f._priEmpty:SetText(L["No weighted priorities configured."])
 
     if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
         EbonBuilds.Debug.ProtectScript(f, "PublicBuildsView.Inspect")
@@ -913,7 +914,7 @@ ShowInspect = function(build)
     local specEntry = specs and specs[build.spec or 1]
     if specEntry then specName = specEntry.name end
     local isOwn = EbonBuildsDB.builds[build.id] ~= nil
-    inspectFrame._meta:SetText(string.format("by %s%s | %s | %s",
+    inspectFrame._meta:SetText(string.format(L["by %s%s | %s | %s"],
         build.author or "Unknown", isOwn and " |cff1eff00(You)|r" or "", specName, build.lastModified or ""))
 
     local votes = (EbonBuilds.BuildVotes and EbonBuilds.BuildVotes.Count(build.id)) or 0
@@ -954,30 +955,30 @@ ShowInspect = function(build)
 
     local summary = CharacterSummary(build.characterSnapshot)
     if summary then
-        inspectFrame._talentsText:SetText("|cffaaaaaaTalents:|r " .. summary.talentsText)
-        inspectFrame._gearText:SetText("|cffaaaaaaGear:|r " .. summary.gearText)
+        inspectFrame._talentsText:SetText(L["|cffaaaaaaTalents:|r "] .. summary.talentsText)
+        inspectFrame._gearText:SetText(L["|cffaaaaaaGear:|r "] .. summary.gearText)
         inspectFrame._viewCharBtn:Enable()
     else
-        inspectFrame._talentsText:SetText("|cff888888No character snapshot shared for this build.|r")
+        inspectFrame._talentsText:SetText(L["|cff888888No character snapshot shared for this build.|r"])
         inspectFrame._gearText:SetText("")
         inspectFrame._viewCharBtn:Disable()
     end
 
     if isOwn then
-        inspectFrame._importBtn:SetText("Yours")
+        inspectFrame._importBtn:SetText(L["Yours"])
         inspectFrame._importBtn:Disable()
         inspectFrame._importBtn:SetScript("OnClick", nil)
     else
         local localCopy = FindImportedCopy(build.id)
         if localCopy and build.lastModified ~= localCopy._importedAt then
-            inspectFrame._importBtn:SetText("Update")
+            inspectFrame._importBtn:SetText(L["Update"])
             inspectFrame._importBtn:Enable()
             inspectFrame._importBtn:SetScript("OnClick", function()
                 UpdateLocalBuild(localCopy, build)
                 inspectFrame:Hide()
             end)
         else
-            inspectFrame._importBtn:SetText("Import")
+            inspectFrame._importBtn:SetText(L["Import"])
             inspectFrame._importBtn:Enable()
             inspectFrame._importBtn:SetScript("OnClick", function()
                 ImportBuild(build)
@@ -1093,9 +1094,9 @@ local function PopulateCard(card, build)
     local modified = build.lastModified or ""
     local isOwn = EbonBuildsDB.builds[build.id] ~= nil
     if isOwn then
-        card._metaLabel:SetText(string.format("by %s |cff1eff00(You)|r | %s | %s", author, specName, modified))
+        card._metaLabel:SetText(string.format(L["by %s |cff1eff00(You)|r | %s | %s"], author, specName, modified))
     else
-        card._metaLabel:SetText(string.format("by %s | %s | %s", author, specName, modified))
+        card._metaLabel:SetText(string.format(L["by %s | %s | %s"], author, specName, modified))
     end
 
     -- Locked echo icons
@@ -1119,19 +1120,19 @@ local function PopulateCard(card, build)
 
     -- Import / Update button (builds already loaded and up-to-date are hidden by GetFilteredBuilds)
     if isOwn then
-        card._importBtn:SetText("Yours")
+        card._importBtn:SetText(L["Yours"])
         card._importBtn:Disable()
         card._importBtn:SetScript("OnClick", nil)
     else
         local localCopy = FindImportedCopy(build.id)
         if localCopy and build.lastModified ~= localCopy._importedAt then
-            card._importBtn:SetText("Update")
+            card._importBtn:SetText(L["Update"])
             card._importBtn:Enable()
             card._importBtn:SetScript("OnClick", function()
                 UpdateLocalBuild(localCopy, build)
             end)
         else
-            card._importBtn:SetText("Import")
+            card._importBtn:SetText(L["Import"])
             card._importBtn:Enable()
             card._importBtn:SetScript("OnClick", function()
                 ImportBuild(build)
@@ -1143,7 +1144,7 @@ end
 local function RefreshPaginationControls()
     if state.page > 1 then prevBtn:Enable() else prevBtn:Disable() end
     if state.page < state.totalPages then nextBtn:Enable() else nextBtn:Disable() end
-    pageLabel:SetText(string.format("Page %d of %d", state.page, state.totalPages))
+    pageLabel:SetText(string.format(L["Page %d of %d"], state.page, state.totalPages))
 end
 
 local function Render()
@@ -1153,7 +1154,7 @@ local function Render()
         scrollChild:SetHeight(1)
         scrollBar:SetMinMaxValues(0, 0)
         scrollBar:SetValue(0)
-        pageLabel:SetText("Page 1 of 1")
+        pageLabel:SetText(L["Page 1 of 1"])
         prevBtn:Disable()
         nextBtn:Disable()
         if noBuildsLabel then noBuildsLabel:Show() end
@@ -1330,14 +1331,12 @@ local function BuildViewFrame(parent)
 
     local pageHeader = EbonBuilds.Theme.CreatePageHeader(
         f,
-        "Public Builds",
-        "Browse community loadouts, filter by class and specialization, then import a copy to customize."
+        L["Public Builds"], L["Browse community loadouts, filter by class and specialization, then import a copy to customize."]
     )
 
     noBuildsLabel = EbonBuilds.Theme.CreateEmptyState(
         f,
-        "No public builds found",
-        "Try another class or specialization, or reload community data when sync is available."
+        L["No public builds found"], L["Try another class or specialization, or reload community data when sync is available."]
     )
     noBuildsLabel:Hide()
 
@@ -1351,7 +1350,7 @@ local function BuildViewFrame(parent)
     prevBtn:SetWidth(80)
     prevBtn:SetHeight(22)
     prevBtn:SetPoint("LEFT", bottomBar, "LEFT", 0, 0)
-    prevBtn:SetText("Previous")
+    prevBtn:SetText(L["Previous"])
     prevBtn:SetScript("OnClick", function()
         if state.page > 1 then
             state.page = state.page - 1
@@ -1364,7 +1363,7 @@ local function BuildViewFrame(parent)
     nextBtn:SetWidth(80)
     nextBtn:SetHeight(22)
     nextBtn:SetPoint("RIGHT", bottomBar, "RIGHT", 0, 0)
-    nextBtn:SetText("Next")
+    nextBtn:SetText(L["Next"])
     nextBtn:SetScript("OnClick", function()
         if state.page < state.totalPages then
             state.page = state.page + 1
@@ -1375,7 +1374,7 @@ local function BuildViewFrame(parent)
 
     pageLabel = bottomBar:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     pageLabel:SetPoint("CENTER", bottomBar, "CENTER", 0, 0)
-    pageLabel:SetText("Page 1 of 1")
+    pageLabel:SetText(L["Page 1 of 1"])
 
     -- Filter bar: class dropdown, spec dropdown, refresh button
     local filterBar = CreateFrame("Frame", nil, f)
@@ -1383,10 +1382,10 @@ local function BuildViewFrame(parent)
     filterBar:SetPoint("RIGHT",   f,   "RIGHT",     -10, 0)
     filterBar:SetHeight(24)
 
-    classDropdown = EbonBuilds.Theme.CreateDropdown(filterBar, 150, "All Classes")
+    classDropdown = EbonBuilds.Theme.CreateDropdown(filterBar, 150, L["All Classes"])
     classDropdown:SetPoint("LEFT", filterBar, "LEFT", 0, 0)
 
-    specDropdown = EbonBuilds.Theme.CreateDropdown(filterBar, 150, "All Specs")
+    specDropdown = EbonBuilds.Theme.CreateDropdown(filterBar, 150, L["All Specs"])
     specDropdown:SetPoint("LEFT", classDropdown, "RIGHT", 8, 0)
 
     filterClass = EbonBuilds.Build.PlayerClassToken()
@@ -1398,7 +1397,7 @@ local function BuildViewFrame(parent)
     refreshBtn:SetWidth(60)
     refreshBtn:SetHeight(22)
     refreshBtn:SetPoint("LEFT", specDropdown, "RIGHT", 8, 0)
-    refreshBtn:SetText("Reload")
+    refreshBtn:SetText(L["Reload"])
     refreshBtn:SetScript("OnClick", function()
         if filterClass then
             EbonBuilds.Sync.RequestSync(filterClass)
@@ -1418,10 +1417,10 @@ local function BuildViewFrame(parent)
             self._lastRemaining = remaining
             if remaining > 0 then
                 refreshBtn:Disable()
-                refreshBtn:SetText("Wait " .. remaining .. "s")
+                refreshBtn:SetText(L["Wait "] .. remaining .. "s")
             else
                 refreshBtn:Enable()
-                refreshBtn:SetText("Reload")
+                refreshBtn:SetText(L["Reload"])
             end
         end
     end)
@@ -1474,7 +1473,7 @@ local function BuildViewFrame(parent)
 
     local searchPh = searchWrap:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     searchPh:SetPoint("LEFT", searchEdit, "LEFT", 0, 0)
-    searchPh:SetText("Search title or author...")
+    searchPh:SetText(L["Search title or author..."])
     searchPh:SetTextColor(unpack(EbonBuilds.Theme.TEXT_MUTED))
 
     local function UpdateSearchPlaceholder()
@@ -1683,7 +1682,7 @@ if EbonBuilds.Debug and EbonBuilds.Debug.RegisterTest then
         local freshScore = scoreOf(3600, 1)          -- 1 vote, 1 hour old
         local staleScore = scoreOf(60 * 86400, 2)     -- 2 votes, 60 days old
         if not (freshScore > staleScore) then
-            error(string.format("1 recent vote (%.4f) should outrank 2 stale votes (%.4f)", freshScore, staleScore))
+            error(string.format(L["1 recent vote (%.4f) should outrank 2 stale votes (%.4f)"], freshScore, staleScore))
         end
         if scoreOf(3600, 0) ~= 0 then
             error("a build with zero votes must always score zero, regardless of age")
@@ -1724,7 +1723,7 @@ if EbonBuilds.Debug and EbonBuilds.Debug.RegisterTest then
         end
         local minVal, maxVal = f._contentBar:GetMinMaxValues()
         if minVal ~= 0 or type(maxVal) ~= "number" or maxVal < 0 then
-            error(string.format("expected a well-ordered scrollbar range, got min=%s max=%s", tostring(minVal), tostring(maxVal)))
+            error(string.format(L["expected a well-ordered scrollbar range, got min=%s max=%s"], tostring(minVal), tostring(maxVal)))
         end
     end)
 end

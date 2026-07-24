@@ -7,6 +7,8 @@ local addonName, EbonBuilds = ...
 
 EbonBuilds.BuildWizardPriorityStep = {}
 
+
+local L = EbonBuilds.L
 local PriorityStep = EbonBuilds.BuildWizardPriorityStep
 local Theme = EbonBuilds.Theme
 local Draft = EbonBuilds.WizardDraft
@@ -307,7 +309,7 @@ local function UpdateSubgroups(component)
             button:SetWidth(buttonWidth)
             button:ClearAllPoints()
             button:SetPoint("LEFT", component.subgroupBar, "LEFT", (index - 1) * (buttonWidth + 4), 0)
-            button:SetText(def.label .. (def.count > 0 and (" " .. tostring(def.count)) or ""))
+            button:SetText(L[def.label] .. (def.count > 0 and (" " .. tostring(def.count)) or ""))
             local selected
             if def.diagnostic then selected = view.diagnosticKey == def.key
             else selected = view.activeSubgroup == def.key end
@@ -412,7 +414,7 @@ local function SortMenuBuilder(component)
             item = { text = "", checked = false, func = nil }
             component.sortMenuDefinitions[index] = item
         end
-        item.text = sort.label
+        item.text = L[sort.label]
         item.checked = component.viewState.sortKey == sort.key
         item.sortKey = sort.key
         item.ownerComponent = component
@@ -443,9 +445,9 @@ local function RowInspect_OnEnter(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         GameTooltip:ClearLines()
         GameTooltip:AddLine(unresolved and (unresolved.rawName or "Unresolved import") or "Unresolved import", 1, 0.82, 0)
-        GameTooltip:AddLine("No canonical Echo reference could be established. The record is quarantined and cannot enter build output.", 1, 1, 1, true)
-        if unresolved and unresolved.rawSpellId then GameTooltip:AddLine("Raw spell ID: " .. tostring(unresolved.rawSpellId), 0.72, 0.82, 0.95) end
-        if unresolved and unresolved.reason then GameTooltip:AddLine("Reason: " .. tostring(unresolved.reason), 1, 0.55, 0.35) end
+        GameTooltip:AddLine(L["No canonical Echo reference could be established. The record is quarantined and cannot enter build output."], 1, 1, 1, true)
+        if unresolved and unresolved.rawSpellId then GameTooltip:AddLine(L["Raw spell ID: "] .. tostring(unresolved.rawSpellId), 0.72, 0.82, 0.95) end
+        if unresolved and unresolved.reason then GameTooltip:AddLine(L["Reason: "] .. tostring(unresolved.reason), 1, 0.55, 0.35) end
         GameTooltip:Show()
         return
     end
@@ -466,11 +468,11 @@ local function RowEvidence_OnEnter(self)
     local component = row.ownerComponent
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
     GameTooltip:ClearLines()
-    GameTooltip:AddLine("Community evidence", 1, 0.82, 0)
+    GameTooltip:AddLine(L["Community evidence"], 1, 0.82, 0)
     local item, kind
     if component.snapshotLookup and not Projection.IsUnresolvedKey(row.refKey) then item, kind = component.snapshotLookup(row.refKey) end
     if Evidence then Evidence.AddTooltip(item, kind) end
-    if not item then GameTooltip:AddLine("No trusted community evidence is attached to this Echo.", 0.8, 0.8, 0.82, true) end
+    if not item then GameTooltip:AddLine(L["No trusted community evidence is attached to this Echo."], 0.8, 0.8, 0.82, true) end
     GameTooltip:Show()
 end
 
@@ -498,12 +500,12 @@ local function RowPriority_OnEnter(self)
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
     GameTooltip:ClearLines()
     if echo.importance == "Avoid" then
-        GameTooltip:AddLine("Avoid · policy only", 1, 0.82, 0)
-        GameTooltip:AddLine("Marks this Echo for the Never Pick policy and keeps its weight at 0. Pressing No resets it to Neutral +0 and removes the policy.", 1.00, 0.52, 0.36, true)
+        GameTooltip:AddLine(L["Avoid · policy only"], 1, 0.82, 0)
+        GameTooltip:AddLine(L["Marks this Echo for the Never Pick policy and keeps its weight at 0. Pressing No resets it to Neutral +0 and removes the policy."], 1.00, 0.52, 0.36, true)
     else
-        GameTooltip:AddLine("Priority weight", 1, 0.82, 0)
+        GameTooltip:AddLine(L["Priority weight"], 1, 0.82, 0)
         GameTooltip:AddLine((echo.importance or "Neutral") .. " applies " .. Draft.FormatWeight(weight) .. " weight while Use is Yes.", 0.82, 0.82, 0.86, true)
-        GameTooltip:AddLine("Positive priorities automatically enable the Echo. Choosing Neutral disables it.", 0.62, 0.72, 0.88, true)
+        GameTooltip:AddLine(L["Positive priorities automatically enable the Echo. Choosing Neutral disables it."], 0.62, 0.72, 0.88, true)
     end
     GameTooltip:Show()
 end
@@ -517,20 +519,20 @@ local function RowInclude_OnEnter(self)
     local weight = Draft.WeightFor(component.draft, echo.importance)
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
     GameTooltip:ClearLines()
-    GameTooltip:AddLine("Use this Echo", 1, 0.82, 0)
+    GameTooltip:AddLine(L["Use this Echo"], 1, 0.82, 0)
     if echo.importance == "Avoid" then
         if echo.included then
-            GameTooltip:AddLine("Click No to reset this Echo to Neutral +0 and remove its Never Pick policy.", 1.00, 0.52, 0.36, true)
+            GameTooltip:AddLine(L["Click No to reset this Echo to Neutral +0 and remove its Never Pick policy."], 1.00, 0.52, 0.36, true)
         else
-            GameTooltip:AddLine("Click Yes to include it while keeping Avoid as a policy-only 0-weight state.", 1.00, 0.52, 0.36, true)
+            GameTooltip:AddLine(L["Click Yes to include it while keeping Avoid as a policy-only 0-weight state."], 1.00, 0.52, 0.36, true)
         end
     elseif echo.included then
-        GameTooltip:AddLine("Active build weight: " .. Draft.FormatWeight(weight) .. ". Click No to remove it and reset priority to Neutral +0.", 0.82, 0.82, 0.86, true)
+        GameTooltip:AddLine(L["Active build weight: "] .. Draft.FormatWeight(weight) .. ". Click No to remove it and reset priority to Neutral +0.", 0.82, 0.82, 0.86, true)
     elseif weight == 0 then
         local defaultWeight = Draft.WeightFor(component.draft, Draft.DEFAULT_INCLUDED_IMPORTANCE)
-        GameTooltip:AddLine("Clicking Yes will include this Echo and automatically assign " .. Draft.DEFAULT_INCLUDED_IMPORTANCE .. " (" .. Draft.FormatWeight(defaultWeight) .. ").", 0.82, 0.82, 0.86, true)
+        GameTooltip:AddLine(L["Clicking Yes will include this Echo and automatically assign "] .. Draft.DEFAULT_INCLUDED_IMPORTANCE .. " (" .. Draft.FormatWeight(defaultWeight) .. ").", 0.82, 0.82, 0.86, true)
     else
-        GameTooltip:AddLine("Clicking Yes will reactivate its saved " .. Draft.FormatWeight(weight) .. " priority weight.", 0.82, 0.82, 0.86, true)
+        GameTooltip:AddLine(L["Clicking Yes will reactivate its saved "] .. Draft.FormatWeight(weight) .. " priority weight.", 0.82, 0.82, 0.86, true)
     end
     GameTooltip:Show()
 end
@@ -573,10 +575,10 @@ local function PopupImportance_OnEnter(self)
     local component = self.ownerComponent
     local weight = component and component.draft and Draft.WeightFor(component.draft, self.importanceKey) or 0
     if self.importanceKey == "Avoid" then
-        GameTooltip:AddLine("Policy only · Weight: 0", 1.00, 0.52, 0.36)
-        GameTooltip:AddLine("Applies Never Pick with weight 0. Pressing No later resets the Echo to Neutral +0 and removes that policy.", 0.82, 0.82, 0.86, true)
+        GameTooltip:AddLine(L["Policy only · Weight: 0"], 1.00, 0.52, 0.36)
+        GameTooltip:AddLine(L["Applies Never Pick with weight 0. Pressing No later resets the Echo to Neutral +0 and removes that policy."], 0.82, 0.82, 0.86, true)
     else
-        GameTooltip:AddLine("Weight: " .. Draft.FormatWeight(weight), 0.82, 0.82, 0.86)
+        GameTooltip:AddLine(L["Weight: "] .. Draft.FormatWeight(weight), 0.82, 0.82, 0.86)
     end
     GameTooltip:Show()
 end
@@ -674,7 +676,7 @@ local function CreatePriorityPopup(component)
 
     local heading = MakeText(popup, "GameFontNormalSmall")
     heading:SetPoint("TOPLEFT", popup, "TOPLEFT", 8, -8)
-    heading:SetText("Choose priority")
+    heading:SetText(L["Choose priority"])
     heading:SetPoint("RIGHT", popup, "RIGHT", -28, 0)
     local close = Theme.CreateButton(popup)
     close:SetSize(20, 18)
@@ -822,11 +824,11 @@ local function BindRow(component, row, key, poolIndex)
         row.icon:SetTexture(QUESTION_ICON)
         row.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
         row.name:SetText(unresolved and (unresolved.rawName or ("Spell " .. tostring(unresolved.rawSpellId or "?"))) or "Unresolved import")
-        row.meta:SetText("Unresolved import · " .. tostring(unresolved and unresolved.reason or "NO_CANONICAL_REFERENCE"))
-        row.evidenceText:SetText("Quarantined")
-        row.priority:SetText("N/A")
+        row.meta:SetText(L["Unresolved import · "] .. tostring(unresolved and unresolved.reason or "NO_CANONICAL_REFERENCE"))
+        row.evidenceText:SetText(L["Quarantined"])
+        row.priority:SetText(L["N/A"])
         row.priorityWeight:SetText("")
-        row.include:SetText("No")
+        row.include:SetText(L["No"])
         Theme.ClearButtonAccent(row.include)
     else
         local entry = Projection.GetEntry(component.model, component.draft, key)
@@ -896,7 +898,7 @@ local function EmptyAction_OnClick(self)
     if not component then return end
     if (component.viewState.outsideGroupMatches or 0) > 0 then
         component.viewState.searchAllGroups = true
-        component.scope:SetText("All groups")
+        component.scope:SetText(L["All groups"])
         component:Refresh(true)
     else
         SetView(component, { view = Projection.VIEW_GROUP, group = Grouping.GROUP_DAMAGE })
@@ -934,7 +936,7 @@ function PriorityStep.Create(parent, options)
         if def.section then
             sectionLabel = MakeText(rail, "GameFontDisableSmall", NAV_WIDTH - 16, "LEFT")
             sectionLabel:SetPoint("TOPLEFT", rail, "TOPLEFT", 8, y)
-            sectionLabel:SetText(def.section)
+            sectionLabel:SetText(L[def.section])
             sectionLabel:SetTextColor(0.55, 0.58, 0.66, 1)
             y = y - 18
         end
@@ -1000,19 +1002,19 @@ function PriorityStep.Create(parent, options)
     local scope = Theme.CreateButton(main)
     scope:SetSize(76, 24)
     scope:SetPoint("LEFT", search, "RIGHT", 6, 0)
-    scope:SetText("All groups")
+    scope:SetText(L["All groups"])
     scope.ownerComponent = component
     scope:SetScript("OnClick", Scope_OnClick)
-    Theme.AttachTooltip(scope, "Search scope", "Switch between the active view and every canonical function group.")
+    Theme.AttachTooltip(scope, L["Search scope"], L["Switch between the active view and every canonical function group."])
     component.scope = scope
 
     local sortLabel = MakeText(main, "GameFontNormalSmall", 44, "RIGHT")
     sortLabel:SetPoint("LEFT", scope, "RIGHT", 6, 0)
-    sortLabel:SetText("Sort by")
+    sortLabel:SetText(L["Sort by"])
     sortLabel:SetTextColor(unpack(Theme.ACCENT_GOLD))
     component.sortLabel = sortLabel
 
-    local sort = Theme.CreateDropdown(main, 124, "Recommendation")
+    local sort = Theme.CreateDropdown(main, 124, L["Recommendation"])
     sort:SetPoint("LEFT", sortLabel, "RIGHT", 4, 0)
     sort:SetMenuBuilder(function() return SortMenuBuilder(component) end)
     component.sort = sort
@@ -1023,7 +1025,7 @@ function PriorityStep.Create(parent, options)
     direction:SetText("v")
     direction.ownerComponent = component
     direction:SetScript("OnClick", Direction_OnClick)
-    Theme.AttachTooltip(direction, "Sort direction", "Reverse the active Echo sort direction.")
+    Theme.AttachTooltip(direction, L["Sort direction"], L["Reverse the active Echo sort direction."])
     component.direction = direction
 
     local count = MakeText(main, "GameFontDisableSmall", 215, "RIGHT")
@@ -1050,16 +1052,16 @@ function PriorityStep.Create(parent, options)
     Theme.ApplyPanel(header)
     local hEcho = MakeText(header, "GameFontNormalSmall")
     hEcho:SetPoint("LEFT", header, "LEFT", 8, 0)
-    hEcho:SetText("Echo")
+    hEcho:SetText(L["Echo"])
     local hEvidence = MakeText(header, "GameFontNormalSmall", EVIDENCE_WIDTH, "CENTER")
     hEvidence:SetPoint("RIGHT", header, "RIGHT", -149, 0)
-    hEvidence:SetText("Evidence")
+    hEvidence:SetText(L["Evidence"])
     local hPriority = MakeText(header, "GameFontNormalSmall", PRIORITY_WIDTH, "CENTER")
     hPriority:SetPoint("RIGHT", header, "RIGHT", -(INCLUDE_WIDTH + 11), 0)
-    hPriority:SetText("Priority")
+    hPriority:SetText(L["Priority"])
     local hEWL = MakeText(header, "GameFontNormalSmall", INCLUDE_WIDTH, "CENTER")
     hEWL:SetPoint("RIGHT", header, "RIGHT", -5, 0)
-    hEWL:SetText("Use")
+    hEWL:SetText(L["Use"])
 
     local viewport = CreateFrame("Frame", nil, main)
     viewport:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -3)
@@ -1078,14 +1080,14 @@ function PriorityStep.Create(parent, options)
     for index = 1, ROW_POOL do component.rows[index] = CreateRow(component, viewport) end
     Theme.BindSliderWheel(viewport, scrollBar, 1, unpack(component.rows))
 
-    local emptyState = Theme.CreateEmptyState(viewport, "No matching Echoes", "Change the group, subgroup, or search scope.")
+    local emptyState = Theme.CreateEmptyState(viewport, L["No matching Echoes"], L["Change the group, subgroup, or search scope."])
     emptyState:SetHeight(122)
     emptyState:Hide()
     component.emptyState = emptyState
     local emptyAction = Theme.CreateButton(emptyState, "gold")
     emptyAction:SetSize(150, 22)
     emptyAction:SetPoint("TOP", emptyState._body, "BOTTOM", 0, -8)
-    emptyAction:SetText("Browse Damage")
+    emptyAction:SetText(L["Browse Damage"])
     emptyAction.ownerComponent = component
     emptyAction:SetScript("OnClick", EmptyAction_OnClick)
     component.emptyAction = emptyAction
@@ -1118,7 +1120,7 @@ function PriorityStep:SetContext(draft, classToken, snapshotLookup)
         self.settingSearchText = true
         self.search:SetText("")
         self.settingSearchText = false
-        self.scope:SetText("All groups")
+        self.scope:SetText(L["All groups"])
     end
     UpdatePlaceholder(self)
 end
@@ -1174,24 +1176,24 @@ function PriorityStep:UpdateRows()
     end
 
     local counts = Projection.GetCounts(self.model) or {}
-    self.count:SetText(string.format("%d shown · %d included · %d diagnostics", #visible,
+    self.count:SetText(string.format(L["%d shown · %d included · %d diagnostics"], #visible,
         counts.included or 0, counts.diagnostics or 0))
 
     if #visible == 0 then
         local outside = tonumber(self.viewState.outsideGroupMatches) or 0
         if outside > 0 then
-            self.emptyState._title:SetText("Matches exist outside this group")
-            self.emptyState._body:SetText(string.format("%d matching Echo%s exist%s in other function groups.", outside,
+            self.emptyState._title:SetText(L["Matches exist outside this group"])
+            self.emptyState._body:SetText(string.format(L["%d matching Echo%s exist%s in other function groups."], outside,
                 outside == 1 and "" or "es", outside == 1 and "s" or ""))
-            self.emptyAction:SetText("Search all groups")
+            self.emptyAction:SetText(L["Search all groups"])
         elseif self.viewState.activeView == Projection.VIEW_RECOMMENDED and (self.viewState.searchText or "") == "" then
-            self.emptyState._title:SetText("No community suggestions")
-            self.emptyState._body:SetText("No stable recommendation set is stored. The complete class catalogue remains available by function group.")
-            self.emptyAction:SetText("Browse Damage")
+            self.emptyState._title:SetText(L["No community suggestions"])
+            self.emptyState._body:SetText(L["No stable recommendation set is stored. The complete class catalogue remains available by function group."])
+            self.emptyAction:SetText(L["Browse Damage"])
         else
-            self.emptyState._title:SetText("No matching Echoes")
-            self.emptyState._body:SetText("Change the search, subgroup, or navigation view.")
-            self.emptyAction:SetText("Browse Damage")
+            self.emptyState._title:SetText(L["No matching Echoes"])
+            self.emptyState._body:SetText(L["Change the search, subgroup, or navigation view."])
+            self.emptyAction:SetText(L["Browse Damage"])
         end
         self.emptyState:Show()
     else

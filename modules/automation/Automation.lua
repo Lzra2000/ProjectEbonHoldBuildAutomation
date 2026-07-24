@@ -249,7 +249,7 @@ local function ArmRequestFallback()
         if HasCurrentChoice() and ShouldSuppressNativeChoice() then
             ShowNativeChoiceFallback()
             if EbonBuilds.Toast and EbonBuilds.Toast.Show then
-                EbonBuilds.Toast.Show("Autopilot request is still pending -- native Echo controls restored")
+                EbonBuilds.Toast.Show(EbonBuilds.L["Autopilot request is still pending -- native Echo controls restored"])
             end
         end
     end, EbonBuilds.Scheduler.INTERACTIVE, true, "Automation")
@@ -283,7 +283,7 @@ local function StartEvalTimer(delayOverride)
             if wasActive and isTraining then
                 if not trainingNoticeShown then
                     trainingNoticeShown = true
-                    EbonBuilds.Toast.Show("Automation paused: Manual Training is ON for this build (its toggle on the build overview turns it off)")
+                    EbonBuilds.Toast.Show(EbonBuilds.L["Automation paused: Manual Training is ON for this build (its toggle on the build overview turns it off)"])
                 end
             elseif wasActive and lastNoActionReason then
                 EbonBuilds.Toast.Show(lastNoActionReason)

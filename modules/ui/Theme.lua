@@ -6,6 +6,8 @@ local addonName, EbonBuilds = ...
 
 EbonBuilds.Theme = {}
 
+
+local L = EbonBuilds.L
 local T = EbonBuilds.Theme
 local R = EbonBuilds.ThemeRegistry.Get()
 local FLAT = R.textures.flat
@@ -633,7 +635,7 @@ function T.CreateDropdown(parent, width, defaultText, opts)
             if not footerButton then
                 footerButton = T.CreateButton(menu)
                 footerButton:SetSize(48, 20)
-                footerButton:SetText("Done")
+                footerButton:SetText(L["Done"])
                 footerButton:SetScript("OnClick", function() CloseDropdownMenu(frame) end)
             end
             footerButton:ClearAllPoints()

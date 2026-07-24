@@ -15,6 +15,8 @@ local addonName, EbonBuilds = ...
 
 EbonBuilds.WorldIntegration = {}
 
+
+local L = EbonBuilds.L
 ------------------------------------------------------------------------
 -- (1) Player tooltip: "runs EbonBuilds"
 ------------------------------------------------------------------------
@@ -77,7 +79,7 @@ local function EnsureMapPanel()
     Theme.ApplyPanel(mapPanel)
     local title = mapPanel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     title:SetPoint("TOPLEFT", mapPanel, "TOPLEFT", 8, -6)
-    title:SetText("Tomes in this zone")
+    title:SetText(L["Tomes in this zone"])
     title:SetTextColor(unpack(Theme.ACCENT_GOLD))
     mapPanel.title = title
     Theme.AddHeaderRule(mapPanel, title, 224)
@@ -142,8 +144,8 @@ function EbonBuilds.WorldIntegration.BuildZoneTomeLines(zoneName, listByZone)
         for _, m in ipairs(t.mobs or {}) do
             if (m.count or 0) > topCount then topMob, topCount = m.mob, m.count or 0 end
         end
-        local extra = #(t.mobs or {}) > 1 and (" +%d"):format(#t.mobs - 1) or ""
-        lines[#lines + 1] = string.format("%s -- %s (%d)%s", t.name or ("Tome " .. tostring(t.itemId)), topMob, t.total or 0, extra)
+        local extra = #(t.mobs or {}) > 1 and (L[" +%d"]):format(#t.mobs - 1) or ""
+        lines[#lines + 1] = string.format(L["%s -- %s (%d)%s"], t.name or ("Tome " .. tostring(t.itemId)), topMob, t.total or 0, extra)
     end
     table.sort(lines)
     return lines
@@ -262,7 +264,7 @@ local function ShowContinentOverlays()
             legend = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
             legend:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -10, 10)
         end
-        legend:SetText("|cff888888Zone tinting disabled (Mapster changes map scaling)|r")
+        legend:SetText(L["|cff888888Zone tinting disabled (Mapster changes map scaling)|r"])
         legend:Show()
         return
     end
@@ -318,7 +320,7 @@ local function ShowContinentOverlays()
             legend = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
             legend:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -10, 10)
         end
-        legend:SetText("|cff" .. EbonBuilds.Theme.PRESENCE_TEAL_HEX .. "Colored zones:|r tome drops known (zoom in for the list)")
+        legend:SetText("|cff" .. EbonBuilds.Theme.PRESENCE_TEAL_HEX .. L["Colored zones:"] .. "|r " .. L["tome drops known (zoom in for the list)"])
         legend:Show()
     elseif legend then
         legend:Hide()
@@ -372,7 +374,7 @@ function RefreshMapPanel()
     end
     local shown = {}
     for i = 1, math.min(#lines, 12) do shown[i] = lines[i] end
-    if #lines > 12 then shown[#shown + 1] = ("... and %d more (Tome Atlas)"):format(#lines - 12) end
+    if #lines > 12 then shown[#shown + 1] = (L["... and %d more (Tome Atlas)"]):format(#lines - 12) end
     mapLines:SetText(table.concat(shown, "\n"))
     mapPanel:SetHeight(30 + #shown * 13)
     mapPanel:Show()
@@ -476,7 +478,7 @@ local function EnsureLegendPanel()
     Theme.ApplyPanel(legendPanel)
     local title = legendPanel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     title:SetPoint("TOPLEFT", legendPanel, "TOPLEFT", 8, -6)
-    title:SetText("Tome markers")
+    title:SetText(L["Tome markers"])
     title:SetTextColor(unpack(Theme.ACCENT_GOLD))
     Theme.AddHeaderRule(legendPanel, title, 180)
     legendPanel:Hide()

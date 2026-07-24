@@ -10,6 +10,8 @@ local addonName, EbonBuilds = ...
 
 EbonBuilds.LoginPanel = {}
 
+
+local L = EbonBuilds.L
 local panel
 local shownThisSession = false
 
@@ -71,7 +73,7 @@ local function BuildPanel()
 
     local title = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
     title:SetPoint("LEFT", icon, "RIGHT", 8, 0)
-    title:SetText("EbonBuilds " .. AddonVersion())
+    title:SetText(L["EbonBuilds "] .. AddonVersion())
     Theme.AddHeaderRule(panel, title, 420)
 
     local whatsNewTeaser = panel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
@@ -81,7 +83,7 @@ local function BuildPanel()
     local newestPage = EbonBuilds.FAQContent and EbonBuilds.FAQContent.PAGES and EbonBuilds.FAQContent.PAGES[1]
     local newestHeadline = newestPage and newestPage.title and newestPage.title:match("^What's new: (.*)$")
     if newestHeadline then
-        whatsNewTeaser:SetText("Latest: " .. newestHeadline)
+        whatsNewTeaser:SetText(L["Latest: "] .. newestHeadline)
     else
         whatsNewTeaser:SetText("")
     end
@@ -90,24 +92,24 @@ local function BuildPanel()
     intro:SetPoint("TOPLEFT", whatsNewTeaser, "BOTTOMLEFT", 0, -10)
     intro:SetWidth(420)
     intro:SetJustifyH("LEFT")
-    intro:SetText("Echo automation for ProjectEbonhold. Your builds, weights, and automation settings are exactly where you left them.")
+    intro:SetText(L["Echo automation for ProjectEbonhold. Your builds, weights, and automation settings are exactly where you left them."])
 
     -- Consent block: only built into view when the question is open.
     local consentHeader = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     consentHeader:SetPoint("TOPLEFT", intro, "BOTTOMLEFT", 0, -14)
-    consentHeader:SetText("DPS tracking and community sharing")
+    consentHeader:SetText(L["DPS tracking and community sharing"])
     consentHeader:SetTextColor(unpack(Theme.ACCENT_GOLD))
 
     local consentText = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     consentText:SetPoint("TOPLEFT", consentHeader, "BOTTOMLEFT", 0, -4)
     consentText:SetWidth(400)
     consentText:SetJustifyH("LEFT")
-    consentText:SetText("With your OK, EbonBuilds tracks your DPS per Echo (via Details!, if installed) to power the Tuning Advisor, and shares those aggregates with other EbonBuilds players of your class. This is off until you decide -- and one checkbox in Settings, either way, if you change your mind later.")
+    consentText:SetText(L["With your OK, EbonBuilds tracks your DPS per Echo (via Details!, if installed) to power the Tuning Advisor, and shares those aggregates with other EbonBuilds players of your class. This is off until you decide -- and one checkbox in Settings, either way, if you change your mind later."])
 
     local acceptBtn = Theme.CreateButton(panel)
     acceptBtn:SetSize(180, 24)
     acceptBtn:SetPoint("TOPLEFT", consentText, "BOTTOMLEFT", 0, -8)
-    acceptBtn:SetText("Enable tracking & sharing")
+    acceptBtn:SetText(L["Enable tracking & sharing"])
     acceptBtn:SetScript("OnClick", function()
         if EbonBuilds.EchoPerformance.IsDetailsAvailable
             and not EbonBuilds.EchoPerformance.IsDetailsAvailable() then
@@ -122,7 +124,7 @@ local function BuildPanel()
     local declineBtn = Theme.CreateButton(panel)
     declineBtn:SetSize(120, 24)
     declineBtn:SetPoint("LEFT", acceptBtn, "RIGHT", 8, 0)
-    declineBtn:SetText("Keep it off")
+    declineBtn:SetText(L["Keep it off"])
     declineBtn:SetScript("OnClick", function()
         EbonBuilds.EchoPerformance.SetEnabled(false)
         EbonBuilds.LoginPanel._RefreshConsentBlock()
@@ -140,8 +142,8 @@ local function BuildPanel()
             declineBtn:Hide()
             local on = EbonBuilds.EchoPerformance.IsEnabled()
             consentDone:SetText(on
-                and "Tracking and sharing are ON. Change it any time in Settings."
-                or "Tracking and sharing stay OFF. Enable them any time in Settings.")
+                and L["Tracking and sharing are ON. Change it any time in Settings."]
+                or L["Tracking and sharing stay OFF. Enable them any time in Settings."])
             consentDone:SetTextColor(unpack(Theme.TEXT_MUTED))
             consentDone:Show()
         else
@@ -156,7 +158,7 @@ local function BuildPanel()
     local whatsNewBtn = Theme.CreateButton(panel)
     whatsNewBtn:SetSize(120, 24)
     whatsNewBtn:SetPoint("BOTTOMLEFT", panel, "BOTTOMLEFT", 20, 16)
-    whatsNewBtn:SetText("What's new")
+    whatsNewBtn:SetText(L["What's new"])
     whatsNewBtn:SetScript("OnClick", function()
         if EbonBuilds.FAQ and EbonBuilds.FAQ.Show then EbonBuilds.FAQ.Show() end
     end)
@@ -164,7 +166,7 @@ local function BuildPanel()
     local guideBtn = Theme.CreateButton(panel)
     guideBtn:SetSize(130, 24)
     guideBtn:SetPoint("LEFT", whatsNewBtn, "RIGHT", 8, 0)
-    guideBtn:SetText("Getting started")
+    guideBtn:SetText(L["Getting started"])
     guideBtn:SetScript("OnClick", function()
         if EbonBuilds.ShowcaseView and EbonBuilds.ShowcaseView.Show then EbonBuilds.ShowcaseView.Show() end
     end)
@@ -172,7 +174,7 @@ local function BuildPanel()
     local closeBtn = Theme.CreateButton(panel)
     closeBtn:SetSize(90, 24)
     closeBtn:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -20, 16)
-    closeBtn:SetText("Close")
+    closeBtn:SetText(L["Close"])
     closeBtn:SetScript("OnClick", function()
         EbonBuilds.LoginPanel.MarkSeen()
         panel:Hide()

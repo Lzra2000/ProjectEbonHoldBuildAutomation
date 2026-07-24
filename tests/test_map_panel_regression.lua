@@ -23,6 +23,16 @@ local function findAssign(src, name)
     return src:find("function " .. name .. "%(")
 end
 
+-- WorldIntegration captures EbonBuilds.L at load time (i18n PR #109).
+local function stubLocale(addon)
+    addon.L = setmetatable({}, {
+        __index = function(_, key)
+            return key
+        end,
+    })
+    return addon
+end
+
 ------------------------------------------------------------------------
 -- Source contracts: forward declarations (architecture + v3.84 fix)
 ------------------------------------------------------------------------
@@ -63,7 +73,7 @@ end
 -- Nil / guard helpers on pure paths (no client frames required)
 ------------------------------------------------------------------------
 do
-    local addon = {}
+    local addon = stubLocale({})
     H.load_addon("modules/ui/WorldIntegration.lua", addon)
     local WI = addon.WorldIntegration
 
@@ -150,7 +160,7 @@ do
     EbonBuildsDB = { globalSettings = { tomeAtlasMapEnabled = true } }
     EbonBuildsCharDB = { mapZonePanelEnabled = true }
 
-    local addon = {
+    local addon = stubLocale({
         Theme = {
             ACCENT_GOLD = { 1, 0.8, 0 },
             TEXT_PRIMARY = { 1, 1, 1 },
@@ -190,7 +200,7 @@ do
         },
         Debug = { RegisterTest = function() end },
         WoWEvents = H.wow_events_stub(),
-    }
+    })
 
     H.load_addon("modules/ui/WorldIntegration.lua", addon)
     local WI = addon.WorldIntegration

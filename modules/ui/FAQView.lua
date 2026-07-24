@@ -8,6 +8,8 @@ local addonName, EbonBuilds = ...
 
 EbonBuilds.FAQ = {}
 
+
+local L = EbonBuilds.L
 local GOLD = "|cffffd100"
 local R = "|r"
 
@@ -63,7 +65,7 @@ local function RenderPage()
     else
         scrollFrame:SetVerticalScroll(0)
     end
-    pageLabel:SetText(("Page %d / %d"):format(page, #PAGES))
+    pageLabel:SetText((L["Page %d / %d"]):format(page, #PAGES))
     if page <= 1 then prevBtn:Disable() else prevBtn:Enable() end
     if page >= #PAGES then nextBtn:Disable() else nextBtn:Enable() end
 end
@@ -83,7 +85,7 @@ local function BuildWindow()
 
     local header = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     header:SetPoint("TOP", f, "TOP", 0, -12)
-    header:SetText("EbonBuilds " .. (EbonBuilds.VERSION or "") .. " - FAQ & What's New")
+    header:SetText(L["EbonBuilds "] .. (EbonBuilds.VERSION or "") .. " - FAQ & What's New")
 
     local drag = CreateFrame("Frame", nil, f)
     if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
@@ -104,7 +106,7 @@ local function BuildWindow()
     -- dozens of times. This jumps straight to a category's first page.
     local jumpLabel = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     jumpLabel:SetPoint("TOPLEFT", f, "TOPLEFT", 22, -38)
-    jumpLabel:SetText("Jump to:")
+    jumpLabel:SetText(L["Jump to:"])
     jumpLabel:SetTextColor(unpack(EbonBuilds.Theme.ACCENT_GOLD))
 
     categoryDropdown = EbonBuilds.Theme.CreateDropdown(f, 260, CATEGORIES[1] or "Topics")
@@ -161,7 +163,7 @@ local function BuildWindow()
     prevBtn = EbonBuilds.Theme.CreateButton(f)
     prevBtn:SetSize(90, 22)
     prevBtn:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 16, 12)
-    prevBtn:SetText("< Prev")
+    prevBtn:SetText(L["< Prev"])
     prevBtn:SetScript("OnClick", function()
         if page > 1 then page = page - 1; RenderPage() end
     end)
@@ -169,7 +171,7 @@ local function BuildWindow()
     nextBtn = EbonBuilds.Theme.CreateButton(f)
     nextBtn:SetSize(90, 22)
     nextBtn:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -16, 12)
-    nextBtn:SetText("Next >")
+    nextBtn:SetText(L["Next >"])
     nextBtn:SetScript("OnClick", function()
         if page < #PAGES then page = page + 1; RenderPage() end
     end)

@@ -65,7 +65,7 @@ The [.github/PULL_REQUEST_TEMPLATE.md](.github/PULL_REQUEST_TEMPLATE.md) has the
 
 ## Adding a translation
 
-UI strings use `EbonBuilds.L["English string"]` (`modules/i18n/Locale.lua`). Currently wired in `modules/ui/BuildTabs.lua` and `modules/ui/MainWindow.lua`.
+UI strings go through `EbonBuilds.L["English string"]`, a lookup table that falls back to English for anything untranslated -- see `modules/i18n/Locale.lua` and `docs/localization.md`. The full UI under `modules/ui/` (plus related Toast messages) is wired through it; when you add user-visible copy, route it via `L["..."]` and fill every locale file.
 
 **New language:**
 
@@ -79,7 +79,7 @@ Game terms (Echo, Build, Banish/Reroll/Freeze/Select, Autopilot) stay in English
 
 ## Code of conduct
 
-Be direct and constructive. Harassment and bad-faith behavior are not welcome — see [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md).
+**Extending an existing language, or adding a new `EbonBuilds.L[...]` call site:** `tests/test_i18n.lua` (run via `scripts/check.sh`) fails when any locale file is missing a key that the addon actually looks up -- run it after adding a new string to see what needs filling in across all six languages at once.
 
 ## License note
 

@@ -5,6 +5,8 @@ local addonName, EbonBuilds = ...
 
 EbonBuilds.MinimapButton = {}
 
+
+local L = EbonBuilds.L
 local BUTTON_NAME   = "EbonBuildsMinimapButton"
 local RADIUS        = 80
 
@@ -66,8 +68,8 @@ end
 local function AttachTooltip(button)
     button:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-        GameTooltip:AddLine("EbonBuilds")
-        GameTooltip:AddLine("Click to open configuration", 1, 1, 1)
+        GameTooltip:AddLine(L["EbonBuilds"])
+        GameTooltip:AddLine(L["Click to open configuration"], 1, 1, 1)
         GameTooltip:Show()
     end)
     button:SetScript("OnLeave", function()

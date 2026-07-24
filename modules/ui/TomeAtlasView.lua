@@ -7,6 +7,8 @@ local addonName, EbonBuilds = ...
 
 EbonBuilds.TomeAtlasView = {}
 
+
+local L = EbonBuilds.L
 local ROW_HEIGHT   = 34
 local VISIBLE_ROWS = 10
 
@@ -109,12 +111,12 @@ local function SourceText(sources)
     local parts = {}
     for i = 1, math.min(3, #sources) do
         local s = sources[i]
-        parts[#parts + 1] = string.format("%s |cff888888-|r %s |cffffd100(x%d)|r",
+        parts[#parts + 1] = string.format(L["%s |cff888888-|r %s |cffffd100(x%d)|r"],
             s.mob or "?", s.zone or "?", s.count or 1)
     end
     local txt = table.concat(parts, "|cff888888  |  |r")
     if #sources > 3 then
-        txt = txt .. string.format(" |cff888888(+%d more)|r", #sources - 3)
+        txt = txt .. string.format(L[" |cff888888(+%d more)|r"], #sources - 3)
     end
     return txt
 end
@@ -193,11 +195,11 @@ local function TopTomesText(sortedRows)
     local parts = {}
     for i = 1, math.min(3, #sortedRows) do
         local r = sortedRows[i]
-        parts[#parts + 1] = string.format("%s |cffffd100(%s)|r", r.left, r.right)
+        parts[#parts + 1] = string.format(L["%s |cffffd100(%s)|r"], r.left, r.right)
     end
     local txt = table.concat(parts, "|cff888888  |  |r")
     if #sortedRows > 3 then
-        txt = txt .. string.format(" |cff888888(+%d more)|r", #sortedRows - 3)
+        txt = txt .. string.format(L[" |cff888888(+%d more)|r"], #sortedRows - 3)
     end
     return txt
 end
@@ -229,7 +231,7 @@ local function BuildZoneItems()
                     lineText = TopTomesText(tRows),
                     confidence = "Community",
                     confidenceKind = "warning",
-                    tooltipStatus = string.format("%d tome(s) known here", #tRows),
+                    tooltipStatus = string.format(L["%d tome(s) known here"], #tRows),
                     tooltipHeader = "|cffffd100Tomes findable here:|r",
                     tooltipRows = tRows,
                 }
@@ -263,11 +265,11 @@ local function BuildMobItems()
                 table.sort(tRows, function(a, b) return a.sortKey > b.sortKey end)
                 out[#out + 1] = {
                     kind = "mob",
-                    title = string.format("%s  |cff888888(%s)|r", m.mob, m.zone or "?"),
+                    title = string.format(L["%s  |cff888888(%s)|r"], m.mob, m.zone or "?"),
                     lineText = TopTomesText(tRows),
                     confidence = "Community",
                     confidenceKind = "warning",
-                    tooltipStatus = string.format("%d tome(s) known from this mob", #tRows),
+                    tooltipStatus = string.format(L["%d tome(s) known from this mob"], #tRows),
                     tooltipHeader = "|cffffd100Tomes:|r",
                     tooltipRows = tRows,
                 }
@@ -416,7 +418,7 @@ local function ZoneSummaryText()
     end)
     local parts = {}
     for i = 1, math.min(3, #ranked) do
-        parts[#parts + 1] = string.format("%s |cffffd100(%d)|r", ranked[i].z, ranked[i].n)
+        parts[#parts + 1] = string.format(L["%s |cffffd100(%d)|r"], ranked[i].z, ranked[i].n)
     end
     return "|cff1eff00Best known coverage:|r " .. table.concat(parts, "|cff888888,|r ")
 end
@@ -439,9 +441,9 @@ Render = function()
                 if item.owned then
                     row._name:SetTextColor(0.55, 0.55, 0.55, 1)
                     if item.tomeDisabled then
-                        row._owned:SetText("|cffff8040(pool off)|r")
+                        row._owned:SetText(L["|cffff8040(pool off)|r"])
                     else
-                        row._owned:SetText("|cff1eff00(collected)|r")
+                        row._owned:SetText(L["|cff1eff00(collected)|r"])
                     end
                 else
                     row._name:SetTextColor(1, 0.82, 0, 1)
@@ -470,18 +472,18 @@ Render = function()
 
     local total = #EbonBuilds.TomeAtlas.List()
     if state.groupBy == "zone" then
-        countLabel:SetText(string.format("%d zone(s) shown", #filtered))
+        countLabel:SetText(string.format(L["%d zone(s) shown"], #filtered))
     elseif state.groupBy == "mob" then
-        countLabel:SetText(string.format("%d mob(s) shown", #filtered))
+        countLabel:SetText(string.format(L["%d mob(s) shown"], #filtered))
     else
-        countLabel:SetText(string.format("%d shown / %d known", #filtered, total))
+        countLabel:SetText(string.format(L["%d shown / %d known"], #filtered, total))
     end
 
     if #filtered == 0 then
         if total == 0 then
-            emptyText:SetText("No community drop data yet.\n\nTomes you loot are recorded automatically (mob + zone)\nand shared with other EbonBuilds users. Data from other\nplayers arrives when anyone syncs (Public Builds > Reload).")
+            emptyText:SetText(L["No community drop data yet.\n\nTomes you loot are recorded automatically (mob + zone)\nand shared with other EbonBuilds users. Data from other\nplayers arrives when anyone syncs (Public Builds > Reload)."])
         else
-            emptyText:SetText("Nothing matches your filter.")
+            emptyText:SetText(L["Nothing matches your filter."])
         end
         emptyText:Show()
     else
@@ -499,8 +501,7 @@ local function BuildViewFrame(parent)
 
     EbonBuilds.Theme.CreatePageHeader(
         f,
-        "Tome Atlas",
-        "Find missing tomes, compare farming locations, and judge source confidence at a glance."
+        L["Tome Atlas"], L["Find missing tomes, compare farming locations, and judge source confidence at a glance."]
     )
 
     zoneSummary = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -569,14 +570,14 @@ local function BuildViewFrame(parent)
     syncBtn = EbonBuilds.Theme.CreateButton(f)
     syncBtn:SetSize(70, 20)
     syncBtn:SetPoint("TOPRIGHT", controlsRow, "TOPRIGHT", 0, 0)
-    syncBtn:SetText("Sync")
+    syncBtn:SetText(L["Sync"])
     syncBtn:SetScript("OnClick", function()
         EbonBuilds.Sync.RequestSync()
     end)
     syncBtn:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:AddLine("Sync Tome Atlas", 1, 1, 1)
-        GameTooltip:AddLine("Requests drop data from other online EbonBuilds users.", 0.8, 0.8, 0.8, true)
+        GameTooltip:AddLine(L["Sync Tome Atlas"], 1, 1, 1)
+        GameTooltip:AddLine(L["Requests drop data from other online EbonBuilds users."], 0.8, 0.8, 0.8, true)
         GameTooltip:Show()
     end)
     syncBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -592,7 +593,7 @@ local function BuildViewFrame(parent)
                 self:SetText(remaining .. "s")
             else
                 self:Enable()
-                self:SetText("Sync")
+                self:SetText(L["Sync"])
             end
         end
     end)
@@ -600,7 +601,7 @@ local function BuildViewFrame(parent)
     filterBtn = EbonBuilds.Theme.CreateButton(f)
     filterBtn:SetSize(130, 20)
     filterBtn:SetPoint("RIGHT", syncBtn, "LEFT", -8, 0)
-    filterBtn:SetText("Show: All")
+    filterBtn:SetText(L["Show: All"])
     filterBtn:SetScript("OnClick", function(self)
         state.missingOnly = not state.missingOnly
         self:SetText(state.missingOnly and "Show: Missing only" or "Show: All")
@@ -629,10 +630,10 @@ local function BuildViewFrame(parent)
     groupByBtn:SetText(GROUP_LABELS[state.groupBy])
     groupByBtn:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:AddLine("Group Tome Atlas by", 1, 1, 1)
-        GameTooltip:AddLine("Tome: one row per tome, its known drop sources.", 0.8, 0.8, 0.8, true)
-        GameTooltip:AddLine("Zone: one row per zone, tomes findable there.", 0.8, 0.8, 0.8, true)
-        GameTooltip:AddLine("Mob: one row per mob, tomes it drops.", 0.8, 0.8, 0.8, true)
+        GameTooltip:AddLine(L["Group Tome Atlas by"], 1, 1, 1)
+        GameTooltip:AddLine(L["Tome: one row per tome, its known drop sources."], 0.8, 0.8, 0.8, true)
+        GameTooltip:AddLine(L["Zone: one row per zone, tomes findable there."], 0.8, 0.8, 0.8, true)
+        GameTooltip:AddLine(L["Mob: one row per mob, tomes it drops."], 0.8, 0.8, 0.8, true)
         GameTooltip:Show()
     end)
     groupByBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -652,7 +653,7 @@ local function BuildViewFrame(parent)
     local zoneBtn = EbonBuilds.Theme.CreateButton(f)
     zoneBtn:SetSize(150, 20)
     zoneBtn:SetPoint("LEFT", groupByBtn, "RIGHT", 8, 0)
-    zoneBtn:SetText("All Zones \226\150\188") -- trailing dropdown-arrow glyph
+    zoneBtn:SetText(L["All Zones"] .. " \226\150\188") -- trailing dropdown-arrow glyph
 
     local picker = CreateFrame("Frame", "EbonBuildsTomeAtlasZonePicker", f)
     zonePicker = picker

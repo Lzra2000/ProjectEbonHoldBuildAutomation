@@ -404,6 +404,11 @@ do
     EbonBuildsCharDB = { mapZonePanelEnabled = true }
 
     local addon = {
+        L = setmetatable({}, {
+            __index = function(_, key)
+                return key
+            end,
+        }),
         Theme = {
             ACCENT_GOLD = { 1, 0.8, 0 }, TEXT_PRIMARY = { 1, 1, 1 },
             PRESENCE_TEAL = { 0, 1, 1 }, PRESENCE_TEAL_HEX = "00ffff",

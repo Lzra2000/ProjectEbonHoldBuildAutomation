@@ -7,6 +7,8 @@ local addonName, EbonBuilds = ...
 
 EbonBuilds.BuildList = {}
 
+
+local L = EbonBuilds.L
 local ROW_HEIGHT    = 70
 local CARD_MARGIN   = 4
 local CLASS_COORDS  = CLASS_ICON_TCOORDS
@@ -338,7 +340,7 @@ local function CreateSearch(parent, anchor)
 
     local placeholder = wrap:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     placeholder:SetPoint("LEFT", edit, "LEFT", 0, 0)
-    placeholder:SetText("Search builds...")
+    placeholder:SetText(L["Search builds..."])
     placeholder:SetTextColor(unpack(EbonBuilds.Theme.TEXT_MUTED))
 
     local clear = CreateFrame("Button", nil, wrap)
@@ -389,14 +391,14 @@ function EbonBuilds.BuildList.Init(parent)
     newBtn:SetHeight(27)
     newBtn:SetPoint("TOPLEFT", myBuilds, "BOTTOMLEFT", -2, -6)
     newBtn:SetPoint("RIGHT", parent, "RIGHT", -91, 0)
-    newBtn:SetText("+ New Build")
+    newBtn:SetText(L["+ New Build"])
     newBtn:SetScript("OnClick", function() EbonBuilds.ViewRouter.Show("buildWizard") end)
 
     local importBtn = EbonBuilds.Theme.CreateButton(parent)
     importBtn:SetSize(78, 27)
     importBtn:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -8, 0)
     importBtn:SetPoint("TOP", newBtn, "TOP", 0, 0)
-    importBtn:SetText("Import")
+    importBtn:SetText(L["Import"])
     importBtn:SetScript("OnClick", function() EbonBuilds.ExportImport.ShowImportDialog() end)
 
     local search = CreateSearch(parent, newBtn)
@@ -404,7 +406,7 @@ function EbonBuilds.BuildList.Init(parent)
     resultLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     resultLabel:SetPoint("TOPLEFT", search, "BOTTOMLEFT", 2, -5)
     resultLabel:SetTextColor(unpack(EbonBuilds.Theme.TEXT_MUTED))
-    resultLabel:SetText("0 builds")
+    resultLabel:SetText(L["0 builds"])
 
     scrollFrame = CreateFrame("ScrollFrame", "EbonBuildsBuildListSF", parent)
     scrollFrame:SetPoint("TOPLEFT", resultLabel, "BOTTOMLEFT", -2, -5)
@@ -424,7 +426,7 @@ function EbonBuilds.BuildList.Init(parent)
 
     EbonBuilds.Theme.BindSliderWheel(scrollFrame, scrollBar, 42, scrollChild)
 
-    emptyState = EbonBuilds.Theme.CreateEmptyState(scrollFrame, "No builds yet", "Create or import a build to begin.")
+    emptyState = EbonBuilds.Theme.CreateEmptyState(scrollFrame, L["No builds yet"], L["Create or import a build to begin."])
     emptyState:SetSize(190, 92)
 
     SyncWidth = function()

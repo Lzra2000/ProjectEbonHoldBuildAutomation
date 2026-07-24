@@ -420,8 +420,8 @@ do
     local required = {
         "local function MaxTotalScore(entry)",
         "EbonBuilds.Scoring.ScorePerQuality(entry, weight, settings, quality)",
-        'row.statusLabel:SetText(string.format("Max %d", maxScore))',
-        'row.statusLabel:SetText(string.format("Protected · Max %d", maxScore))',
+        'row.statusLabel:SetText(string.format(L["Max %d"], maxScore))',
+        'row.statusLabel:SetText(string.format(L["Protected · Max %d"], maxScore))',
     }
     for _, fragment in ipairs(required) do
         if not source:find(fragment, 1, true) then

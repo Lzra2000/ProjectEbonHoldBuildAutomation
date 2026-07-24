@@ -10,6 +10,8 @@ local addonName, EbonBuilds = ...
 
 EbonBuilds.ShowcaseView = {}
 
+
+local L = EbonBuilds.L
 local frame
 
 local SECTIONS = {
@@ -74,7 +76,7 @@ local function BuildWindow()
 
     local title = f:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     title:SetPoint("TOP", f, "TOP", 0, -12)
-    title:SetText("Welcome to EbonBuilds")
+    title:SetText(L["Welcome to EbonBuilds"])
 
     local drag = CreateFrame("Frame", nil, f)
     if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
@@ -94,7 +96,7 @@ local function BuildWindow()
     subtitle:SetPoint("TOPLEFT", f, "TOPLEFT", 16, -38)
     subtitle:SetWidth(528)
     subtitle:SetJustifyH("LEFT")
-    subtitle:SetText("EbonBuilds automates echo picks (Banish/Reroll/Freeze/Select) based on a build you define, and helps tune itself over time. Every command below starts with /ebb. This popup only shows once -- reopen it anytime with /ebb showcase.")
+    subtitle:SetText(L["EbonBuilds automates echo picks (Banish/Reroll/Freeze/Select) based on a build you define, and helps tune itself over time. Every command below starts with /ebb. This popup only shows once -- reopen it anytime with /ebb showcase."])
 
     local scroll = CreateFrame("ScrollFrame", nil, f)
     scroll:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", -4, -14)
@@ -125,9 +127,9 @@ local function BuildWindow()
     smf:EnableMouse(false)
     for i, section in ipairs(SECTIONS) do
         if i > 1 then smf:AddMessage(" ") end
-        smf:AddMessage(section.title)
+        smf:AddMessage(L[section.title])
         for _, line in ipairs(section.lines) do
-            smf:AddMessage(line)
+            smf:AddMessage(line ~= " " and L[line] or line)
         end
     end
 
@@ -141,9 +143,9 @@ local function BuildWindow()
     local fullText = {}
     for i, section in ipairs(SECTIONS) do
         if i > 1 then fullText[#fullText + 1] = " " end
-        fullText[#fullText + 1] = section.title
+        fullText[#fullText + 1] = L[section.title]
         for _, line in ipairs(section.lines) do
-            fullText[#fullText + 1] = line
+            fullText[#fullText + 1] = (line ~= " " and L[line] or line)
         end
     end
     measure:SetText(table.concat(fullText, "\n"))
@@ -160,7 +162,7 @@ local function BuildWindow()
     local gotItBtn = EbonBuilds.Theme.CreateButton(f)
     gotItBtn:SetSize(100, 22)
     gotItBtn:SetPoint("BOTTOM", f, "BOTTOM", 0, 14)
-    gotItBtn:SetText("Got it")
+    gotItBtn:SetText(L["Got it"])
     gotItBtn:SetScript("OnClick", function() f:Hide() end)
 
     tinsert(UISpecialFrames, "EbonBuildsShowcaseWindow")
