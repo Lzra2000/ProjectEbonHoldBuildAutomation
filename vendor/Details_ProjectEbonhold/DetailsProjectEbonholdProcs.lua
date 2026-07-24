@@ -389,9 +389,13 @@ end
 
 local CUSTOM_NAME = "PE Proc Sources"
 -- Bump so Details InstallCustomObject replaces older scripts / tooltip copy.
-local CUSTOM_VERSION = 7
+local CUSTOM_VERSION = 8
 -- Soft minimum height so more proc rows are visible without scrolling immediately.
 local CUSTOM_MIN_HEIGHT = 260
+-- Native Player Details right-side detail blocks (Details spellInfoSettings.amount).
+local RIGHT_DETAIL_SLOTS = 6
+-- Offset when docking Breakdown beside the PE Proc Sources / Details instance.
+local BREAKDOWN_DOCK_PAD_X = 12
 
 local function EnsureReadableInstance(instance)
     if type(instance) ~= "table" then
@@ -437,40 +441,106 @@ local function HideLegacyCustomBreakdown()
     end
 end
 
-local function EnsurePlayerDetailsWindow(details)
-    local info = details and details.janela_info
-    if type(info) ~= "table" then
-        info = _G.DetailsPlayerDetailsWindow
+local function ResolveDetails(details)
+    if type(details) == "table" then
+        return details
     end
+    if PE.GetDetails then
+        details = PE.GetDetails()
+        if type(details) == "table" then
+            return details
+        end
+    end
+    return _G._detalhes or _G.Details
+end
+
+local function ResolveGump(details)
+    details = ResolveDetails(details)
+    if type(details) == "table" and type(details.gump) == "table" then
+        return details.gump, details
+    end
+    local fallback = _G._detalhes or _G.Details
+    if type(fallback) == "table" and type(fallback.gump) == "table" then
+        return fallback.gump, fallback
+    end
+    return nil, details
+end
+
+-- Details builds Player Details! during startup; Custom Display can be clicked
+-- before that finishes. Create (or finish) the frame here so first PE click
+-- never depends on opening a DPS bar first.
+local function EnsurePlayerDetailsWindow(details)
+    details = ResolveDetails(details)
+    local info = (type(details) == "table" and details.janela_info) or _G.DetailsPlayerDetailsWindow
     if type(info) ~= "table" then
         return nil
     end
+
     if not info.Loaded then
-        local gump = details and details.gump
+        local gump, owner = ResolveGump(details)
         if type(gump) == "table" and type(gump.CriaJanelaInfo) == "function" then
             pcall(gump.CriaJanelaInfo, gump)
-            info = details.janela_info or _G.DetailsPlayerDetailsWindow
+            if type(owner) == "table" then
+                details = owner
+            end
         end
+        info = (type(details) == "table" and details.janela_info) or _G.DetailsPlayerDetailsWindow
     end
-    if type(info) == "table" and info.Loaded then
-        return info
+
+    if type(info) ~= "table" or not info.Loaded then
+        return nil
     end
-    return nil
+
+    -- Keep Details' pointer in sync (startup can briefly leave janela_info nil).
+    if type(details) == "table" then
+        details.janela_info = info
+    end
+    local root = _G._detalhes or _G.Details
+    if type(root) == "table" then
+        root.janela_info = info
+    end
+
+    if type(info.barras1) ~= "table" then
+        info.barras1 = {}
+    end
+    if type(info.barras2) ~= "table" then
+        info.barras2 = {}
+    end
+    if type(info.barras3) ~= "table" then
+        info.barras3 = {}
+    end
+    if type(info.grupos_detalhes) ~= "table" then
+        info.grupos_detalhes = {}
+    end
+
+    if type(details) == "table" and type(details.ApplyPDWSkin) == "function" then
+        pcall(details.ApplyPDWSkin, details)
+    end
+
+    return info
 end
+
+Procs.EnsurePlayerDetailsWindow = EnsurePlayerDetailsWindow
+
+local function PrewarmPlayerDetailsWindow()
+    local info = EnsurePlayerDetailsWindow(PE.GetDetails and PE.GetDetails())
+    return info ~= nil
+end
+
+Procs.PrewarmPlayerDetailsWindow = PrewarmPlayerDetailsWindow
 
 local function HidePlayerDetailsTabs(details, info)
     local tabs = details and details.player_details_tabs
-    if type(tabs) ~= "table" then
-        return
-    end
-    for i = 1, #tabs do
-        local tab = tabs[i]
-        if type(tab) == "table" then
-            if tab.Hide then
-                tab:Hide()
-            end
-            if type(tab.frame) == "table" and tab.frame.Hide then
-                tab.frame:Hide()
+    if type(tabs) == "table" then
+        for i = 1, #tabs do
+            local tab = tabs[i]
+            if type(tab) == "table" then
+                if tab.Hide then
+                    tab:Hide()
+                end
+                if type(tab.frame) == "table" and tab.frame.Hide then
+                    tab.frame:Hide()
+                end
             end
         end
     end
@@ -478,6 +548,40 @@ local function HidePlayerDetailsTabs(details, info)
         and info.SummaryWindowWidgets.Show then
         info.SummaryWindowWidgets:Show()
     end
+end
+
+-- Hide empty right-side panels so PE breakdown does not leave a black void
+-- where stock DPS would fill Normal/Crit/etc. hit blocks.
+local function SyncRightBackgroundVisibility(info, usedCount)
+    if type(info) ~= "table" then
+        return
+    end
+    usedCount = tonumber(usedCount) or 0
+    for i = 1, RIGHT_DETAIL_SLOTS do
+        local bg = info["right_background" .. i]
+        if type(bg) == "table" then
+            if i <= usedCount then
+                if bg.Show then bg:Show() end
+            elseif bg.Hide then
+                bg:Hide()
+            end
+        end
+    end
+end
+
+-- Dock Breakdown beside the Details instance (PE Proc Sources) so the two
+-- windows do not stack on CENTER.
+local function PositionBreakdownNearInstance(info, instance)
+    if type(info) ~= "table" or type(info.ClearAllPoints) ~= "function"
+        or type(info.SetPoint) ~= "function" then
+        return
+    end
+    local base = instance and instance.baseframe
+    if type(base) ~= "table" or type(base.SetPoint) ~= "function" then
+        return
+    end
+    info:ClearAllPoints()
+    info:SetPoint("TOPLEFT", base, "TOPRIGHT", BREAKDOWN_DOCK_PAD_X, 0)
 end
 
 local function BuildSourceRows(bd)
@@ -512,13 +616,14 @@ end
 local function FillRightPanel(details, info, sourceRow, bd)
     local gump = details.gump
     if type(gump) ~= "table" then
-        return
+        return 0
     end
     if type(gump.HidaAllDetalheInfo) == "function" then
-        gump:HidaAllDetalheInfo()
+        pcall(gump.HidaAllDetalheInfo, gump)
     end
     if type(gump.SetaDetalheInfoTexto) ~= "function" then
-        return
+        SyncRightBackgroundVisibility(info, 0)
+        return 0
     end
 
     local amount = sourceRow and sourceRow.amount or bd.amount or 0
@@ -528,6 +633,7 @@ local function FillRightPanel(details, info, sourceRow, bd)
         average = amount / hits
     end
 
+    local used = 0
     gump:SetaDetalheInfoTexto(
         1, 100,
         "Damage: " .. FormatAmount(amount),
@@ -537,6 +643,8 @@ local function FillRightPanel(details, info, sourceRow, bd)
         "Proc: " .. (bd.procName or "Proc"),
         ""
     )
+    used = 1
+
     gump:SetaDetalheInfoTexto(
         2, 100,
         "Triggered by: " .. (sourceRow and sourceRow.name or bd.sourceName or "Unknown"),
@@ -546,6 +654,22 @@ local function FillRightPanel(details, info, sourceRow, bd)
         "",
         ""
     )
+    used = 2
+
+    local siblings = bd.siblingSources or {}
+    local otherProcs = bd.siblingProcs or {}
+    if #siblings > 0 or #otherProcs > 0 then
+        gump:SetaDetalheInfoTexto(
+            3, 100,
+            "Other sources: " .. tostring(#siblings),
+            "Other procs: " .. tostring(#otherProcs),
+            "",
+            "",
+            "",
+            ""
+        )
+        used = 3
+    end
 
     local icon = sourceRow and sourceRow.icon
     if (type(icon) ~= "string" or icon == "") and bd.procId and PE.GetSpellIcon then
@@ -557,6 +681,9 @@ local function FillRightPanel(details, info, sourceRow, bd)
             info.spell_icone:SetTexCoord(0.07, 0.93, 0.07, 0.93)
         end
     end
+
+    SyncRightBackgroundVisibility(info, used)
+    return used
 end
 
 local function FillNativeBreakdown(details, info, instance, bd, actor)
@@ -705,30 +832,28 @@ function Procs.OpenBreakdown(actor, instance)
         return
     end
 
-    local details = PE.GetDetails and PE.GetDetails()
+    local details = ResolveDetails(PE.GetDetails and PE.GetDetails())
     local info = EnsurePlayerDetailsWindow(details)
     if not info then
-        if type(DEFAULT_CHAT_FRAME) == "table" and DEFAULT_CHAT_FRAME.AddMessage then
-            DEFAULT_CHAT_FRAME:AddMessage(
-                "|cff33ff99Details PE|r Player Details window not ready — open any DPS bar once, then retry."
-            )
-        end
+        -- Last-chance create without asking the player to open a DPS bar first.
+        PrewarmPlayerDetailsWindow()
+        details = ResolveDetails(PE.GetDetails and PE.GetDetails())
+        info = EnsurePlayerDetailsWindow(details)
+    end
+    if not info then
         return
     end
 
     if type(instance) ~= "table" then
-        if type(details.GetInstance) == "function" then
+        if type(details) == "table" and type(details.GetInstance) == "function" then
             instance = details:GetInstance(1)
         end
     end
     if type(instance) ~= "table" then
-        if type(DEFAULT_CHAT_FRAME) == "table" and DEFAULT_CHAT_FRAME.AddMessage then
-            DEFAULT_CHAT_FRAME:AddMessage("|cff33ff99Details PE|r No Details instance available for breakdown.")
-        end
         return
     end
 
-    local gump = details.gump
+    local gump = details and details.gump
     local peActor = {
         nome = bd.procName or "Proc",
         name = bd.procName or "Proc",
@@ -816,28 +941,31 @@ function Procs.OpenBreakdown(actor, instance)
 
     if type(gump) == "table" then
         if type(gump.TrocaBackgroundInfo) == "function" then
-            gump:TrocaBackgroundInfo()
+            pcall(gump.TrocaBackgroundInfo, gump)
         end
         if type(gump.HidaAllBarrasInfo) == "function" then
-            gump:HidaAllBarrasInfo()
+            pcall(gump.HidaAllBarrasInfo, gump)
         end
         if type(gump.HidaAllBarrasAlvo) == "function" then
-            gump:HidaAllBarrasAlvo()
+            pcall(gump.HidaAllBarrasAlvo, gump)
         end
         if type(gump.HidaAllDetalheInfo) == "function" then
-            gump:HidaAllDetalheInfo()
+            pcall(gump.HidaAllDetalheInfo, gump)
         end
         if type(gump.JI_AtualizaContainerBarras) == "function" then
-            gump:JI_AtualizaContainerBarras(-1)
+            pcall(gump.JI_AtualizaContainerBarras, gump, -1)
         end
     end
 
-    -- Keep native Targets: label semantics, then rename for PE.
+    -- First open: run native tab layout once (like AbreJanelaInfo), then hide
+    -- Compare/etc. tabs so PE Summary fills the window.
+    if type(info.ShowTabs) == "function" then
+        pcall(info.ShowTabs, info)
+    end
+    HidePlayerDetailsTabs(details, info)
     if info.targets then
         info.targets:SetText("Other procs:")
     end
-
-    HidePlayerDetailsTabs(details, info)
 
     if type(info.SetStatusbarText) == "function" then
         info:SetStatusbarText(
@@ -848,12 +976,19 @@ function Procs.OpenBreakdown(actor, instance)
     end
 
     peActor:MontaInfo()
+    PositionBreakdownNearInstance(info, instance)
 
     if type(gump) == "table" and type(gump.Fade) == "function" then
-        gump:Fade(info, 0)
-    elseif info.Show then
+        pcall(gump.Fade, gump, info, 0)
+    end
+    if info.Show then
         info:Show()
     end
+    if info.SetAlpha then
+        info:SetAlpha(1)
+    end
+    info.hidden = false
+    info.faded = false
     if info.Raise then
         info:Raise()
     end
@@ -1055,6 +1190,12 @@ function Procs.Init()
     wipe(recentCastIds)
     InstallCustomDisplay()
     Procs.BindDetailsCombatListener()
+    -- Build Player Details! early so the first PE Proc Sources click can open it.
+    PrewarmPlayerDetailsWindow()
+    if type(C_Timer) == "table" and type(C_Timer.After) == "function" then
+        C_Timer.After(2, PrewarmPlayerDetailsWindow)
+        C_Timer.After(8, PrewarmPlayerDetailsWindow)
+    end
 
     local f = CreateFrame("Frame")
     f:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
@@ -1064,6 +1205,7 @@ function Procs.Init()
             PLAYER_GUID = UnitGUID and UnitGUID("player")
             BindCustomClickHandler()
             Procs.BindDetailsCombatListener()
+            PrewarmPlayerDetailsWindow()
             -- Re-attach live map if Details restored an in-progress combat after /reload.
             EnsureLiveCombatAttach()
             return

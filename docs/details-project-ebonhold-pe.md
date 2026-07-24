@@ -10,7 +10,7 @@ Does **not** ship the Details! core (~22 MB) — install Details separately.
 | Area | Before | After |
 |------|--------|-------|
 | **Echo DPS** | Echo/secondary hits look like anonymous custom spell IDs in the Details spell list | Labeled `Name (Echo)`; optional breakdown API for EbonBuilds EchoPerformance |
-| **Procs** | Proc damage has no link to the cast that triggered it; custom display empty on **Overall Data** | Labeled `ProcName [SourceCast]`; Custom Display **PE Proc Sources** (per-segment + Overall aggregate); **click a row** opens the real Details **Player Details! Breakdown** (Sources + Other procs / Targets panel) |
+| **Procs** | Proc damage has no link to the cast that triggered it; custom display empty on **Overall Data** | Labeled `ProcName [SourceCast]`; Custom Display **PE Proc Sources** (per-segment + Overall aggregate); **click a row** opens the real Details (works on first click) **Player Details! Breakdown** (Sources + Other procs / Targets panel) |
 | **Icons** | PE custom spells often lack client DBC icons | Icons from `GetSpellInfo`, then ProjectEbonhold `PerkDatabase` / `GetPerkData` (server sync), cached |
 | **Core** | Stock Details defaults | Soft PE defaults (`override_spellids` on, percent on, `overall_clear_newboss` off so Overall Data survives raid bosses); TinyThreat-style shim, not a full fork |
 
@@ -34,7 +34,7 @@ Works alongside **Details_TinyThreat** (threat plugin) and EbonBuilds
 (`Proc [Quell-Spell]`). Zusätzlich gibt es die Custom-Anzeige
 **PE Proc Sources** (scrollbar / höhere Fensterhöhe; Spell-Icons aus
 `GetSpellInfo` bzw. PE-Perk-Datenbank; echte Prozent-Spalte).
-**Klick auf eine Zeile** öffnet das echte Details-Fenster
+**Klick auf eine Zeile** öffnet beim ersten Mal das echte Details-Fenster
 **Player Details! Breakdown** (Quellen als Spell-Balken, weitere Procs im
 Targets-Panel).
 
@@ -47,7 +47,7 @@ das alte Auto-Löschen will: Details-Optionen → Overall →
 
 1. Details!-Core muss bereits unter `Interface/AddOns/Details` liegen
    (oder die komplette Suite **`Details.zip`** entpacken).
-2. Companion `Details_ProjectEbonhold` (1.0.7-pe1) unter
+2. Companion `Details_ProjectEbonhold` (1.0.8-pe1) unter
    `Interface/AddOns/Details_ProjectEbonhold` — liegt auch in **Details.zip**.
 3. `/reload` — Labels erscheinen in der Spell-Aufschlüsselung automatisch.
 4. Details-Fenster → Attribut **Custom** → **PE Proc Sources**.

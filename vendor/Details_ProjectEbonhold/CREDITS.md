@@ -106,6 +106,14 @@ release zip).
 - Custom Display scripts run inside Details' sandbox; if Details updates break
   `InstallCustomObject`, labels still work via spellcache.
 
+## 1.0.8-pe1
+
+PE Proc Sources first-click opens native **Player Details! Breakdown** without
+needing a prior DPS-bar click (prewarm `CriaJanelaInfo`, no chat hint). Layout:
+dock Breakdown beside the Details instance, hide unused right-side void panels,
+fill a third detail block when sibling sources/procs exist. Custom Display
+script_version 8.
+
 ## 1.0.7-pe1
 
 Soft default: `overall_clear_newboss = false` so Details **Overall Data** is kept
