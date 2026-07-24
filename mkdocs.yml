@@ -13,7 +13,7 @@ copyright: EbonBuilds — a community project for ProjectEbonhold. Not affiliate
 theme:
   name: material
   logo: img/logo.svg
-  favicon: img/logo.svg
+  favicon: assets/favicon.png
   custom_dir: docs/overrides
   font:
     text: Source Sans 3
