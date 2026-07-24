@@ -18,6 +18,15 @@ and on the [Releases page](https://lzra2000.github.io/ProjectEbonHoldBuildAutoma
 
 [Unreleased]: https://github.com/Lzra2000/ProjectEbonHoldBuildAutomation/compare/v3.86...HEAD
 
+### Unreleased -- Sync oversized-build UX; ScrollBar spam false positive
+
+#### Changed
+- Sync transfer ceiling raised from 27 KB to 36 KB (still chunked at 180 bytes per `SendAddonMessage`; the ceiling is our reassembly/queue safety net, not WoW's per-message limit). `MAX_CONSECUTIVE_SENDS` now tracks `MAX_TRANSFER_CHUNKS + 20` so one max-size build cannot trip the offline detector mid-stream.
+
+#### Fixed
+- Oversized public builds no longer spam `Sync.SendChunked` on every peer REQ/RTX: they are excluded from LST listings, reported once per build per session with the actual byte size and title, and surface a rate-limited toast explaining how to shrink them (shorten description / remove character snapshot). Enabling **Sharing: On** in the build form warns early when the draft already exceeds the ceiling.
+- `Theme.CreateScrollBar` / `CreateHorizontalScrollBar` mark `ProtectScript` as spam-exempt so continuous `OnValueChanged` while scrolling is not logged as event spam.
+
 ### 3.86 (2026-07-24) -- Automation stepping stones, Auctionator PE, and reliability fixes
 
 [Release v3.86](https://github.com/Lzra2000/ProjectEbonHoldBuildAutomation/releases/tag/v3.86)

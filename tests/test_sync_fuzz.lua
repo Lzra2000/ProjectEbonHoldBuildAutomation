@@ -65,7 +65,7 @@ EbonBuilds.Build = {
     GetActive = function() return nil end,
     GetAll = function() return {} end,
 }
-EbonBuilds.ExportImport = { DecodeBuild = function() return nil, "fuzz" end, ImportBuild = function() return nil, "fuzz" end }
+EbonBuilds.ExportImport = { DecodeBuild = function() return nil, "fuzz" end, ImportBuild = function() return nil, "fuzz" end, ExportBuild = function() return string.rep("A", 64) end }
 EbonBuilds.TomeAtlas = { SerializeAll = function() return {} end }
 
 assert(loadfile("core/RingBuffer.lua"))("EbonBuilds", EbonBuilds)

@@ -765,8 +765,10 @@ end
 
 function T.CreateScrollBar(parent, width)
     local bar = CreateFrame("Slider", nil, parent)
+    -- OnValueChanged fires continuously while dragging / mouse-wheeling;
+    -- spamExempt so legitimate scroll traffic is not logged as event spam.
     if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
-        EbonBuilds.Debug.ProtectScript(bar, "Theme.ScrollBar")
+        EbonBuilds.Debug.ProtectScript(bar, "Theme.ScrollBar", true)
     end
     bar:SetOrientation("VERTICAL")
     bar:SetWidth(width or 12)
@@ -849,7 +851,7 @@ end
 function T.CreateHorizontalScrollBar(parent, height)
     local bar = CreateFrame("Slider", nil, parent)
     if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
-        EbonBuilds.Debug.ProtectScript(bar, "Theme.HorizontalScrollBar")
+        EbonBuilds.Debug.ProtectScript(bar, "Theme.HorizontalScrollBar", true)
     end
     bar:SetOrientation("HORIZONTAL")
     bar:SetHeight(height or 12)
