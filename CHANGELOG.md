@@ -16,18 +16,23 @@ instructions and download links also live on
 [GitHub Releases](https://github.com/Lzra2000/ProjectEbonHoldBuildAutomation/releases)
 and on the [Releases page](https://lzra2000.github.io/ProjectEbonHoldBuildAutomation/releases/).
 
-[Unreleased]: https://github.com/Lzra2000/ProjectEbonHoldBuildAutomation/compare/v3.86.1...HEAD
+[Unreleased]: https://github.com/Lzra2000/ProjectEbonHoldBuildAutomation/compare/v3.86.2...HEAD
 
-### Unreleased
+### 3.86.2 (2026-07-24) -- Public Builds sort harden, Logbook reasons, Details PE companion
+
+[Release v3.86.2](https://github.com/Lzra2000/ProjectEbonHoldBuildAutomation/releases/tag/v3.86.2)
+
+Patch release for fixes and the lean Details! PE companion landed after v3.86.1 (#128, #129, #130).
 
 #### Added
-- **Details!: Project Ebonhold companion:** lean PE fine-tune layer for Details! (not a full core vendor) -- Echo spell labels `(Echo)`, CLEU proc-to-source attribution `Proc (<- Cast)`, Custom Display **PE Proc Sources**, soft PE defaults. Ships as `Details_ProjectEbonhold.zip`. Docs: [details-project-ebonhold-pe.md](details-project-ebonhold-pe.md). Tests: `tests/test_details_project_ebonhold.lua`.
+- **Details!: Project Ebonhold companion (#130):** lean PE fine-tune layer for Details! (not a full core vendor) -- Echo spell labels `(Echo)`, CLEU proc-to-source attribution `Proc (<- Cast)`, Custom Display **PE Proc Sources**, soft PE defaults. Ships as `Details_ProjectEbonhold.zip`. Docs: [details-project-ebonhold-pe.md](details-project-ebonhold-pe.md). Tests: `tests/test_details_project_ebonhold.lua`.
 
 #### Changed
-- **EchoPerformance:** when `Details_ProjectEbonhold` is present, accumulate optional spell-attributed Echo damage (`spellSum`/`spellCount`) alongside whole-loadout DPS samples.
+- **EchoPerformance (#130):** when `Details_ProjectEbonhold` is present, accumulate optional spell-attributed Echo damage (`spellSum`/`spellCount`) alongside whole-loadout DPS samples.
 
 #### Fixed
-- Public Builds sort hardening on top of #126: coerce numeric sort keys with `tonumber`, densify sparse list holes before `table.sort`, and expand the CompareBuilds self-test with the v3.86 Alpha/Zebra conflict reproduction, pairwise total-order checks across all modes, and sparse-list compaction.
+- Public Builds sort hardening on top of #126 (#128): coerce numeric sort keys with `tonumber`, densify sparse list holes before `table.sort`, and expand the CompareBuilds self-test with the v3.86 Alpha/Zebra conflict reproduction, pairwise total-order checks across all modes, and sparse-list compaction.
+- Logbook banish/select reason text now matches the live Autopilot decision (#129): persist applied threshold and freeze-this-board flags so Session History no longer claims score-below-threshold when the numbers disagree, or Higher eligible when freeze-first withheld the better Echo.
 
 ### 3.86.1 (2026-07-24) -- Post-3.86 reliability: Sync UX, Public Builds sort, Auctionator shop
 
