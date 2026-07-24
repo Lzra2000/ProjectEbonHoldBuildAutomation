@@ -32,29 +32,38 @@ local header, echoLine, footerLine, accentBar, countdownBar, dismissHint
 local function GetRunInfo()
     -- Use the choice-round level (the level the echoes were offered at),
     -- not necessarily the current player level.
-    local level = 0
-    if ProjectEbonhold and ProjectEbonhold.PerkService then
+    local level, picksMade, rollsLeft = 0, nil, nil
+    local api = EbonBuilds.ProjectAPI
+    if api and type(api.GetRollsDebugInfo) == "function" then
+        local choiceLevel, made, left = api.GetRollsDebugInfo()
+        if choiceLevel then level = choiceLevel end
+        picksMade, rollsLeft = made, left
+    elseif ProjectEbonhold and ProjectEbonhold.PerkService then
         local getDebug = ProjectEbonhold.PerkService.GetRollsDebugInfo
         if getDebug then
-            local choiceLevel = getDebug()
+            local choiceLevel, made, left = getDebug()
             if choiceLevel then level = choiceLevel end
+            picksMade, rollsLeft = made, left
         end
     end
     if level == 0 then
         level = UnitLevel("player") or 0
     end
 
-    local rd = EbonholdPlayerRunData
-    if not rd and ProjectEbonhold and ProjectEbonhold.PlayerRunService then
-        local get = ProjectEbonhold.PlayerRunService.GetCurrentData
-        if get then rd = get() end
+    local rd = api and type(api.GetRunData) == "function" and api.GetRunData() or nil
+    if not rd then
+        rd = EbonholdPlayerRunData
+        if not rd and ProjectEbonhold and ProjectEbonhold.PlayerRunService then
+            local get = ProjectEbonhold.PlayerRunService.GetCurrentData
+            if get then rd = get() end
+        end
     end
     local banRemain    = (rd and rd.remainingBanishes) or 0
     local totalRerolls = (rd and rd.totalRerolls) or 0
     local usedRerolls  = (rd and rd.usedRerolls) or 0
     local totalFreezes = (rd and rd.totalFreezes) or 0
     local usedFreezes  = (rd and rd.usedFreezes) or 0
-    return level, banRemain, totalRerolls - usedRerolls, totalFreezes - usedFreezes
+    return level, banRemain, totalRerolls - usedRerolls, totalFreezes - usedFreezes, picksMade, rollsLeft
 end
 
 local function ClearLines()
@@ -102,11 +111,17 @@ local function ShowNext()
         end
         echoLine:SetText(table.concat(parts))
 
-        -- Footer: level and remaining charges
-        local level, banRemain, rerollRemain, freezeRemain = GetRunInfo()
-        footerLine:SetText(string.format(
-            "Banish: %d    Reroll: %d    Freeze: %d",
-            banRemain, rerollRemain, freezeRemain))
+        -- Footer: level, pending rolls, and remaining charges
+        local level, banRemain, rerollRemain, freezeRemain, _, rollsLeft = GetRunInfo()
+        if rollsLeft ~= nil then
+            footerLine:SetText(string.format(
+                "Lv %d · Rolls left: %d    Banish: %d    Reroll: %d    Freeze: %d",
+                level or 0, rollsLeft, banRemain, rerollRemain, freezeRemain))
+        else
+            footerLine:SetText(string.format(
+                "Lv %d    Banish: %d    Reroll: %d    Freeze: %d",
+                level or 0, banRemain, rerollRemain, freezeRemain))
+        end
 
         frame:SetHeight(TOAST_H)
     else

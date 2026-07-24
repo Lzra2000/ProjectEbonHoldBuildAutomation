@@ -16,9 +16,15 @@ local function assertEqual(actual, expected, message)
         fail((message or "values differ") .. ": expected " .. tostring(expected) .. ", got " .. tostring(actual))
     end
 end
+local function assertFalse(value, message)
+    if value then fail(message) end
+end
 
 function UnitClass() return "Paladin", "PALADIN" end
 DEFAULT_CHAT_FRAME = { AddMessage = function() end }
+
+local now = 1000
+function GetTime() return now end
 
 function hooksecurefunc(owner, methodName, postHook)
     local original = owner[methodName]
@@ -31,6 +37,15 @@ end
 
 local choices
 local calls = { select = 0, banish = 0, freeze = 0, reroll = 0 }
+local loadoutSpellIds = {}
+local optionSettings = { autoAcceptLoadoutEchoes = false }
+
+ProjectEbonholdOptionsService = {
+    GetSetting = function(_, key)
+        return optionSettings[key]
+    end,
+}
+
 ProjectEbonhold = {
     PerkDatabase = {},
     PerkUI = {
@@ -61,6 +76,32 @@ ProjectEbonhold = {
             calls.reroll = calls.reroll + 1
             return choices ~= nil
         end,
+        GetPendingRollsCount = function()
+            return 7
+        end,
+        GetRollsDebugInfo = function()
+            return 12, 5, 7
+        end,
+        IsSpellInActiveEchoLoadout = function(spellId)
+            return loadoutSpellIds[tonumber(spellId)] == true
+        end,
+    },
+    PlayerRunService = {
+        GetCurrentData = function()
+            return {
+                remainingBanishes = 3,
+                totalRerolls = 10,
+                usedRerolls = 2,
+                totalFreezes = 4,
+                usedFreezes = 1,
+                soulPoints = 42,
+                hasReachedMaxLevel = false,
+                catchupMultiplierPct = 0,
+            }
+        end,
+        GetIntensityData = function()
+            return { intensity = 2, areaNameReaper = "a", zoneNameReaper = "z" }
+        end,
     },
 }
 
@@ -77,6 +118,13 @@ loadAddonFile("modules/integration/ProjectEbonholdAPI.lua")
 assertTrue(addon.ProjectAPI.Init(), "standalone request adapter did not initialize")
 assertEqual(addon.ProjectAPI.GetCapabilities().actionConfirmation, "request_only", "wrong action mode")
 assertTrue(not addon.ProjectAPI.HasActionObservers(), "unmodified base addon was reported as acknowledgement-capable")
+
+local caps = addon.ProjectAPI.GetCapabilities()
+assertTrue(caps.pendingRollsCount, "pendingRollsCount capability missing")
+assertTrue(caps.rollsDebugInfo, "rollsDebugInfo capability missing")
+assertTrue(caps.autoAcceptLoadoutEchoes, "autoAcceptLoadoutEchoes capability missing")
+assertTrue(caps.runData, "runData capability missing")
+assertTrue(caps.intensityData, "intensityData capability missing")
 
 local generations = {}
 addon.EventHub.On("PROJECT_CHOICE_CHANGED", function(_, generation)
@@ -104,6 +152,8 @@ assertTrue(addon.ProjectAPI.GetPendingAction() == nil, "adapter retained a block
 -- ProjectEbonhold.Perks. The adapter must surface these flags so automation
 -- waits instead of firing a duplicate request that the service would refuse.
 ProjectEbonhold.Perks = {}
+assertTrue(addon.ProjectAPI.GetCapabilities().pendingFlags, "pendingFlags capability missing after Perks exists")
+assertTrue(addon.ProjectAPI.GetCapabilities().pendingBuildSlot, "pendingBuildSlot capability missing after Perks exists")
 assertTrue(addon.ProjectAPI.GetPendingAction() == nil, "empty server pending flags reported an action")
 ProjectEbonhold.Perks.pendingSelectSpellId = 10
 assertEqual(addon.ProjectAPI.GetPendingAction(), "select", "in-flight select was not reported")
@@ -118,6 +168,45 @@ ProjectEbonhold.Perks.pendingReroll = true
 assertEqual(addon.ProjectAPI.GetPendingAction(), "reroll", "in-flight reroll was not reported")
 ProjectEbonhold.Perks.pendingReroll = nil
 assertTrue(addon.ProjectAPI.GetPendingAction() == nil, "cleared server pending flags still reported an action")
+
+-- Build-slot busy flag (save/activate/upload) must block like action pending.
+ProjectEbonhold.Perks.pendingBuildSlotRequest = "save"
+ProjectEbonhold.Perks.pendingBuildSlotRequestAt = now
+assertEqual(addon.ProjectAPI.GetPendingAction(), "slot", "busy build-slot request was not reported")
+now = now + 4
+assertTrue(addon.ProjectAPI.GetPendingAction() == nil, "expired build-slot request still blocked")
+assertTrue(ProjectEbonhold.Perks.pendingBuildSlotRequest == nil, "expired build-slot flag was not cleared")
+
+assertEqual(addon.ProjectAPI.GetPendingRollsCount(), 7, "pending rolls count was not wrapped")
+local level, picksMade, rollsLeft = addon.ProjectAPI.GetRollsDebugInfo()
+assertEqual(level, 12, "rolls debug level mismatch")
+assertEqual(picksMade, 5, "rolls debug picksMade mismatch")
+assertEqual(rollsLeft, 7, "rolls debug rollsLeft mismatch")
+
+assertFalse(addon.ProjectAPI.IsAutoAcceptLoadoutEchoes(), "auto-accept default should be off")
+assertFalse(addon.ProjectAPI.WillAutoAcceptChoice(choices), "auto-accept should not fire when option is off")
+optionSettings.autoAcceptLoadoutEchoes = true
+assertTrue(addon.ProjectAPI.IsAutoAcceptLoadoutEchoes(), "auto-accept option was not detected")
+assertFalse(addon.ProjectAPI.WillAutoAcceptChoice(choices), "auto-accept should require a loadout match")
+loadoutSpellIds[10] = true
+assertTrue(addon.ProjectAPI.WillAutoAcceptChoice(choices), "auto-accept loadout match was missed")
+optionSettings.autoAcceptLoadoutEchoes = false
+assertFalse(addon.ProjectAPI.WillAutoAcceptChoice(choices), "auto-accept still matched after option off")
+
+local runData = addon.ProjectAPI.GetRunData()
+assertTrue(runData and runData.remainingBanishes == 3, "run data was not routed through ProjectAPI")
+local intensity = addon.ProjectAPI.GetIntensityData()
+assertTrue(intensity and intensity.intensity == 2, "intensity data was not routed through ProjectAPI")
+
+-- Missing APIs stay nil/false so legacy paths remain unchanged.
+ProjectEbonhold.PerkService.GetPendingRollsCount = nil
+ProjectEbonhold.PerkService.GetRollsDebugInfo = nil
+ProjectEbonholdOptionsService = nil
+assertTrue(addon.ProjectAPI.GetPendingRollsCount() == nil, "missing rolls count should be nil")
+local missingLevel = addon.ProjectAPI.GetRollsDebugInfo()
+assertTrue(missingLevel == nil, "missing rolls debug should be nil")
+assertFalse(addon.ProjectAPI.IsAutoAcceptLoadoutEchoes(), "missing options service should report auto-accept off")
+assertFalse(addon.ProjectAPI.GetCapabilities().autoAcceptLoadoutEchoes, "missing options capability should be false")
 
 choices[1] = { spellId = 20, quality = 2 }
 ProjectEbonhold.PerkUI.UpdateSinglePerk(0, choices[1])
