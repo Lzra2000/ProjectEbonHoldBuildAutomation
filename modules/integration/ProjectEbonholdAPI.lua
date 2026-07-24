@@ -412,6 +412,105 @@ function API.WithForeignAutoAcceptConfirm(build, run)
     run(build)
 end
 
+-- Resolve echo spellId from a tome itemId (PerkDatabase.requiredSpell).
+-- Falls back to the documented itemId == spellId + 100000 relationship.
+function API.FindEchoSpellIdByTomeItem(tomeItemId)
+    tomeItemId = tonumber(tomeItemId)
+    if not tomeItemId then return nil end
+    local database = API.GetPerkDatabase()
+    if type(database) == "table" then
+        for spellId, data in pairs(database) do
+            if type(data) == "table" and tonumber(data.requiredSpell) == tomeItemId then
+                return tonumber(spellId)
+            end
+        end
+        local guessed = tomeItemId - 100000
+        if guessed > 0 and database[guessed] then return guessed end
+    end
+    return nil
+end
+
+-- True when a learned tome's echo is toggled out of the L1 draw pool.
+function API.IsTomeEchoDisabled(spellId)
+    local service = Service()
+    if not service or type(service.IsTomeEchoDisabled) ~= "function" then return false end
+    spellId = tonumber(spellId)
+    if not spellId then return false end
+    local ok, result = pcall(service.IsTomeEchoDisabled, spellId)
+    return ok and result and true or false
+end
+
+-- Flip a learned tome on/off at level 1 (PE shows its own error if not L1).
+function API.ToggleTomeEcho(spellId)
+    local service = Service()
+    if not service or type(service.ToggleTomeEcho) ~= "function" then return false end
+    spellId = tonumber(spellId)
+    if not spellId then return false end
+    local ok, result = pcall(service.ToggleTomeEcho, spellId)
+    return ok and result ~= false
+end
+
+-- Authoritative permanent/locked echoes for the current run (array of tables).
+function API.GetLockedPerks()
+    local service = Service()
+    if not service or type(service.GetLockedPerks) ~= "function" then return nil end
+    local ok, result = pcall(service.GetLockedPerks)
+    return ok and type(result) == "table" and result or nil
+end
+
+function API.GetMaximumPermanentEchoes()
+    local service = Service()
+    if not service or type(service.GetMaximumPermanentEchoes) ~= "function" then return 0 end
+    local ok, result = pcall(service.GetMaximumPermanentEchoes)
+    if not ok then return 0 end
+    return tonumber(result) or 0
+end
+
+function API.LockPerk(spellId, count)
+    local service = Service()
+    if not service or type(service.LockPerk) ~= "function" then return false end
+    spellId = tonumber(spellId)
+    if not spellId then return false end
+    local ok, result = pcall(service.LockPerk, spellId, tonumber(count) or 1)
+    return ok and result ~= false
+end
+
+function API.UnlockPerk(spellId)
+    local service = Service()
+    if not service or type(service.UnlockPerk) ~= "function" then return false end
+    spellId = tonumber(spellId)
+    if not spellId then return false end
+    local ok, result = pcall(service.UnlockPerk, spellId)
+    return ok and result ~= false
+end
+
+-- Collapse granted + locked echoes into one list (quality desc, then name).
+function API.SnapshotCurrentEchoes()
+    local service = Service()
+    if not service or type(service.SnapshotCurrentEchoes) ~= "function" then return nil end
+    local ok, result = pcall(service.SnapshotCurrentEchoes)
+    return ok and type(result) == "table" and result or nil
+end
+
+-- Optimistic local discovery updates (PE journal path); no-op when absent.
+function API.AddDiscoveredEcho(spellId)
+    local service = Service()
+    if not service or type(service.AddDiscoveredEcho) ~= "function" then return false end
+    spellId = tonumber(spellId)
+    if not spellId then return false end
+    local ok, result = pcall(service.AddDiscoveredEcho, spellId)
+    return ok and result ~= false
+end
+
+function API.RemoveDiscoveredEcho(spellId)
+    local service = Service()
+    if not service or type(service.RemoveDiscoveredEcho) ~= "function" then return false end
+    spellId = tonumber(spellId)
+    if not spellId then return false end
+    local ok, result = pcall(service.RemoveDiscoveredEcho, spellId)
+    return ok and result ~= false
+end
+
 function API.GetChoiceGeneration()
     return choiceGeneration
 end
@@ -524,6 +623,15 @@ function API.GetCapabilities()
         serverBuildSlotsEnabled = uploadReady and API.AreServerBuildSlotsEnabled() or false,
         uploadServerBuildSlot = uploadReady and true or false,
         activateServerBuildSlot = service and type(service.ActivateServerBuildSlot) == "function" or false,
+        tomeToggle = service and type(service.ToggleTomeEcho) == "function"
+            and type(service.IsTomeEchoDisabled) == "function" or false,
+        lockedPerks = service and type(service.GetLockedPerks) == "function" or false,
+        lockPerk = service and type(service.LockPerk) == "function" or false,
+        unlockPerk = service and type(service.UnlockPerk) == "function" or false,
+        maxPermanentEchoes = service and type(service.GetMaximumPermanentEchoes) == "function" or false,
+        snapshotEchoes = service and type(service.SnapshotCurrentEchoes) == "function" or false,
+        discoveryMutators = service and type(service.AddDiscoveredEcho) == "function"
+            and type(service.RemoveDiscoveredEcho) == "function" or false,
         pendingFlags = ProjectEbonhold and type(ProjectEbonhold.Perks) == "table" or false,
         actionConfirmation = service and "request_only" or "unavailable",
     }

@@ -25,6 +25,7 @@ local QUALITY_BORDER_COLORS = EbonBuilds.Quality.RGB
 local QUALITY_LABELS = EbonBuilds.Quality.LABELS
 
 local viewFrame
+local RefreshOverview
 local tab1, tab2, tab3, tab4
 local contentArea
 local state = { build = nil }
@@ -576,8 +577,121 @@ local function BuildOverviewTab(parent)
     end
     outer._lockedButtons = lockedButtons
 
+    -- Server permanent locks (PerkService.GetLockedPerks) -- distinct from the
+    -- build's designed Locked Echoes above. Capability-gated; hidden when PE
+    -- does not expose the APIs.
+    local permHeader = outer:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    permHeader:SetPoint("TOPLEFT", lockedButtons[1], "BOTTOMLEFT", 0, -12)
+    permHeader:SetText(EbonBuilds.L["Permanent locks:"])
+    outer._permHeader = permHeader
+
+    local permMeta = outer:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    permMeta:SetPoint("LEFT", permHeader, "RIGHT", 8, 0)
+    permMeta:SetText("")
+    outer._permMeta = permMeta
+
+    local permButtons = {}
+    for i = 1, EbonBuilds.Build.LOCKED_SLOTS do
+        local btn = CreateIconButton(outer, 32)
+        btn:SetPoint("TOPLEFT", permHeader, "BOTTOMLEFT", (i - 1) * 38, -6)
+        local border = btn:CreateTexture(nil, "BORDER")
+        border:SetPoint("TOPLEFT",     btn, "TOPLEFT",     -2,  2)
+        border:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT",  2, -2)
+        border:Hide()
+        btn._border = border
+        btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+        btn:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:ClearLines()
+            if self._spellId then
+                local name = GetSpellInfo(self._spellId)
+                if name then GameTooltip:AddLine(name, 1, 0.82, 0) end
+                GameTooltip:AddLine(EbonBuilds.L["Permanent character lock"], 0.75, 0.75, 0.8, true)
+                local caps = EbonBuilds.ProjectAPI and EbonBuilds.ProjectAPI.GetCapabilities
+                    and EbonBuilds.ProjectAPI.GetCapabilities()
+                if caps and caps.unlockPerk then
+                    GameTooltip:AddLine(EbonBuilds.L["Click to unlock"], 0.65, 0.65, 0.7, true)
+                end
+            elseif self._slotAvailable then
+                GameTooltip:AddLine(EbonBuilds.L["Empty permanent slot"], 0.6, 0.6, 0.6)
+                GameTooltip:AddLine(EbonBuilds.L["Right-click a build locked echo above to lock it permanently."], 0.75, 0.75, 0.8, true)
+            else
+                GameTooltip:AddLine(EbonBuilds.L["Slot not unlocked yet"], 0.5, 0.5, 0.5)
+            end
+            GameTooltip:Show()
+        end)
+        btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        btn:SetScript("OnClick", function(self)
+            if not self._spellId then return end
+            local caps = EbonBuilds.ProjectAPI and EbonBuilds.ProjectAPI.GetCapabilities
+                and EbonBuilds.ProjectAPI.GetCapabilities()
+            if not (caps and caps.unlockPerk) then return end
+            if EbonBuilds.ProjectAPI.UnlockPerk(self._spellId) then
+                EbonBuilds.Toast.Show(EbonBuilds.L["Unlock requested"])
+                if EbonBuilds.Scheduler and EbonBuilds.Scheduler.After then
+                    EbonBuilds.Scheduler.After("buildOverview.permRefresh", 1.2, function()
+                        if viewFrame and viewFrame:IsShown() then RefreshOverview() end
+                    end)
+                end
+            end
+        end)
+        permButtons[i] = btn
+    end
+    outer._permButtons = permButtons
+
+    -- Right-click a build locked echo to request LockPerk on the character.
+    for i = 1, EbonBuilds.Build.LOCKED_SLOTS do
+        local btn = lockedButtons[i]
+        btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+        local prevEnter = btn:GetScript("OnEnter")
+        btn:SetScript("OnEnter", function(self)
+            if prevEnter then prevEnter(self) end
+            if self._spellId then
+                local caps = EbonBuilds.ProjectAPI and EbonBuilds.ProjectAPI.GetCapabilities
+                    and EbonBuilds.ProjectAPI.GetCapabilities()
+                if caps and caps.lockPerk then
+                    GameTooltip:AddLine(EbonBuilds.L["Right-click to lock permanently on character"], 0.65, 0.65, 0.7, true)
+                    GameTooltip:Show()
+                end
+            end
+        end)
+        btn:SetScript("OnClick", function(self, button)
+            if button ~= "RightButton" or not self._spellId then return end
+            local api = EbonBuilds.ProjectAPI
+            local caps = api and api.GetCapabilities and api.GetCapabilities()
+            if not (caps and caps.lockPerk and caps.lockedPerks and caps.maxPermanentEchoes) then
+                EbonBuilds.Toast.Show(EbonBuilds.L["Server doesn't support permanent locks"])
+                return
+            end
+            local locked = api.GetLockedPerks() or {}
+            local maxSlots = api.GetMaximumPermanentEchoes()
+            if maxSlots <= 0 then
+                EbonBuilds.Toast.Show(EbonBuilds.L["No permanent lock slots unlocked"])
+                return
+            end
+            if #locked >= maxSlots then
+                EbonBuilds.Toast.Show(EbonBuilds.L["Permanent lock slots full"])
+                return
+            end
+            for _, lp in ipairs(locked) do
+                if tonumber(lp.spellId) == tonumber(self._spellId) then
+                    EbonBuilds.Toast.Show(EbonBuilds.L["Already permanently locked"])
+                    return
+                end
+            end
+            if api.LockPerk(self._spellId) then
+                EbonBuilds.Toast.Show(EbonBuilds.L["Lock requested"])
+                if EbonBuilds.Scheduler and EbonBuilds.Scheduler.After then
+                    EbonBuilds.Scheduler.After("buildOverview.permRefresh", 1.2, function()
+                        if viewFrame and viewFrame:IsShown() then RefreshOverview() end
+                    end)
+                end
+            end
+        end)
+    end
+
     local actionArea = CreateFrame("Frame", nil, outer)
-    actionArea:SetPoint("TOPLEFT", lockedButtons[1], "BOTTOMLEFT", -40, -18)
+    actionArea:SetPoint("TOPLEFT", permButtons[1], "BOTTOMLEFT", -40, -18)
     actionArea:SetSize(320, 50)
     outer._actionArea = actionArea
 
@@ -586,7 +700,7 @@ local function BuildOverviewTab(parent)
     local autoToggle = EbonBuilds.Theme.CreateButton(outer)
     autoToggle:SetWidth(140)
     autoToggle:SetHeight(22)
-    autoToggle:SetPoint("TOPLEFT", lockedButtons[1], "BOTTOMLEFT", 0, -22)
+    autoToggle:SetPoint("TOPLEFT", permButtons[1], "BOTTOMLEFT", 0, -22)
     local function RefreshAutoToggle(self, build)
         local on = build and EbonBuilds.Build.IsAutomationEnabled(build)
         self:SetText(on and "Autopilot: ON" or "Autopilot: OFF")
@@ -833,13 +947,56 @@ local function BuildOverviewTab(parent)
     end)
     outer._reviewBtn = reviewBtn
 
+    -- Optional: SnapshotCurrentEchoes → new local draft build from the run.
+    local snapshotBtn = EbonBuilds.Theme.CreateButton(outer)
+    snapshotBtn:SetWidth(132)
+    snapshotBtn:SetHeight(20)
+    snapshotBtn:SetText(EbonBuilds.L["Snapshot Run"])
+    EbonBuilds.Theme.AttachTooltip(snapshotBtn, EbonBuilds.L["Snapshot current run"],
+        EbonBuilds.L["Creates a new private draft build whose locked echoes are filled from your current granted + permanent echoes (ProjectEbonhold snapshot)."])
+    snapshotBtn:SetScript("OnClick", function()
+        local api = EbonBuilds.ProjectAPI
+        local caps = api and api.GetCapabilities and api.GetCapabilities()
+        if not (caps and caps.snapshotEchoes) then
+            EbonBuilds.Toast.Show(EbonBuilds.L["Server doesn't support echo snapshot"])
+            return
+        end
+        local list = api.SnapshotCurrentEchoes()
+        if not list or #list == 0 then
+            EbonBuilds.Toast.Show(EbonBuilds.L["No echoes to snapshot"])
+            return
+        end
+        local locked = { nil, nil, nil, nil, nil, nil }
+        for i = 1, math.min(EbonBuilds.Build.LOCKED_SLOTS, #list) do
+            locked[i] = tonumber(list[i].spellId)
+        end
+        local draft = EbonBuilds.Build.Create({
+            title = EbonBuilds.L["Run Snapshot"],
+            class = api.GetPlayerClassToken and api.GetPlayerClassToken() or nil,
+            lockedEchoes = locked,
+            comments = string.format(EbonBuilds.L["Imported from current run (%d unique echoes)."], #list),
+            startPaused = true,
+        })
+        if not draft then
+            EbonBuilds.Toast.Show(EbonBuilds.L["Failed to create snapshot build"])
+            return
+        end
+        if EbonBuilds.BuildList and EbonBuilds.BuildList.Refresh then
+            EbonBuilds.BuildList.Refresh()
+        end
+        EbonBuilds.Build.SetActive(draft.id)
+        EbonBuilds.Toast.Show(string.format(EbonBuilds.L["Created \"%s\""], draft.title or "?"))
+        EbonBuilds.ViewRouter.Show("buildOverview", { build = draft })
+    end)
+    outer._snapshotBtn = snapshotBtn
+
     -- One deterministic action grid replaces the previous chain of mixed
     -- left/top anchors. Wide views use five equal columns over two rows;
     -- narrower views use three columns over three rows without squeezing
     -- labels or changing their semantic order.
     outer._actionButtons = {
         autoToggle, trainToggle, characterBtn, applyBtn, serverBtn,
-        linkBtn, dupBtn, ewlBtn, reviewBtn,
+        linkBtn, dupBtn, ewlBtn, reviewBtn, snapshotBtn,
     }
     LayoutOverviewActions(outer)
 
@@ -1045,7 +1202,7 @@ local overviewOuter
 local overviewDescSmf, overviewDescMeasure, overviewDescScroll, overviewDescChild, overviewDescBar
 local statsValueLabels, statsQualityLabels
 local missingRows = {}
-local function RefreshOverview()
+RefreshOverview = function()
     local build = state.build
     if not build then return end
     local cc = CLASS_COLORS[build.class] or { 0.5, 0.5, 0.5 }
@@ -1105,6 +1262,69 @@ local function RefreshOverview()
             btn._spellId = nil
             btn._border:Hide()
             btn:Show()
+        end
+    end
+
+    -- Permanent character locks from ProjectEbonhold (capability-gated).
+    local api = EbonBuilds.ProjectAPI
+    local caps = api and api.GetCapabilities and api.GetCapabilities()
+    local showPerm = caps and caps.lockedPerks and caps.maxPermanentEchoes
+    if overviewOuter._permHeader then
+        if showPerm then
+            local locked = api.GetLockedPerks() or {}
+            local maxSlots = api.GetMaximumPermanentEchoes()
+            overviewOuter._permHeader:Show()
+            overviewOuter._permMeta:Show()
+            overviewOuter._permMeta:SetText(string.format("%d / %d", #locked, maxSlots))
+            for i = 1, EbonBuilds.Build.LOCKED_SLOTS do
+                local btn = overviewOuter._permButtons[i]
+                local lp = locked[i]
+                local slotAvailable = i <= maxSlots
+                btn._slotAvailable = slotAvailable
+                if lp and lp.spellId then
+                    local spellId = tonumber(lp.spellId)
+                    btn._icon:SetTexture(select(3, GetSpellInfo(spellId)))
+                    btn._icon:SetDesaturated(false)
+                    btn._spellId = spellId
+                    local quality = tonumber(lp.quality) or 0
+                    local bc = QUALITY_BORDER_COLORS[quality] or QUALITY_BORDER_COLORS[0]
+                    btn._border:SetTexture(bc[1], bc[2], bc[3])
+                    btn._border:Show()
+                    btn:Show()
+                elseif slotAvailable then
+                    btn._icon:SetTexture("Interface\\Buttons\\UI-EmptySlot")
+                    btn._icon:SetDesaturated(false)
+                    btn._spellId = nil
+                    btn._border:Hide()
+                    btn:Show()
+                else
+                    btn._icon:SetTexture("Interface\\Buttons\\UI-EmptySlot")
+                    btn._icon:SetDesaturated(true)
+                    btn._spellId = nil
+                    btn._border:Hide()
+                    btn:Show()
+                end
+            end
+        else
+            overviewOuter._permHeader:Show()
+            overviewOuter._permMeta:Show()
+            overviewOuter._permMeta:SetText(EbonBuilds.L["(unsupported)"])
+            for i = 1, EbonBuilds.Build.LOCKED_SLOTS do
+                local btn = overviewOuter._permButtons[i]
+                btn._icon:SetTexture("Interface\\Buttons\\UI-EmptySlot")
+                btn._icon:SetDesaturated(true)
+                btn._spellId = nil
+                btn._slotAvailable = false
+                btn._border:Hide()
+                btn:Show()
+            end
+        end
+    end
+    if overviewOuter._snapshotBtn then
+        if caps and caps.snapshotEchoes then
+            overviewOuter._snapshotBtn:Enable()
+        else
+            overviewOuter._snapshotBtn:Disable()
         end
     end
 
