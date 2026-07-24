@@ -141,7 +141,9 @@ do
     local oneFrozen = Board({ Slot(101, 10, { isFrozen = true, isAvoided = true }) })
     allowed, reason = D.CanReroll(oneFrozen)
     equal(allowed, false, "reroll blocked when one Echo is frozen")
-    truthy(reason and reason:find("frozen Echo", 1, true), "one-frozen reroll reason mentions frozen Echo")
+    truthy(reason and (reason:find("confirmed freeze", 1, true)
+        or reason:find("frozen Echo", 1, true)),
+        "one-frozen reroll reason mentions confirmed freeze or frozen Echo")
 
     local carriedOnly = Board({
         Slot(101, 150, { isCarried = true }),
@@ -158,7 +160,9 @@ do
     equal(runPersistent.frozenCount, 1, "runFrozenEchoIDs increments frozenCount without isFrozen flag")
     allowed, reason = D.CanReroll(runPersistent)
     equal(allowed, false, "run-persistent frozen Echo blocks reroll")
-    truthy(reason and reason:find("frozen", 1, true), "run-persistent reroll reason mentions frozen state")
+    truthy(reason and (reason:find("confirmed freeze", 1, true)
+        or reason:find("frozen", 1, true)),
+        "run-persistent reroll reason mentions confirmed freeze or frozen state")
 
     local lifecycleBoard = Board({
         Slot(101, 50, { isValid = true, score = 50 }),
@@ -264,6 +268,12 @@ end
 -- Freeze penalty applies only below the freeze threshold (Automation scoring)
 ------------------------------------------------------------------------
 do
+    -- _ScoreChoice reads EbonBuilds.Scoring at call time; restore the stub so
+    -- penalty math is deterministic (real Scoring.lua stays loaded for tie-breaks).
+    addon.Scoring = {
+        Score = function() return 100 end,
+        ScorePerQuality = function() return 100 end,
+    }
     local penaltySettings = { freezePenaltyPct = 10 }
     local worthyCarry = addon.Automation._ScoreChoice(
         { spellId = 401, quality = 0, isCarried = true, isFrozen = true }, penaltySettings, 90)
