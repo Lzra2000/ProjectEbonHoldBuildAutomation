@@ -25,6 +25,7 @@ DEFAULT_CHAT_FRAME = { AddMessage = function() end }
 
 EbonBuildsDB = { globalSettings = { evalDelay = 2 }, sessions = {}, builds = {} }
 EbonBuildsCharDB = {}
+EbonBuilds = {}
 
 local function loadAddonFile(path)
     local chunk, err = loadfile(path)
