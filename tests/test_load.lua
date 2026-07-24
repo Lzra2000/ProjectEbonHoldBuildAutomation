@@ -1752,6 +1752,60 @@ local analyticsOK, analyticsErr = xpcall(function()
         error("Recommendation undo did not restore the prior canonical rank value")
     end
 
+    -- Apply visible: apply every currently filtered recommendation in one pass.
+    EbonBuilds.ManualTraining.SuggestWeightAdjustments = function()
+        trainingSuggestionCalls = trainingSuggestionCalls + 1
+        return {
+            { name = "Spell 1", quality = 3, direction = "raise", delta = 10, count = trainingSuggestionCount, currentWeight = 12, suggestedWeight = 22 },
+            { name = "Iron Constitution" .. string.char(0) .. "2", quality = 0, direction = "raise", delta = 5, count = trainingSuggestionCount, currentWeight = 15, suggestedWeight = 20 },
+        }
+    end
+    EbonBuilds.StatsView.Invalidate(build.id)
+    EbonBuilds.StatsView.Refresh(build, true)
+    EbonBuilds.StatsView._SetRecommendationSectionForTest("echo")
+    EbonBuilds.StatsView._SetRecommendationFilterForTest("echo", "raise")
+    local applyableVisible = EbonBuilds.StatsView._CollectApplyableVisibleRecommendations()
+    if #applyableVisible < 2 then
+        error("Apply visible did not collect both filtered raise recommendations")
+    end
+    EbonBuilds.StatsView._SetRecommendationFilterForTest("echo", "lower")
+    if #EbonBuilds.StatsView._CollectApplyableVisibleRecommendations() ~= 0 then
+        error("Apply visible did not respect the Lower filter")
+    end
+    EbonBuilds.StatsView._SetRecommendationFilterForTest("echo", "raise")
+    local appliedVisible, failedVisible = EbonBuilds.StatsView._ApplyVisibleRecommendations(applyableVisible)
+    if appliedVisible ~= 2 or (failedVisible or 0) ~= 0 then
+        error(string.format("Apply visible expected 2 applied / 0 failed, got %s / %s", tostring(appliedVisible), tostring(failedVisible)))
+    end
+    build = EbonBuilds.Build.Get(build.id) or EbonBuilds.Build.GetActive() or build
+    if EbonBuilds.Weights.GetForRef(build, "g:9201", 3) ~= 22 then
+        error("Apply visible did not update Spell 1")
+    end
+    if EbonBuilds.Weights.GetForRef(build, "g:9202", 0) ~= 20 then
+        error("Apply visible did not update Iron Constitution")
+    end
+    -- Restore baseline weights so the dismiss path below stays deterministic.
+    do
+        local live = EbonBuilds.Build.Get(build.id) or build
+        local weights = EbonBuilds.Weights.CloneRefWeights(live.echoWeightsByRef or {})
+        local spellEntry = EbonBuilds.Weights.NormalizeEntry(weights["g:9201"])
+        spellEntry[3] = 12
+        weights["g:9201"] = spellEntry
+        local ironEntry = EbonBuilds.Weights.NormalizeEntry(weights["g:9202"])
+        ironEntry[0] = 15
+        weights["g:9202"] = ironEntry
+        local restored = EbonBuilds.Build.Save(live.id, { echoWeightsByRef = weights, echoSchema = 3 })
+        if not restored then error("Failed to restore baseline weights after Apply visible test") end
+        build = restored
+        EbonBuilds.Build.SetActive(build.id)
+    end
+    EbonBuilds.ManualTraining.SuggestWeightAdjustments = function()
+        trainingSuggestionCalls = trainingSuggestionCalls + 1
+        return { { name = "Spell 1", quality = 3, direction = "raise", delta = 10, count = trainingSuggestionCount, currentWeight = 12, suggestedWeight = 22 } }
+    end
+    EbonBuilds.StatsView.Invalidate(build.id)
+    EbonBuilds.StatsView.Refresh(build, true)
+
     local refreshedRecommendations = EbonBuilds.StatsView._EnsureRecommendations()
     local dismissTarget
     for _, recommendation in ipairs(refreshedRecommendations) do

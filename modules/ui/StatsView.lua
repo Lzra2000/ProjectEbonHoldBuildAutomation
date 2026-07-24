@@ -28,12 +28,14 @@ local lastEchoRenderCount = 0
 local actionCards, actionDistributionRows = {}, {}
 local actionScopeText, actionCoverageText, actionSignalText, actionInsightText
 local recommendationRows, recScroll, recChild, recBar, recEmpty = {}, nil, nil, nil, nil
-local recHeader, recScopeText
+local recHeader, recScopeText, applyVisibleButton
 local recommendationSection = "echo"
 local recommendationSectionInitialized = false
 local recommendationSectionButtons = {}
 local recommendationFilters = { echo = "all", logic = "all" }
 local recommendationFilterButtons = { echo = {}, logic = {} }
+local APPLY_VISIBLE_CONFIRM_THRESHOLD = 20
+local pendingApplyVisibleRecommendations
 local statsCache
 local cacheByBuildId = {}
 local renderedTokens = {}
@@ -626,13 +628,17 @@ local function ShowRecommendationNotice(message)
     if EbonBuilds.Toast and EbonBuilds.Toast.Show then EbonBuilds.Toast.Show(message) end
 end
 
-local function ApplyRecommendation(recommendation)
+-- opts.deferRefresh: skip the final Refresh so callers can batch applies.
+local function ApplyRecommendation(recommendation, opts)
+    opts = opts or {}
     local build = activeBuild and EbonBuilds.Build.Get(activeBuild.id) or EbonBuilds.Build.GetActive()
     if not build or not recommendation or recommendation.state == "applied" then return false, "No active recommendation." end
     local matches, reason = CurrentRecommendationMatches(recommendation, build)
     if not matches then
-        View.Invalidate(build.id)
-        View.Refresh(build, true)
+        if not opts.deferRefresh then
+            View.Invalidate(build.id)
+            View.Refresh(build, true)
+        end
         return false, reason
     end
 
@@ -695,7 +701,9 @@ local function ApplyRecommendation(recommendation)
     if saved.id ~= oldId then recentRecommendationByBuild[oldId] = nil end
     View.Invalidate(oldId)
     View.Invalidate(saved.id)
-    View.Refresh(saved, true)
+    if not opts.deferRefresh then
+        View.Refresh(saved, true)
+    end
     return true
 end
 
@@ -804,6 +812,108 @@ local function VisibleRecommendations()
     end
     return visible
 end
+
+local function CollectApplyableVisibleRecommendations()
+    local targets = {}
+    for _, recommendation in ipairs(VisibleRecommendations()) do
+        if recommendation.state ~= "applied" and recommendation.apply then
+            targets[#targets + 1] = recommendation
+        end
+    end
+    return targets
+end
+
+local function UpdateApplyVisibleButton()
+    if not applyVisibleButton then return end
+    local count = #CollectApplyableVisibleRecommendations()
+    if count <= 0 then
+        applyVisibleButton:Disable()
+        applyVisibleButton:SetText("Apply visible")
+    else
+        applyVisibleButton:Enable()
+        applyVisibleButton:SetText(string.format("Apply visible (%d)", count))
+    end
+end
+
+local function FinishApplyVisibleBatch(applied, failed)
+    local build = activeBuild and EbonBuilds.Build.Get(activeBuild.id) or EbonBuilds.Build.GetActive()
+    if build then
+        View.Invalidate(build.id)
+        View.Refresh(build, true)
+    else
+        UpdateApplyVisibleButton()
+    end
+    if applied > 0 then
+        ShowRecommendationNotice(string.format(
+            "Applied %d recommendation%s%s.",
+            applied,
+            applied == 1 and "" or "s",
+            failed > 0 and string.format(" (%d skipped)", failed) or ""
+        ))
+    elseif failed > 0 then
+        ShowRecommendationNotice("Could not apply the visible recommendations.")
+    else
+        ShowRecommendationNotice("No visible recommendations to apply.")
+    end
+    return applied, failed
+end
+
+local function ApplyVisibleRecommendations(targets)
+    targets = targets or CollectApplyableVisibleRecommendations()
+    if #targets == 0 then
+        return FinishApplyVisibleBatch(0, 0)
+    end
+    local applied, failed = 0, 0
+    for _, recommendation in ipairs(targets) do
+        local ok = ApplyRecommendation(recommendation, { deferRefresh = true })
+        if ok then
+            applied = applied + 1
+        else
+            failed = failed + 1
+        end
+    end
+    return FinishApplyVisibleBatch(applied, failed)
+end
+
+local function RequestApplyVisibleRecommendations()
+    local targets = CollectApplyableVisibleRecommendations()
+    if #targets == 0 then
+        ShowRecommendationNotice("No visible recommendations to apply.")
+        UpdateApplyVisibleButton()
+        return
+    end
+    if #targets > APPLY_VISIBLE_CONFIRM_THRESHOLD then
+        pendingApplyVisibleRecommendations = targets
+        local dialog = StaticPopupDialogs["EBONBUILDS_APPLY_VISIBLE_RECS"]
+        if dialog then
+            dialog.text = string.format(
+                "Apply %d visible recommendations to the active build?",
+                #targets
+            )
+        end
+        StaticPopup_Show("EBONBUILDS_APPLY_VISIBLE_RECS")
+        return
+    end
+    ApplyVisibleRecommendations(targets)
+end
+
+StaticPopupDialogs["EBONBUILDS_APPLY_VISIBLE_RECS"] = {
+    text = "Apply visible recommendations to the active build?",
+    button1 = "Apply",
+    button2 = "Cancel",
+    OnAccept = function()
+        local targets = pendingApplyVisibleRecommendations
+        pendingApplyVisibleRecommendations = nil
+        if targets then ApplyVisibleRecommendations(targets) end
+    end,
+    OnCancel = function()
+        pendingApplyVisibleRecommendations = nil
+    end,
+    timeout = 0,
+    whileDead = true,
+    hideOnEscape = true,
+    preferredIndex = 3,
+}
 
 local function UpdateRecommendationNavigation(counts)
     counts = counts or RecommendationSectionCounts(EnsureRecommendations())
@@ -1044,6 +1154,7 @@ local function RefreshRecommendations()
         end
     end
     if #recommendations == 0 then recEmpty:Show() else recEmpty:Hide() end
+    UpdateApplyVisibleButton()
 end
 
 local function RenderToken(key)
@@ -1761,6 +1872,13 @@ local function BuildRecommendationsPanel(parent)
     end
     UpdateRecommendationNavigation({ echo = 0, logic = 0 })
 
+    applyVisibleButton = Theme.CreateButton(recHeader, "good")
+    applyVisibleButton:SetSize(128, 19)
+    applyVisibleButton:SetPoint("BOTTOMRIGHT", recHeader, "BOTTOMRIGHT", -10, 7)
+    applyVisibleButton:SetText("Apply visible")
+    applyVisibleButton:SetScript("OnClick", RequestApplyVisibleRecommendations)
+    applyVisibleButton:Disable()
+
     recScroll = CreateFrame("ScrollFrame", nil, parent)
     if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
         EbonBuilds.Debug.ProtectScript(recScroll, "StatsView.RecScroll")
@@ -1879,6 +1997,9 @@ View._UndoRecentRecommendation = UndoRecentRecommendation
 View._DismissRecommendation = DismissRecommendation
 View._CurrentRecommendationMatches = CurrentRecommendationMatches
 View._VisibleRecommendations = VisibleRecommendations
+View._CollectApplyableVisibleRecommendations = CollectApplyableVisibleRecommendations
+View._ApplyVisibleRecommendations = ApplyVisibleRecommendations
+View._RequestApplyVisibleRecommendations = RequestApplyVisibleRecommendations
 View._RecommendationSectionCounts = RecommendationSectionCounts
 View._SetRecommendationSectionForTest = function(section)
     if section == "echo" or section == "logic" then recommendationSection = section end
