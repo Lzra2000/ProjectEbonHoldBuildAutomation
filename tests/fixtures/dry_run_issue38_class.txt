@@ -1,0 +1,46 @@
+# WP4 fixture: #38-class freeze-lock regression
+# Scenario: valuable board -> freeze secondary -> pending/confirmed lifecycle
+# must never emit reroll. Derived from freeze-first + board-state invariants.
+
+@board threshold=120 freezeResources=2 canReroll=1 pickIsAcceptable=1
+1:501:160
+2:502:130
+3:503:80
+
+@expect action=FREEZE target=2 boardState=OPEN
+
+@board threshold=120 freezeResources=1 canReroll=1 pickIsAcceptable=1 pendingFreezeSlot=2 pendingFreezeEchoID=502
+1:501:160
+2:502:130
+3:503:80
+
+@expect action=wait target=- boardState=FROZEN_PENDING
+@assert no_reroll_in=FROZEN_PENDING,CONFIRMED
+
+@board threshold=120 freezeResources=1 canReroll=1 pickIsAcceptable=1
+1:501:160
+2:502:130:frozen:carried:thisboard
+3:503:80
+
+@expect action=SELECT target=1 boardState=CONFIRMED
+@assert no_reroll_in=CONFIRMED
+
+# Guaranteed card: selectable, not frozen/banished, reroll stays legal on OPEN
+@board threshold=120 freezeResources=2 canReroll=1 canBanish=1 pickIsAcceptable=1
+1:601:160
+2:602:130:guaranteed
+3:603:20:avoided
+
+@expect action=SELECT target=1 boardState=OPEN
+
+@board threshold=120 freezeResources=2 canReroll=1 canBanish=1 pickIsAcceptable=0
+1:701:10:guaranteed:avoided
+2:702:5:avoided:banish
+
+@expect action=banish target=2 boardState=OPEN
+
+@board threshold=120 freezeResources=2 canReroll=1 pickIsAcceptable=0
+1:801:10:guaranteed:avoided
+2:802:5:avoided
+
+@expect action=reroll target=- boardState=OPEN
