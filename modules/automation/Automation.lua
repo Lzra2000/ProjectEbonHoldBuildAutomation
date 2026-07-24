@@ -375,7 +375,9 @@ local function GetRunData()
     return nil
 end
 
-local function ScoreChoice(choice, settings)
+-- Optional freezeThreshold: when provided, skip the carry penalty while the
+-- unpenalized score is still at/above the freeze bar (see BuildBoard).
+local function ScoreChoice(choice, settings, freezeThreshold)
     local spellId = tonumber(choice and choice.spellId)
     if not spellId then return nil end
     local build = EbonBuilds.Build.GetActive()
@@ -421,8 +423,16 @@ local function ScoreChoice(choice, settings)
     -- justFrozen on the existing choice entry (no full board resend), and
     -- flags the active build slot's injected card as isGuaranteed.
     local isFrozen = (choice.isFrozen or choice.justFrozen) and true or false
+    -- Freeze penalty softens carried/frozen Echoes so fresh offers can win
+    -- later boards -- but only once the carry falls below the freeze bar.
+    -- Applying it while the Echo is still freeze-worthy (default ~8-10%)
+    -- lets mediocre fresh cards beat excellent carries and skips picks
+    -- Discord users expect automation to keep.
     if (isFrozen or choice.isCarried) and settings.freezePenaltyPct and settings.freezePenaltyPct > 0 then
-        score = score * (1 - settings.freezePenaltyPct / 100)
+        local stillFreezeWorthy = freezeThreshold ~= nil and score >= freezeThreshold
+        if not stillFreezeWorthy then
+            score = score * (1 - settings.freezePenaltyPct / 100)
+        end
     end
     return {
         index = 0, spellId = spellId, name = name, quality = quality,
@@ -771,11 +781,12 @@ local function CurrentBoardFingerprint()
 end
 
 local function BuildBoard(choices, settings, build, runData, peakScore)
+    local freezeThreshold = GetFreezeThreshold(settings, runData, peakScore)
     local scored = {}
     local valid = type(choices) == "table" and #choices > 0
     local stable = valid
     for i, choice in ipairs(choices or {}) do
-        local s = ScoreChoice(choice, settings)
+        local s = ScoreChoice(choice, settings, freezeThreshold)
         if s then
             s.index = i
             s.isValid = true
@@ -795,7 +806,7 @@ local function BuildBoard(choices, settings, build, runData, peakScore)
         isValid = valid,
         isStable = stable,
         maxFrozen = Decision.MAX_FROZEN_PER_BOARD,
-        freezeThreshold = GetFreezeThreshold(settings, runData, peakScore),
+        freezeThreshold = freezeThreshold,
         freezeResources = runData and Remaining(runData.totalFreezes, runData.usedFreezes) or 0,
         canReroll = runData and Remaining(runData.totalRerolls, runData.usedRerolls) > 0 or false,
         canBanish = runData and (tonumber(runData.remainingBanishes) or 0) > 0 or false,

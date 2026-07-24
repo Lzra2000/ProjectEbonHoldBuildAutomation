@@ -318,4 +318,21 @@ local plainSlot = addon.Automation._ScoreChoice({ spellId = 303, quality = 0 }, 
 check(plainSlot and not plainSlot.isFrozen and not plainSlot.isGuaranteed,
     "plain choice picked up server flags it does not carry")
 
+-- Carry/freeze penalty must not discount freeze-worthy Echoes. An 8-10% haircut
+-- on a still-excellent carry lets mediocre fresh cards win and skips picks
+-- Discord users expect automation to keep.
+local penaltySettings = { freezePenaltyPct = 10 }
+local worthyCarry = addon.Automation._ScoreChoice(
+    { spellId = 401, quality = 0, isCarried = true, isFrozen = true }, penaltySettings, 90)
+equal(worthyCarry.score, 100, "freeze-worthy carry must keep full score (no penalty)")
+local weakCarry = addon.Automation._ScoreChoice(
+    { spellId = 402, quality = 0, isCarried = true, isFrozen = true }, penaltySettings, 110)
+equal(weakCarry.score, 90, "below-threshold carry still receives freeze penalty")
+local legacyCarry = addon.Automation._ScoreChoice(
+    { spellId = 403, quality = 0, isCarried = true }, penaltySettings)
+equal(legacyCarry.score, 90, "nil freezeThreshold keeps legacy penalty behavior")
+local freshOffer = addon.Automation._ScoreChoice(
+    { spellId = 404, quality = 0 }, penaltySettings, 90)
+equal(freshOffer.score, 100, "fresh offers are never freeze-penalized")
+
 print("Verified Freeze Logbook reporting, bounded uncertainty, recovery, run-persistent frozen echoes, and server flag mapping.")
