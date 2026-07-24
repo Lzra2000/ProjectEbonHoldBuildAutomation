@@ -145,7 +145,12 @@ local function ReadBucket(signals, bucket, direction)
             AddSignal(signals, name, nil, direction, entry)
         elseif type(entry) == "table" then
             for rawQuality, count in pairs(entry) do
-                local quality = rawQuality == "legacy" and nil or tonumber(rawQuality)
+                local quality
+                if rawQuality == "legacy" then
+                    quality = nil
+                else
+                    quality = tonumber(rawQuality)
+                end
                 if rawQuality == "legacy" or (quality ~= nil and EbonBuilds.Quality.IsValid(quality)) then
                     AddSignal(signals, name, quality, direction, count)
                 end
