@@ -46,13 +46,17 @@ do
     firstBody = bodyLines and table.concat(bodyLines, "\n") or ""
 end
 
--- FAQ questions: "### Question?" blocks after ## FAQ, each tagged with
--- the nearest preceding "## Category" header so the in-game viewer can
--- group/jump by category instead of being one long linear Prev/Next
--- chain. Line-anchored: headers count only at the start of a line, so
--- inline backtick-quoted "## Dependencies:"-style prose in an answer
--- can neither open a category nor cut a question short.
-local faqSection = md:match("## FAQ\n(.*)$") or ""
+-- FAQ questions: "### Question?" blocks after the FAQ doc header, each
+-- tagged with the nearest preceding "## Category" header so the in-game
+-- viewer can group/jump by category instead of being one long linear
+-- Prev/Next chain. Accepts both legacy "## FAQ" and MkDocs "# FAQ"
+-- top-level titles (pages-polish #78 dropped the redundant ## FAQ).
+-- Line-anchored: headers count only at the start of a line, so inline
+-- backtick-quoted "## Dependencies:"-style prose in an answer can
+-- neither open a category nor cut a question short.
+local faqSection = md:match("## FAQ\n(.*)$")
+    or md:match("# FAQ\n(.*)$")
+    or ""
 local qas = {}
 local categories = {}
 local currentCategory = "General"
