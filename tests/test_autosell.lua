@@ -140,6 +140,53 @@ do
 end
 
 ------------------------------------------------------------------------
+-- GetAuctionItemClasses edge cases (missing API, errors, short list)
+------------------------------------------------------------------------
+do
+    local saved = GetAuctionItemClasses
+
+    GetAuctionItemClasses = nil
+    equal(AS.ShouldSell("link", StubInfo("Copper Ore", 1, "Trade Goods", "", 0)), false,
+        "English Trade Goods excluded when GetAuctionItemClasses is nil")
+
+    GetAuctionItemClasses = "not a function"
+    equal(AS.ShouldSell("link", StubInfo("Plans: Foo", 1, "Recipe", "", 0)), false,
+        "English Recipe excluded when GetAuctionItemClasses is not callable")
+
+    GetAuctionItemClasses = function()
+        error("broken auction class API")
+    end
+    equal(AS.ShouldSell("link", StubInfo("Copper Ore", 1, "Trade Goods", "", 0)), false,
+        "category filters survive GetAuctionItemClasses errors")
+
+    -- Fewer than 12 classes: index 6/9 missing -> English fallback still matches.
+    GetAuctionItemClasses = function()
+        return "Weapon", "Armor", "Container", "Consumable", "Glyph"
+    end
+    equal(AS.ShouldSell("link", StubInfo("Copper Ore", 1, "Trade Goods", "", 0)), false,
+        "short auction class list falls back to English Trade Goods")
+    equal(AS.ShouldSell("link", StubInfo("Plans: Foo", 1, "Recipe", "", 0)), false,
+        "short auction class list falls back to English Recipe")
+
+    GetAuctionItemClasses = function()
+        return "Weapon", "Armor", "Container", "Consumable", "Glyph",
+            "", "Projectile", "Quiver", "Recipe", "Gem", "Miscellaneous", "Quest"
+    end
+    equal(AS.ShouldSell("link", StubInfo("Copper Ore", 1, "Trade Goods", "", 0)), false,
+        "empty class name at index 6 falls back to English Trade Goods")
+
+    GetAuctionItemClasses = function()
+        return "Weapon", "Armor", "Container", "Consumable", "Glyph",
+            12345, "Projectile", "Quiver", "Recipe", "Gem", "Miscellaneous", "Quest"
+    end
+    equal(AS.ShouldSell("link", StubInfo("Copper Ore", 1, "Trade Goods", "", 0)), false,
+        "non-string class at index 6 falls back to English Trade Goods")
+
+    GetAuctionItemClasses = saved
+    H.install_auction_class_stubs()
+end
+
+------------------------------------------------------------------------
 -- Init wires merchant events through WoWEvents (not raw RegisterEvent)
 ------------------------------------------------------------------------
 do
@@ -157,6 +204,8 @@ do
         "AutoSell resolves localized category names via GetAuctionItemClasses (#71)")
     check(src:find("AUCTION_CLASS_TRADE_GOODS", 1, true) and src:find("AUCTION_CLASS_RECIPE", 1, true),
         "AutoSell uses fixed 3.3.5a auction class indices 6/9")
+    check(src:find("pcall", 1, true),
+        "AutoSell guards GetAuctionItemClasses with pcall")
 end
 
 H.exit_if_failed(counters, "AutoSell test(s)")

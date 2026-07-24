@@ -184,12 +184,23 @@ end
 local AUCTION_CLASS_TRADE_GOODS = 6
 local AUCTION_CLASS_RECIPE = 9
 
+-- Resolve a localized auction class name by fixed 3.3.5a index. Private-server
+-- clients sometimes omit GetAuctionItemClasses, return a short list, or ship a
+-- broken stub; always fall back to the English label so category filters still
+-- work on enUS clients and never abort ShouldSell.
 local function AuctionItemClass(index, englishFallback)
-    if type(GetAuctionItemClasses) == "function" then
-        local name = select(index, GetAuctionItemClasses())
-        if type(name) == "string" and name ~= "" then
-            return name
-        end
+    englishFallback = type(englishFallback) == "string" and englishFallback or ""
+    if type(index) ~= "number" or index < 1 then
+        return englishFallback
+    end
+    if type(GetAuctionItemClasses) ~= "function" then
+        return englishFallback
+    end
+    local ok, name = pcall(function()
+        return select(index, GetAuctionItemClasses())
+    end)
+    if ok and type(name) == "string" and name ~= "" then
+        return name
     end
     return englishFallback
 end
@@ -516,6 +527,22 @@ if EbonBuilds.Debug and EbonBuilds.Debug.RegisterTest then
         local recipe = EbonBuilds.AutoSell.ShouldSell("Some Recipe", StubInfo(1, recipeType, "", 0))
         if tradeGood then error("Trade Goods item was sellable despite excludeTradeGoods defaulting on") end
         if recipe then error("Recipe item was sellable despite excludeRecipes defaulting on") end
+    end)
+
+    EbonBuilds.Debug.RegisterTest("AutoSell: category filters survive broken GetAuctionItemClasses", function()
+        local previousGetAuctionItemClasses = GetAuctionItemClasses
+        GetAuctionItemClasses = function()
+            error("broken auction class API")
+        end
+        local ok, err = pcall(function()
+            local tradeGood = EbonBuilds.AutoSell.ShouldSell(
+                "Some Ore", StubInfo(1, "Trade Goods", "", 0))
+            if tradeGood then
+                error("Trade Goods item was sellable when GetAuctionItemClasses errors")
+            end
+        end)
+        GetAuctionItemClasses = previousGetAuctionItemClasses
+        if not ok then error(err) end
     end)
 
     EbonBuilds.Debug.RegisterTest("AutoSell: category filters match localized auction class names", function()
