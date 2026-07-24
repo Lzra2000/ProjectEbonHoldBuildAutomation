@@ -2,6 +2,7 @@ local addonName, EbonBuilds = ...
 
 -- EbonBuilds: modules/ui/EchoPicker.lua
 -- Class-scoped, alias-aware Echo picker with a fixed recycled row pool.
+-- Supports single-click pick (legacy Show) and multi-select + Apply (Open).
 
 EbonBuilds.EchoPicker = {}
 
@@ -11,12 +12,19 @@ local VirtualList = EbonBuilds.VirtualList
 local ROW_HEIGHT = 38
 local ROW_POOL = 12
 local FALLBACK_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
+local LIST_BOTTOM_SINGLE = 18
+local LIST_BOTTOM_MULTI = 56
 
 local frame, searchBox, searchPlaceholder, clearSearchButton
 local viewport, scrollFrame, scrollChild, scrollBar, resultText, emptyState, classContextText
+local footerBar, selectAllButton, clearSelButton, confirmButton, selectionText
 local allEntries, filtered, rowPool = {}, {}, {}
-local onPick, searchText, scrollOffset = nil, "", 0
+local onPick, onConfirm, searchText, scrollOffset = nil, nil, "", 0
+local multiMode = false
+local selected = {}
+local selectionCount = 0
 local activeClass
+local Render
 
 local function ClassLabel(classToken)
     local labels = {
@@ -124,8 +132,141 @@ local function ApplySearch()
     scrollOffset = 0
 end
 
+------------------------------------------------------------------------
+-- Selection helpers (pure; exposed for headless tests)
+------------------------------------------------------------------------
+
+function Picker.SelectionKey(entry)
+    if type(entry) ~= "table" then return nil end
+    local spellId = tonumber(entry.spellId or entry.id)
+    if spellId then return spellId end
+    if entry.refKey ~= nil then return tostring(entry.refKey) end
+    return nil
+end
+
+function Picker.ClearSelectionState(state)
+    state = state or {}
+    local map = state.map or {}
+    local order = state.order or {}
+    for k in pairs(map) do map[k] = nil end
+    for i = #order, 1, -1 do order[i] = nil end
+    state.map = map
+    state.order = order
+    state.count = 0
+    return state
+end
+
+function Picker.ToggleSelectionState(state, entry)
+    state = state or Picker.ClearSelectionState({})
+    local key = Picker.SelectionKey(entry)
+    if not key then return state, false end
+    local map = state.map
+    local order = state.order
+    if map[key] then
+        map[key] = nil
+        for i = 1, #order do
+            if order[i] == key then
+                table.remove(order, i)
+                break
+            end
+        end
+        state.count = math.max(0, (state.count or 0) - 1)
+        return state, false
+    end
+    map[key] = entry
+    order[#order + 1] = key
+    state.count = (state.count or 0) + 1
+    return state, true
+end
+
+function Picker.SelectAllInList(state, list)
+    state = state or Picker.ClearSelectionState({})
+    for i = 1, #(list or {}) do
+        local entry = list[i]
+        local key = Picker.SelectionKey(entry)
+        if key and not state.map[key] then
+            state.map[key] = entry
+            state.order[#state.order + 1] = key
+            state.count = (state.count or 0) + 1
+        end
+    end
+    return state
+end
+
+function Picker.CollectSelectedList(state)
+    local out = {}
+    if not state or not state.map or not state.order then return out end
+    for i = 1, #state.order do
+        local entry = state.map[state.order[i]]
+        if entry then out[#out + 1] = entry end
+    end
+    return out
+end
+
+local selectionState = Picker.ClearSelectionState({})
+
+local function SyncSelectionLocals()
+    selected = selectionState.map
+    selectionCount = selectionState.count or 0
+end
+
+local function ResetSelection()
+    Picker.ClearSelectionState(selectionState)
+    SyncSelectionLocals()
+end
+
+local function UpdateFooter()
+    if not footerBar then return end
+    if not multiMode then
+        footerBar:Hide()
+        return
+    end
+    footerBar:Show()
+    if selectionText then
+        if selectionCount == 0 then
+            selectionText:SetText("None selected")
+        elseif selectionCount == 1 then
+            selectionText:SetText("1 selected")
+        else
+            selectionText:SetText(string.format("%d selected", selectionCount))
+        end
+    end
+    if confirmButton then
+        if selectionCount > 0 then
+            confirmButton:Enable()
+            confirmButton:SetText(string.format("Add selected (%d)", selectionCount))
+        else
+            confirmButton:Disable()
+            confirmButton:SetText("Add selected")
+        end
+    end
+end
+
+local function SetListBottomInset(inset)
+    if not frame or not viewport then return end
+    local listPanel = viewport:GetParent()
+    if not listPanel then return end
+    listPanel:ClearAllPoints()
+    listPanel:SetPoint("TOPLEFT", frame, "TOPLEFT", 18, -116)
+    listPanel:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -18, inset)
+end
+
+local function ConfirmMulti()
+    if not multiMode or selectionCount == 0 then return end
+    local list = Picker.CollectSelectedList(selectionState)
+    local callback = onConfirm
+    frame:Hide()
+    if callback then callback(list) end
+end
+
 local function Pick(entry)
     if not entry then return end
+    if multiMode then
+        Picker.ToggleSelectionState(selectionState, entry)
+        SyncSelectionLocals()
+        if Render then Render() else UpdateFooter() end
+        return
+    end
     local callback = onPick
     frame:Hide()
     if callback then callback(entry.spellId, entry.quality, entry.displayName, entry.refKey) end
@@ -147,6 +288,21 @@ local function ResetRow(row)
     row:Hide()
 end
 
+local function ApplyRowSelectedChrome(row, isSelected, hovered)
+    if isSelected then
+        row:SetBackdropColor(unpack(Theme.SELECTED_BG))
+        row:SetBackdropBorderColor(unpack(Theme.BORDER))
+        if row._check then row._check:Show() end
+    else
+        if hovered then
+            Theme.SetCardHovered(row, true)
+        else
+            Theme.SetCardHovered(row, false)
+        end
+        if row._check then row._check:Hide() end
+    end
+end
+
 local function CreateRow(parent)
     local row = CreateFrame("Button", nil, parent)
     if EbonBuilds.Debug and EbonBuilds.Debug.ProtectScript then
@@ -155,9 +311,16 @@ local function CreateRow(parent)
     row:SetHeight(ROW_HEIGHT - 2)
     Theme.ApplyPanel(row)
 
+    local check = row:CreateTexture(nil, "OVERLAY")
+    check:SetTexture("Interface\\Buttons\\UI-CheckBox-Check")
+    check:SetSize(16, 16)
+    check:SetPoint("LEFT", row, "LEFT", 6, 0)
+    check:Hide()
+    row._check = check
+
     local icon = row:CreateTexture(nil, "ARTWORK")
     icon:SetSize(28, 28)
-    icon:SetPoint("LEFT", row, "LEFT", 7, 0)
+    icon:SetPoint("LEFT", row, "LEFT", 24, 0)
     icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     row._icon = icon
 
@@ -182,7 +345,8 @@ local function CreateRow(parent)
     row:SetScript("OnEnter", function(self)
         local entry = self._entry
         if not entry then return end
-        Theme.SetCardHovered(self, true)
+        local isSelected = multiMode and selected[Picker.SelectionKey(entry)] ~= nil
+        ApplyRowSelectedChrome(self, isSelected, true)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         GameTooltip:ClearLines()
         local used = false
@@ -214,13 +378,26 @@ local function CreateRow(parent)
                 Theme.WARNING[1], Theme.WARNING[2], Theme.WARNING[3], true)
         end
         GameTooltip:AddLine(" ")
-        GameTooltip:AddLine("Available to " .. ClassLabel(activeClass) .. ". Click to select.", 0.75, 0.75, 0.8, true)
+        if multiMode then
+            GameTooltip:AddLine("Available to " .. ClassLabel(activeClass)
+                .. ". Click to toggle selection.", 0.75, 0.75, 0.8, true)
+        else
+            GameTooltip:AddLine("Available to " .. ClassLabel(activeClass)
+                .. ". Click to select.", 0.75, 0.75, 0.8, true)
+        end
         GameTooltip:Show()
     end)
-    row:SetScript("OnLeave", function(self) Theme.SetCardHovered(self, false); GameTooltip:Hide() end)
+    row:SetScript("OnLeave", function(self)
+        local entry = self._entry
+        local isSelected = multiMode and entry and selected[Picker.SelectionKey(entry)] ~= nil
+        ApplyRowSelectedChrome(self, isSelected, false)
+        GameTooltip:Hide()
+    end)
     if Theme.BindHoverReset then
         Theme.BindHoverReset(row, function(self)
-            Theme.SetCardHovered(self, false)
+            local entry = self._entry
+            local isSelected = multiMode and entry and selected[Picker.SelectionKey(entry)] ~= nil
+            ApplyRowSelectedChrome(self, isSelected, false)
             GameTooltip:Hide()
         end)
     end
@@ -228,7 +405,7 @@ local function CreateRow(parent)
     return row
 end
 
-local function Render()
+function Render()
     if not viewport then return end
     local visibleRows = VirtualList.VisibleCount(viewport:GetHeight(), ROW_HEIGHT, ROW_POOL)
     local requestedPixels = tonumber(scrollBar:GetValue()) or (scrollOffset * ROW_HEIGHT)
@@ -260,6 +437,8 @@ local function Render()
             row._meta:SetText(entry.disambiguator or (EbonBuilds.EchoCatalog.GetSemanticSummary(entry.spellId, 2) or "Unclassified"))
             row._rank:SetText(EbonBuilds.Quality.LABELS[entry.quality or 0] or ("Rank " .. tostring(entry.quality or 0)))
             row._rank:SetTextColor(r, g, b, 1)
+            local isSelected = multiMode and selected[Picker.SelectionKey(entry)] ~= nil
+            ApplyRowSelectedChrome(row, isSelected, false)
             row:Show()
         else
             ResetRow(row)
@@ -268,6 +447,7 @@ local function Render()
 
     resultText:SetText(string.format("%d of %d verified %s Echoes", #filtered, #allEntries, ClassLabel(activeClass)))
     if #filtered == 0 then emptyState:Show() else emptyState:Hide() end
+    UpdateFooter()
 end
 
 local function ClearSearch(keepFocus)
@@ -334,7 +514,7 @@ local function BuildFrame()
 
     local listPanel = CreateFrame("Frame", nil, f)
     listPanel:SetPoint("TOPLEFT", f, "TOPLEFT", 18, -116)
-    listPanel:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -18, 18)
+    listPanel:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -18, LIST_BOTTOM_SINGLE)
     Theme.ApplyPanel(listPanel)
     viewport = CreateFrame("Frame", nil, listPanel)
     viewport:SetPoint("TOPLEFT", listPanel, "TOPLEFT", 7, -7)
@@ -369,20 +549,71 @@ local function BuildFrame()
     emptyState = Theme.CreateEmptyState(viewport, "No matching Echoes", "Try the player-facing name or a legacy alias.")
     emptyState:Hide()
 
+    footerBar = CreateFrame("Frame", nil, f)
+    footerBar:SetHeight(36)
+    footerBar:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 18, 14)
+    footerBar:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -18, 14)
+
+    selectionText = footerBar:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    selectionText:SetPoint("LEFT", footerBar, "LEFT", 0, 0)
+
+    selectAllButton = Theme.CreateButton(footerBar)
+    selectAllButton:SetSize(108, 24)
+    selectAllButton:SetPoint("RIGHT", footerBar, "RIGHT", -210, 0)
+    selectAllButton:SetText("Select visible")
+    selectAllButton:SetScript("OnClick", function()
+        Picker.SelectAllInList(selectionState, filtered)
+        SyncSelectionLocals()
+        Render()
+    end)
+
+    clearSelButton = Theme.CreateButton(footerBar)
+    clearSelButton:SetSize(72, 24)
+    clearSelButton:SetPoint("LEFT", selectAllButton, "RIGHT", 6, 0)
+    clearSelButton:SetText("Clear")
+    clearSelButton:SetScript("OnClick", function()
+        ResetSelection()
+        Render()
+    end)
+
+    confirmButton = Theme.CreateButton(footerBar, "gold")
+    confirmButton:SetSize(126, 24)
+    confirmButton:SetPoint("RIGHT", footerBar, "RIGHT", 0, 0)
+    confirmButton:SetText("Add selected")
+    confirmButton:SetScript("OnClick", ConfirmMulti)
+    footerBar:Hide()
+
     searchBox:SetScript("OnTextChanged", function(self)
         searchText = self:GetText() or ""
         ApplySearch(); scrollBar:SetValue(0); Render(); UpdateSearchChrome()
     end)
     searchBox:SetScript("OnEditFocusGained", UpdateSearchChrome)
     searchBox:SetScript("OnEditFocusLost", UpdateSearchChrome)
-    searchBox:SetScript("OnEnterPressed", function() if filtered[1] then Pick(filtered[1]) end end)
+    searchBox:SetScript("OnEnterPressed", function()
+        if multiMode then
+            if selectionCount > 0 then
+                ConfirmMulti()
+            elseif filtered[1] then
+                Pick(filtered[1])
+            end
+            return
+        end
+        if filtered[1] then Pick(filtered[1]) end
+    end)
     searchBox:SetScript("OnEscapePressed", function(self)
         if self:GetText() ~= "" then ClearSearch(true) else self:ClearFocus(); f:Hide() end
     end)
 
     UISpecialFrames = UISpecialFrames or {}
     table.insert(UISpecialFrames, "EbonBuildsEchoPicker")
-    f:SetScript("OnHide", function() searchBox:ClearFocus(); onPick = nil end)
+    f:SetScript("OnHide", function()
+        searchBox:ClearFocus()
+        onPick = nil
+        onConfirm = nil
+        multiMode = false
+        ResetSelection()
+        UpdateFooter()
+    end)
     f:Hide()
     return f
 end
@@ -391,22 +622,51 @@ function Picker.DataForClass(classToken)
     return StrictEntries(classToken)
 end
 
-function Picker.Show(callback, dataSource, classToken)
+-- Flexible opener. opts = {
+--   multi = bool,
+--   onPick = function(spellId, quality, name, refKey),  -- single mode
+--   onConfirm = function(list),                         -- multi: ordered entry tables
+--   dataSource = table|nil,
+--   classToken = string|nil,
+-- }
+function Picker.Open(opts)
+    opts = type(opts) == "table" and opts or {}
     if not frame then frame = BuildFrame() end
-    activeClass = tostring(classToken or activeClass or EbonBuilds.Build.PlayerClassToken()):upper()
-    local source = type(dataSource) == "table" and dataSource or StrictEntries(activeClass)
+    activeClass = tostring(opts.classToken or activeClass or EbonBuilds.Build.PlayerClassToken()):upper()
+    local source = type(opts.dataSource) == "table" and opts.dataSource or StrictEntries(activeClass)
     allEntries = {}
     for i = 1, #source do
         local entry = PrepareEntry(source[i])
         if entry then allEntries[#allEntries + 1] = entry end
     end
-    onPick = callback
+
+    multiMode = opts.multi and true or false
+    onPick = opts.onPick
+    onConfirm = opts.onConfirm
+    ResetSelection()
+
+    if multiMode then
+        SetListBottomInset(LIST_BOTTOM_MULTI)
+    else
+        SetListBottomInset(LIST_BOTTOM_SINGLE)
+    end
+
     classContextText:SetText("Only verified " .. ClassLabel(activeClass) .. " Echoes are shown.")
     searchPlaceholder:SetText("Search " .. ClassLabel(activeClass) .. " Echoes or aliases...")
     searchBox:SetText("")
     searchText, scrollOffset = "", 0
     ApplySearch(); scrollBar:SetValue(0); Render(); UpdateSearchChrome()
     frame:Show(); searchBox:SetFocus()
+end
+
+-- Back-compat single-select API used by lock slots and existing callers.
+function Picker.Show(callback, dataSource, classToken)
+    Picker.Open({
+        multi = false,
+        onPick = callback,
+        dataSource = dataSource,
+        classToken = classToken,
+    })
 end
 
 function Picker.ShowForLock(callback, dataSource, classToken)

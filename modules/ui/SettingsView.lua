@@ -879,7 +879,19 @@ local function BuildAdvancedPanel(parent, y)
                 filtered[#filtered + 1] = entry
             end
         end
-        EbonBuilds.EchoPicker.Show(function(spellId, _, name) AddBannedEcho(name, spellId) end, filtered, classToken)
+        EbonBuilds.EchoPicker.Open({
+            multi = true,
+            classToken = classToken,
+            dataSource = filtered,
+            onConfirm = function(list)
+                for i = 1, #(list or {}) do
+                    local entry = list[i]
+                    if entry then
+                        AddBannedEcho(entry.displayName or entry.name, entry.spellId)
+                    end
+                end
+            end,
+        })
     end)
 
     banListFrame = CreateFrame("Frame", nil, panel)
